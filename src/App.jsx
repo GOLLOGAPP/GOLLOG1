@@ -14,6 +14,7 @@ import CadastroPage from './pages/public/CadastroPage';
 import CotacaoPage from './pages/public/CotacaoPage';
 import FaqPage from './pages/public/FaqPage';
 import MotoristaAgregadoPage from './pages/public/MotoristaAgregadoPage';
+import ColetaPage from './pages/public/ColetaPage';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         {/* Public Pages (links sent via WhatsApp) */}
         <Route path="/cadastro/:telefone?" element={<CadastroPage />} />
         <Route path="/cotacao/:clienteId?" element={<CotacaoPage />} />
+        <Route path="/coleta/:clienteId?" element={<ColetaPage />} />
         <Route path="/faq" element={<FaqPage />} />
         <Route path="/motorista-agregado" element={<MotoristaAgregadoPage />} />
 
