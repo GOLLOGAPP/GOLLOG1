@@ -69,6 +69,114 @@ export default async function handler(req, res) {
         });
       }
 
+      // ─── COTAÇÃO: coleta dados pelo WhatsApp e retorna valor ───
+      case 'cotacao': {
+        let clienteId = null;
+        if (phone) {
+          const { data: cliente } = await supabase
+            .from('clientes')
+            .select('id, nome_razao_social')
+            .eq('telefone', phone)
+            .single();
+          if (cliente) clienteId = cliente.id;
+        }
+
+        const cepOrigem = data?.cep_origem || '';
+        const cepDestino = data?.cep_destino || '';
+        const pesoKg = parseFloat(data?.peso_kg) || 1;
+        const alturaCm = parseFloat(data?.altura_cm) || 10;
+        const larguraCm = parseFloat(data?.largura_cm) || 10;
+        const comprimentoCm = parseFloat(data?.comprimento_cm) || 10;
+        const tipoServico = data?.tipo_servico || 'Rápido';
+        const unidade = data?.unidade || 'Osasco';
+        const cidadeOrigem = data?.cidade_origem || cepOrigem;
+        const cidadeDestino = data?.cidade_destino || cepDestino;
+
+        // Cálculo de cubagem e preço estimado
+        const cubagem = (alturaCm * larguraCm * comprimentoCm) / 6000;
+        const pesoFinal = Math.max(pesoKg, cubagem);
+        const basePrice = tipoServico === 'Rápido' ? 15 : tipoServico === 'Urgente' ? 25 : 8;
+        const valorEstimado = (pesoFinal * basePrice + 18).toFixed(2);
+
+        const prazoMap = { 'Rápido': '1-2 dias úteis', 'Urgente': '1 dia útil', 'Econômico': '3-7 dias úteis' };
+        const prazo = prazoMap[tipoServico] || '3-5 dias úteis';
+
+        // Salvar cotação no Supabase
+        const { data: cotacao } = await supabase.from('cotacoes').insert([{
+          cliente_id: clienteId,
+          cep_origem: cepOrigem,
+          cep_destino: cepDestino,
+          cidade_origem: cidadeOrigem,
+          cidade_destino: cidadeDestino,
+          peso_kg: pesoKg,
+          altura_cm: alturaCm,
+          largura_cm: larguraCm,
+          comprimento_cm: comprimentoCm,
+          tipo_servico: tipoServico,
+          valor_cotado: parseFloat(valorEstimado),
+          status: 'enviada',
+          unidade,
+        }]).select();
+
+        // Log atividade
+        if (clienteId) {
+          await supabase.from('atividades_log').insert([{
+            cliente_id: clienteId,
+            tipo: 'cotacao',
+            descricao: `Cotação WhatsApp: ${cidadeOrigem} → ${cidadeDestino} | ${pesoKg}kg | R$ ${valorEstimado}`,
+            canal: 'whatsapp',
+          }]);
+        }
+
+        return res.status(200).json({
+          success: true,
+          valor: valorEstimado,
+          prazo,
+          servico: tipoServico,
+          message: `💰 *Cotação GOLLOG*\n\n📍 Origem: ${cidadeOrigem || cepOrigem}\n📍 Destino: ${cidadeDestino || cepDestino}\n📦 Peso: ${pesoKg}kg\n🚀 Serviço: GOLLOG ${tipoServico}\n\n💲 *Valor Estimado: R$ ${valorEstimado}*\n⏱ Prazo: ${prazo}\n\n_* Valores sujeitos à confirmação na unidade._`
+        });
+      }
+
+      // ─── COLETA: solicita coleta via WhatsApp ───
+      case 'coleta': {
+        let clienteId = null;
+        if (phone) {
+          const { data: cliente } = await supabase
+            .from('clientes')
+            .select('id')
+            .eq('telefone', phone)
+            .single();
+          if (cliente) clienteId = cliente.id;
+        }
+
+        const { data: coleta } = await supabase.from('coletas').insert([{
+          cliente_id: clienteId,
+          endereco_coleta: data?.endereco || '',
+          cep_coleta: data?.cep || '',
+          data_solicitada: data?.data || null,
+          horario_preferido: data?.horario || '',
+          quantidade_volumes: parseInt(data?.volumes) || 1,
+          peso_total_kg: parseFloat(data?.peso) || null,
+          observacoes: data?.observacoes || '',
+          status: 'solicitada',
+          unidade: data?.unidade || 'Osasco',
+        }]).select();
+
+        if (clienteId) {
+          await supabase.from('atividades_log').insert([{
+            cliente_id: clienteId,
+            tipo: 'coleta',
+            descricao: `Coleta solicitada via WhatsApp: ${data?.endereco || 'Endereço a confirmar'}`,
+            canal: 'whatsapp',
+          }]);
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: `🚚 *Coleta Solicitada!*\n\n📍 Endereço: ${data?.endereco || 'A confirmar'}\n📅 Data: ${data?.data || 'A confirmar'}\n⏰ Horário: ${data?.horario || 'A confirmar'}\n📦 Volumes: ${data?.volumes || 1}\n\n✅ Nossa equipe entrará em contato para confirmar o agendamento.`
+        });
+      }
+
       // ─── CADASTRO COMPLETO: notificação após cadastro ───
       case 'cadastro_completo': {
         if (phone) {
