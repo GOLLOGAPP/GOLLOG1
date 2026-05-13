@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiGrid, FiUsers, FiPackage, FiDollarSign, FiTruck,
   FiHeadphones, FiHelpCircle, FiSettings, FiLogOut, FiMenu, FiX, FiUserPlus
 } from 'react-icons/fi';
+import { useAuth } from '../../contexts/AuthContext';
 
 const menuSections = [
   {
@@ -40,6 +41,16 @@ const menuSections = [
 export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const userName = user?.user_metadata?.nome || user?.email?.split('@')[0] || 'Admin';
+  const userInitial = userName.charAt(0).toUpperCase();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   return (
     <>
@@ -86,12 +97,12 @@ export default function Sidebar() {
 
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <div className="sidebar-avatar">A</div>
+            <div className="sidebar-avatar">{userInitial}</div>
             <div className="sidebar-user-info">
-              <div className="name">Admin</div>
-              <div className="role">Osasco</div>
+              <div className="name">{userName}</div>
+              <div className="role" style={{ fontSize:10, maxWidth:120, overflow:'hidden', textOverflow:'ellipsis' }}>{user?.email}</div>
             </div>
-            <button className="btn btn-ghost btn-icon" title="Sair">
+            <button className="btn btn-ghost btn-icon" title="Sair" onClick={handleLogout}>
               <FiLogOut size={16} />
             </button>
           </div>
