@@ -36,19 +36,68 @@ export default async function handler(req, res) {
           if (cliente) clienteId = cliente.id;
         }
 
-        // TODO: Integrar com API Gollog real
-        // Por enquanto, mock do status
-        const mockStatuses = ['Postado', 'Em trânsito', 'No centro de distribuição', 'Saiu para entrega', 'Entregue'];
-        const statusAtual = mockStatuses[Math.floor(Math.random() * mockStatuses.length)];
+        // Consultar API GOLLOG real
+        let statusAtual = 'Consultando...';
+        let historico = [];
+        let mensagemRastreio = '';
+        try {
+          const gollogRes = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/tracking', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'CompanyKey': process.env.GOLLOG_COMPANY_KEY || 'G3',
+              'language': 'pt-BR',
+            },
+            body: JSON.stringify({ type: 'documentnumber', value: codigo }),
+          });
 
-        // Salvar rastreamento
+          if (gollogRes.ok) {
+            const gollogData = await gollogRes.json();
+            const detail = gollogData.detail?.awbInfo || {};
+            const events = gollogData.events || [];
+            const lastEvt = events[events.length - 1];
+
+            statusAtual = detail.operationalStatusDescription || lastEvt?.status?.codeDescription || 'Em processamento';
+            historico = events.map(e => ({
+              status: e.status?.codeDescription,
+              data: e.eventDateTimeLT,
+              local: `${e.station} - ${e.status?.stationName || ''}`,
+              code: e.status?.code,
+            }));
+
+            const origem = detail.routing?.origin?.station || '?';
+            const destino = detail.routing?.destination?.station || '?';
+            const previsao = detail.expectedDeliveryDate
+              ? new Date(detail.expectedDeliveryDate).toLocaleDateString('pt-BR')
+              : 'N/A';
+
+            // Últimos 3 eventos para WhatsApp
+            const ultimos = events.slice(-3).reverse().map(e =>
+              `  📌 ${e.status?.codeDescription}\n     📍 ${e.station} · ${e.eventDateTimeLT}`
+            ).join('\n\n');
+
+            mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n` +
+              `🔄 Status: *${statusAtual}*\n` +
+              `✈️ Rota: ${origem} → ${destino}\n` +
+              `📅 Previsão: ${previsao}\n` +
+              `📦 ${detail.totals?.pieces || 1} vol(s) · ${detail.totals?.weight || '?'} kg\n\n` +
+              `📋 *Últimos eventos:*\n\n${ultimos}\n\n` +
+              `🔗 Rastreio completo:\nhttps://gollog-1.vercel.app/rastreamento?doc=${codigo}`;
+          } else {
+            statusAtual = 'Não encontrado';
+            mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n❌ Documento não encontrado.\nVerifique o número e tente novamente.`;
+          }
+        } catch (apiErr) {
+          statusAtual = 'Erro na consulta';
+          mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n⚠️ Erro temporário ao consultar. Tente novamente em instantes.`;
+        }
+
+        // Salvar rastreamento no Supabase
         await supabase.from('rastreamentos').insert([{
           cliente_id: clienteId,
           codigo_rastreio: codigo,
           status_atual: statusAtual,
-          historico_status: [
-            { status: statusAtual, data: new Date().toISOString(), local: 'Consulta via WhatsApp' }
-          ],
+          historico_status: historico,
         }]);
 
         // Log atividade
@@ -65,7 +114,8 @@ export default async function handler(req, res) {
           success: true,
           codigo,
           status: statusAtual,
-          message: `📦 Rastreio ${codigo}\n\n📍 Status: ${statusAtual}\n\n🕐 Atualizado em: ${new Date().toLocaleString('pt-BR')}`
+          message: mensagemRastreio,
+          custom_fields: { resposta_rastreio: mensagemRastreio }
         });
       }
 

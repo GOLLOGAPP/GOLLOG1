@@ -1,0 +1,263 @@
+﻿{
+    "detail":  {
+                   "awbInfo":  {
+                                   "id":  "22011240",
+                                   "awb":  "12732470653",
+                                   "fiscal":  {
+                                                  "series":  "13",
+                                                  "number":  "007268390"
+                                              },
+                                   "issuanceStatus":  2,
+                                   "reference":  "220112406",
+                                   "cte":  "35260407575651001554570130072683901688526900",
+                                   "status":  "Active",
+                                   "agent":  {
+                                                 "name":  "GUSTAVO SOUZA PEREIRA",
+                                                 "id":  "192561"
+                                             },
+                                   "product":  "SAUDE",
+                                   "productDescription":  "GOLLOG SAÚDE",
+                                   "issueDateTime":  "2026-04-29T17:14:35-03:00",
+                                   "createDateTime":  "2026-04-29T17:14:35-03:00",
+                                   "routing":  {
+                                                   "origin":  {
+                                                                  "airport":  "CONGONHAS (SÃO PAULO)",
+                                                                  "station":  "QBX",
+                                                                  "cgcNumber":  "07575651001554"
+                                                              },
+                                                   "destination":  {
+                                                                       "station":  "VDC",
+                                                                       "airport":  "VITORIA DA CONQUISTA (VITÓRIA DA CONQUISTA)",
+                                                                       "carrier":  "G3",
+                                                                       "cgcNumber":  "07575651010030"
+                                                                   }
+                                               },
+                                   "shcs":  "",
+                                   "deliveryPlace":  "pick-up",
+                                   "expectedDeliveryDate":  "2026-05-04T23:59:59-03:00",
+                                   "deliveryDeadline":  "2026-05-04T23:59:59-03:00",
+                                   "description":  "PROD. FARMACÊUTICOS, DENTÁRIOS E COSMÉTICOS",
+                                   "userCargosDescription":  "Medicamento",
+                                   "totals":  {
+                                                  "pieces":  1,
+                                                  "weight":  5.800000,
+                                                  "volume":  0.068000,
+                                                  "weightUnit":  "K",
+                                                  "volumeUnit":  "MC",
+                                                  "nog":  "Prod. farmacêuticos, dentários e cosméticos"
+                                              },
+                                   "value":  {
+                                                 "decl":  "6750,000000"
+                                             },
+                                   "operationalStatus":  4,
+                                   "operationalStatusDescription":  "Aguardando entrega"
+                               }
+               },
+    "events":  [
+                   {
+                       "agent":  "GUSTAVO SOUZA PEREIRA",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286049393",
+                       "station":  "QBX",
+                       "eventDateTimeLT":  "29/04/2026 17:14:35",
+                       "eventDateTimeGMT":  "29/04/2026 20:14:35",
+                       "status":  {
+                                      "code":  "RCS",
+                                      "codeDescription":  "Carga aceita",
+                                      "station":  "QBX",
+                                      "stationName":  "BARUERI TRANSPORTES EXPRESSOS LTDA - EPP",
+                                      "pieces":  1,
+                                      "weight":  6.000000
+                                  }
+                   },
+                   {
+                       "agent":  "GUSTAVO SOUZA PEREIRA",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286073945",
+                       "station":  "QBX",
+                       "eventDateTimeLT":  "29/04/2026 19:42:43",
+                       "eventDateTimeGMT":  "29/04/2026 22:42:43",
+                       "status":  {
+                                      "code":  "MAN",
+                                      "codeDescription":  "Carga manifestada",
+                                      "station":  "QBX",
+                                      "stationName":  "BARUERI TRANSPORTES EXPRESSOS LTDA - EPP",
+                                      "pieces":  1,
+                                      "weight":  6.000000,
+                                      "flightNumber":  "G32614T",
+                                      "arrivalDateTimeLT":  "29/04/2026 11:00:00",
+                                      "departureDateTimeLT":  "29/04/2026 10:00:00",
+                                      "scheduleType":  "Surface",
+                                      "arrivalPoint":  "CGH"
+                                  }
+                   },
+                   {
+                       "agent":  "LEONARDO ALVES DA SILVA",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286088838",
+                       "station":  "QBX",
+                       "eventDateTimeLT":  "29/04/2026 21:24:45",
+                       "eventDateTimeGMT":  "30/04/2026 00:24:45",
+                       "status":  {
+                                      "code":  "DEP",
+                                      "codeDescription":  "Carga enviada",
+                                      "station":  "QBX",
+                                      "stationName":  "BARUERI TRANSPORTES EXPRESSOS LTDA - EPP",
+                                      "pieces":  1,
+                                      "weight":  6.000000,
+                                      "flightNumber":  "G32614T",
+                                      "arrivalDateTimeLT":  "29/04/2026 11:00:00",
+                                      "departureDateTimeLT":  "29/04/2026 10:00:00",
+                                      "scheduleType":  "Surface",
+                                      "arrivalPoint":  "CGH"
+                                  }
+                   },
+                   {
+                       "agent":  "LEONARDO ALVES DA SILVA",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286089121",
+                       "station":  "CGH",
+                       "eventDateTimeLT":  "29/04/2026 21:26:29",
+                       "eventDateTimeGMT":  "30/04/2026 00:26:29",
+                       "status":  {
+                                      "code":  "CIE",
+                                      "codeDescription":  "Carga chegou em uma unidade de trânsito",
+                                      "station":  "CGH",
+                                      "stationName":  "GOL LINHAS AEREAS S/A",
+                                      "pieces":  1,
+                                      "weight":  6.000000,
+                                      "flightNumber":  "G32614T",
+                                      "arrivalDateTimeLT":  "29/04/2026 11:00:00",
+                                      "departureDateTimeLT":  "29/04/2026 10:00:00",
+                                      "scheduleType":  "Surface",
+                                      "arrivalPoint":  "CGH"
+                                  }
+                   },
+                   {
+                       "agent":  "DANNI DANIEL SCHNEIDER HURTADO",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286111228",
+                       "station":  "CGH",
+                       "eventDateTimeLT":  "30/04/2026 00:02:50",
+                       "eventDateTimeGMT":  "30/04/2026 03:02:50",
+                       "status":  {
+                                      "code":  "MAN",
+                                      "codeDescription":  "Carga manifestada",
+                                      "station":  "CGH",
+                                      "stationName":  "GOL LINHAS AEREAS S/A",
+                                      "pieces":  1,
+                                      "weight":  6.000000,
+                                      "flightNumber":  "G32227T",
+                                      "arrivalDateTimeLT":  "30/04/2026 02:10:00",
+                                      "departureDateTimeLT":  "30/04/2026 01:00:00",
+                                      "scheduleType":  "Surface",
+                                      "arrivalPoint":  "GRU"
+                                  }
+                   },
+                   {
+                       "agent":  "RICARDO EDUARDO DO VALE",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286139382",
+                       "station":  "CGH",
+                       "eventDateTimeLT":  "30/04/2026 04:12:26",
+                       "eventDateTimeGMT":  "30/04/2026 07:12:26",
+                       "status":  {
+                                      "code":  "DEP",
+                                      "codeDescription":  "Carga enviada",
+                                      "station":  "CGH",
+                                      "stationName":  "GOL LINHAS AEREAS S/A",
+                                      "pieces":  1,
+                                      "weight":  6.000000,
+                                      "flightNumber":  "G32227T",
+                                      "arrivalDateTimeLT":  "30/04/2026 02:10:00",
+                                      "departureDateTimeLT":  "30/04/2026 01:00:00",
+                                      "scheduleType":  "Surface",
+                                      "arrivalPoint":  "GRU"
+                                  }
+                   },
+                   {
+                       "agent":  "RICARDO EDUARDO DO VALE",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286141598",
+                       "station":  "GRU",
+                       "eventDateTimeLT":  "30/04/2026 04:31:05",
+                       "eventDateTimeGMT":  "30/04/2026 07:31:05",
+                       "status":  {
+                                      "code":  "CIE",
+                                      "codeDescription":  "Carga chegou em uma unidade de trânsito",
+                                      "station":  "GRU",
+                                      "stationName":  "GOL LINHAS AEREAS S/A",
+                                      "pieces":  1,
+                                      "weight":  6.000000,
+                                      "flightNumber":  "G32227T",
+                                      "arrivalDateTimeLT":  "30/04/2026 02:10:00",
+                                      "departureDateTimeLT":  "30/04/2026 01:00:00",
+                                      "scheduleType":  "Surface",
+                                      "arrivalPoint":  "GRU"
+                                  }
+                   },
+                   {
+                       "agent":  "KEVEN ALEIXO",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286285019",
+                       "station":  "GRU",
+                       "eventDateTimeLT":  "30/04/2026 17:09:35",
+                       "eventDateTimeGMT":  "30/04/2026 20:09:35",
+                       "status":  {
+                                      "code":  "MAN",
+                                      "codeDescription":  "Carga manifestada",
+                                      "station":  "GRU",
+                                      "stationName":  "GOL LINHAS AEREAS S/A",
+                                      "pieces":  1,
+                                      "weight":  6.000000,
+                                      "flightNumber":  "G31570",
+                                      "arrivalDateTimeLT":  "30/04/2026 22:33:00",
+                                      "departureDateTimeLT":  "30/04/2026 20:43:00",
+                                      "scheduleType":  "Aéreo",
+                                      "arrivalPoint":  "VDC"
+                                  }
+                   },
+                   {
+                       "agent":  "TTI -  PESSOA PROPRIETARIA",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286323991",
+                       "station":  "GRU",
+                       "eventDateTimeLT":  "30/04/2026 21:04:00",
+                       "eventDateTimeGMT":  "01/05/2026 00:04:00",
+                       "status":  {
+                                      "code":  "DEP",
+                                      "codeDescription":  "Carga enviada",
+                                      "station":  "GRU",
+                                      "stationName":  "GOL LINHAS AEREAS S/A",
+                                      "pieces":  1,
+                                      "weight":  6.000000,
+                                      "flightNumber":  "G31570",
+                                      "arrivalDateTimeLT":  "30/04/2026 22:33:00",
+                                      "departureDateTimeLT":  "30/04/2026 20:43:00",
+                                      "scheduleType":  "Aéreo",
+                                      "arrivalPoint":  "VDC"
+                                  }
+                   },
+                   {
+                       "agent":  "RODRIGO OLIVEIRA DE JESUS",
+                       "documentNumber":  "12732470653",
+                       "pid":  "286343113",
+                       "station":  "VDC",
+                       "eventDateTimeLT":  "30/04/2026 23:11:11",
+                       "eventDateTimeGMT":  "01/05/2026 02:11:11",
+                       "status":  {
+                                      "code":  "RCF",
+                                      "codeDescription":  "Mercadorias desembarcadas",
+                                      "station":  "VDC",
+                                      "stationName":  "DINASE LOGISTICA E DISTRIBUICAO LTDA - ME",
+                                      "pieces":  1,
+                                      "weight":  6.000000,
+                                      "flightNumber":  "G31570",
+                                      "arrivalDateTimeLT":  "30/04/2026 22:30:00",
+                                      "departureDateTimeLT":  "30/04/2026 20:40:00",
+                                      "scheduleType":  "Aéreo",
+                                      "arrivalPoint":  "VDC"
+                                  }
+                   }
+               ]
+}

@@ -15,6 +15,7 @@ import ConfiguracoesPage from './pages/admin/ConfiguracoesPage';
 import CadastroPage from './pages/public/CadastroPage';
 import CotacaoPage from './pages/public/CotacaoPage';
 import ColetaPage from './pages/public/ColetaPage';
+import RastreamentoPage from './pages/public/RastreamentoPage';
 import FaqPage from './pages/public/FaqPage';
 import MotoristaAgregadoPage from './pages/public/MotoristaAgregadoPage';
 
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/cadastro/:telefone?" element={<CadastroPage />} />
           <Route path="/cotacao/:clienteId?" element={<CotacaoPage />} />
           <Route path="/coleta/:clienteId?" element={<ColetaPage />} />
+          <Route path="/rastreamento" element={<RastreamentoPage />} />
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/motorista-agregado" element={<MotoristaAgregadoPage />} />
 
