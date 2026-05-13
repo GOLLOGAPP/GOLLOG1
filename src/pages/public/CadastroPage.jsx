@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FiUser, FiBriefcase, FiCheck, FiLoader } from 'react-icons/fi';
 import { supabase } from '../../lib/supabase';
+import { fetchCep, formatCep } from '../../lib/cep';
 
 export default function CadastroPage() {
   const { telefone } = useParams();
   const [tipo, setTipo] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
     nome: '', cpf_cnpj: '', telefone: telefone ? telefone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : '',
@@ -15,6 +17,25 @@ export default function CadastroPage() {
   });
 
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
+
+  const handleCep = async (value) => {
+    const formatted = formatCep(value);
+    handleChange('cep', formatted);
+    if (formatted.replace(/\D/g, '').length === 8) {
+      setCepLoading(true);
+      const result = await fetchCep(formatted);
+      if (result) {
+        setForm(prev => ({
+          ...prev,
+          cep: formatted,
+          endereco: result.logradouro ? `${result.logradouro}, ${result.bairro}` : prev.endereco,
+          cidade: result.cidade,
+          estado: result.estado,
+        }));
+      }
+      setCepLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -159,14 +180,23 @@ export default function CadastroPage() {
 
               <div className="form-group">
                 <label className="form-label" style={{ color:'#374151' }}>CEP</label>
-                <input className="public-input" placeholder="00000-000"
-                  value={form.cep} onChange={e => handleChange('cep', e.target.value)} />
+                <div style={{ position:'relative' }}>
+                  <input className="public-input" placeholder="00000-000" maxLength={9}
+                    value={form.cep} onChange={e => handleCep(e.target.value)}
+                    style={{ paddingRight: cepLoading ? 36 : undefined }} />
+                  {cepLoading && (
+                    <div style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', color:'#F37021' }}>
+                      <FiLoader size={16} className="spin" />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-group">
                 <label className="form-label" style={{ color:'#374151' }}>Endereço Completo *</label>
                 <input className="public-input" required placeholder="Rua, número, complemento, bairro"
-                  value={form.endereco} onChange={e => handleChange('endereco', e.target.value)} />
+                  value={form.endereco} onChange={e => handleChange('endereco', e.target.value)}
+                  style={{ background: form.endereco && cepLoading === false ? '#E8F5E9' : undefined }} />
               </div>
 
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>

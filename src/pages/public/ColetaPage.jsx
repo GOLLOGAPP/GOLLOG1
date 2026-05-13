@@ -1,18 +1,33 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
-import { FiTruck, FiCheck, FiMapPin, FiCalendar } from 'react-icons/fi';
+import { fetchCep, formatCep } from '../../lib/cep';
+import { FiTruck, FiCheck, FiMapPin, FiCalendar, FiLoader } from 'react-icons/fi';
 
 export default function ColetaPage() {
   const { clienteId } = useParams();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
   const [form, setForm] = useState({
     endereco: '', cep: '', data: '', horario: '',
     volumes: '1', peso: '', observacoes: '', unidade: 'Osasco'
   });
 
   const handleChange = (f, v) => setForm(p => ({ ...p, [f]: v }));
+
+  const handleCep = async (value) => {
+    const formatted = formatCep(value);
+    handleChange('cep', formatted);
+    if (formatted.replace(/\D/g, '').length === 8) {
+      setCepLoading(true);
+      const result = await fetchCep(formatted);
+      if (result) {
+        setForm(p => ({ ...p, cep: formatted, endereco: result.endereco_completo }));
+      }
+      setCepLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -88,16 +103,26 @@ export default function ColetaPage() {
               <div style={{ fontSize:13, fontWeight:600, color:'#374151', marginBottom:12, display:'flex', alignItems:'center', gap:6 }}>
                 <FiMapPin size={14} color="#F37021"/> Local da Coleta
               </div>
-              <div className="form-group">
-                <label className="form-label" style={{ color:'#374151' }}>Endereço Completo *</label>
-                <input className="public-input" required placeholder="Rua, número, bairro, cidade"
-                  value={form.endereco} onChange={e => handleChange('endereco', e.target.value)} />
-              </div>
               <div className="form-group" style={{ marginBottom:0 }}>
                 <label className="form-label" style={{ color:'#374151' }}>CEP *</label>
-                <input className="public-input" required placeholder="00000-000"
-                  value={form.cep} onChange={e => handleChange('cep', e.target.value)} />
+                <div style={{ position:'relative' }}>
+                  <input className="public-input" required placeholder="00000-000" maxLength={9}
+                    value={form.cep} onChange={e => handleCep(e.target.value)}
+                    style={{ paddingRight: cepLoading ? 36 : undefined }} />
+                  {cepLoading && (
+                    <div style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', color:'#F37021' }}>
+                      <FiLoader size={16} className="spin" />
+                    </div>
+                  )}
+                </div>
               </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ color:'#374151' }}>Endereço Completo *</label>
+              <input className="public-input" required placeholder="Rua, número, bairro, cidade"
+                value={form.endereco} onChange={e => handleChange('endereco', e.target.value)}
+                style={{ background: form.endereco ? '#E8F5E9' : undefined }} />
             </div>
 
             <div style={{ background:'#F9FAFB', borderRadius:8, padding:16, marginBottom:20 }}>
