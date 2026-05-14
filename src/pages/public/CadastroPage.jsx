@@ -75,6 +75,13 @@ export default function CadastroPage() {
         }]);
       }
 
+      // Adiciona etiqueta "Cliente" no Botconversa (fire-and-forget)
+      fetch('/api/notify/cadastro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: form.telefone }),
+      }).catch(() => {});
+
       setSubmitted(true);
     } catch (err) {
       console.error('Erro no cadastro:', err);
