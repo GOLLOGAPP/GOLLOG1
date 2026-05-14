@@ -89,23 +89,37 @@ export default function ConfiguracoesPage() {
           </div>
 
           {/* BotConversa */}
-          <div className="card">
+          <div className="card" style={{ gridColumn: '1 / -1' }}>
             <div className="card-header"><span className="card-title">🤖 BotConversa</span></div>
             <div className="card-body">
-              <div className="form-group">
-                <label className="form-label">Webhook URL</label>
-                <input className="form-input" placeholder="https://backend.botconversa.com.br/api/v1/..."
-                  value={configs.botconversa_webhook_url || ''}
-                  onChange={e => handleChange('botconversa_webhook_url', e.target.value)} />
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                <div className="form-group" style={{ margin:0 }}>
+                  <label className="form-label">Webhook Menu Direto</label>
+                  <input className="form-input" placeholder="https://new-backend.botconversa.com.br/api/v1/webhooks-automation/catch/..."
+                    value={configs.botconversa_webhook_url || ''}
+                    onChange={e => handleChange('botconversa_webhook_url', e.target.value)} />
+                  <p style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>
+                    Dispara o fluxo do menu principal após o cadastro do cliente.
+                  </p>
+                </div>
+                <div className="form-group" style={{ margin:0 }}>
+                  <label className="form-label">Webhook Notificações</label>
+                  <input className="form-input" placeholder="https://new-backend.botconversa.com.br/api/v1/webhooks-automation/catch/..."
+                    value={configs.botconversa_webhook_notificacoes || ''}
+                    onChange={e => handleChange('botconversa_webhook_notificacoes', e.target.value)} />
+                  <p style={{ fontSize:11, color:'var(--text-muted)', marginTop:6 }}>
+                    Envia mensagens e notificações gerais ao cliente (cotações, confirmações, etc).
+                  </p>
+                </div>
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ marginTop:16, marginBottom:0 }}>
                 <label className="form-label">API Key</label>
                 <input className="form-input" type="password" placeholder="Sua API Key do BotConversa"
                   value={configs.botconversa_api_key || ''}
                   onChange={e => handleChange('botconversa_api_key', e.target.value)} />
               </div>
               <p style={{ fontSize:11, color:'var(--text-muted)', marginTop:8 }}>
-                Configure o webhook no BotConversa apontando para:<br/>
+                Webhook de entrada (bot → app):{' '}
                 <code style={{ color:'var(--primary)', fontSize:11 }}>https://gollog-1.vercel.app/api/webhook/botconversa</code>
               </p>
             </div>
