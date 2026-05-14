@@ -185,12 +185,14 @@ export default function CadastroPage() {
                   value={form.cpf_cnpj} onChange={e => handleChange('cpf_cnpj', e.target.value)} />
               </div>
 
-              <div className="form-group">
-                <label className="form-label" style={{ color:'#374151' }}>Nome do Contato *</label>
-                <input className="public-input" required
-                  placeholder={tipo === 'PJ' ? 'Nome do responsável pela conta' : 'Como prefere ser chamado(a)'}
-                  value={form.contato} onChange={e => handleChange('contato', e.target.value)} />
-              </div>
+              {tipo === 'PJ' && (
+                <div className="form-group">
+                  <label className="form-label" style={{ color:'#374151' }}>Nome do Contato *</label>
+                  <input className="public-input" required
+                    placeholder="Nome do responsável pela conta"
+                    value={form.contato} onChange={e => handleChange('contato', e.target.value)} />
+                </div>
+              )}
 
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div className="form-group">
