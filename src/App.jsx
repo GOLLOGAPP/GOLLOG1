@@ -13,6 +13,7 @@ import MotoristasPage from './pages/admin/MotoristasPage';
 import FaqAdminPage from './pages/admin/FaqAdminPage';
 import ConfiguracoesPage from './pages/admin/ConfiguracoesPage';
 import RecepcaoPage from './pages/admin/RecepcaoPage';
+import LinksRapidosPage from './pages/admin/LinksRapidosPage';
 import CadastroPage from './pages/public/CadastroPage';
 import CotacaoPage from './pages/public/CotacaoPage';
 import ColetaPage from './pages/public/ColetaPage';
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="motoristas" element={<MotoristasPage />} />
             <Route path="faq" element={<FaqAdminPage />} />
             <Route path="recepcao" element={<RecepcaoPage />} />
+            <Route path="links-rapidos" element={<LinksRapidosPage />} />
             <Route path="configuracoes" element={<ConfiguracoesPage />} />
           </Route>
 
