@@ -105,8 +105,8 @@ export default function CadastroPage() {
               margin:'0 auto 20px', color:'#00C853', fontSize:28
             }}><FiCheck /></div>
             <h2 style={{ marginBottom:8 }}>Cadastro Realizado! ✅</h2>
-            <p className="subtitle" style={{ marginBottom:0 }}>
-              Seu cadastro foi concluído com sucesso. Você pode voltar ao WhatsApp para continuar o atendimento.
+            <p style={{ fontSize:18, fontWeight:700, color:'#F37021', marginBottom:0, letterSpacing:0.5 }}>
+              CADASTRO REALIZADO — VOLTE PARA O WHATSAPP
             </p>
           </div>
         </div>
