@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiGrid, FiUsers, FiPackage, FiDollarSign, FiTruck,
-  FiHeadphones, FiHelpCircle, FiSettings, FiLogOut, FiMenu, FiX, FiUserPlus
+  FiHeadphones, FiHelpCircle, FiSettings, FiLogOut, FiMenu, FiX, FiUserPlus,
+  FiActivity
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -11,6 +12,7 @@ const menuSections = [
     title: 'Principal',
     items: [
       { to: '/admin/dashboard', icon: FiGrid, label: 'Dashboard' },
+      { to: '/admin/recepcao', icon: FiActivity, label: 'Recepção Bot' },
       { to: '/admin/clientes', icon: FiUsers, label: 'Clientes', badge: null },
     ]
   },

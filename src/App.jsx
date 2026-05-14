@@ -12,6 +12,7 @@ import SuportePage from './pages/admin/SuportePage';
 import MotoristasPage from './pages/admin/MotoristasPage';
 import FaqAdminPage from './pages/admin/FaqAdminPage';
 import ConfiguracoesPage from './pages/admin/ConfiguracoesPage';
+import RecepcaoPage from './pages/admin/RecepcaoPage';
 import CadastroPage from './pages/public/CadastroPage';
 import CotacaoPage from './pages/public/CotacaoPage';
 import ColetaPage from './pages/public/ColetaPage';
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="suporte" element={<SuportePage />} />
             <Route path="motoristas" element={<MotoristasPage />} />
             <Route path="faq" element={<FaqAdminPage />} />
+            <Route path="recepcao" element={<RecepcaoPage />} />
             <Route path="configuracoes" element={<ConfiguracoesPage />} />
           </Route>
 

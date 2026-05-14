@@ -313,6 +313,49 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true });
       }
 
+      // ─── SELEÇÃO DE BASE: cliente escolhe unidade no bot ───
+      case 'selecao_base': {
+        const base = data?.base;
+        if (!base || !['Osasco', 'Barueri'].includes(base)) {
+          return res.status(400).json({ error: 'Base inválida. Use: Osasco ou Barueri' });
+        }
+        const codigoBase = base === 'Osasco' ? 'QOZ' : 'QBX';
+
+        let clienteId = null;
+        if (phone) {
+          const { data: cliente } = await supabase
+            .from('clientes')
+            .select('id')
+            .eq('telefone', phone)
+            .single();
+          if (cliente) {
+            clienteId = cliente.id;
+            await supabase.from('clientes')
+              .update({ unidade_atendimento: base, ultimo_contato: new Date().toISOString() })
+              .eq('id', cliente.id);
+          }
+        }
+
+        await supabase.from('acessos_base').insert([{
+          telefone: phone,
+          nome: name,
+          cliente_id: clienteId,
+          base,
+          codigo_base: codigoBase,
+        }]);
+
+        if (clienteId) {
+          await supabase.from('atividades_log').insert([{
+            cliente_id: clienteId,
+            tipo: 'contato',
+            descricao: `Selecionou base: GOLLOG ${base} (${codigoBase})`,
+            canal: 'whatsapp',
+          }]);
+        }
+
+        return res.status(200).json({ success: true, base, codigo: codigoBase });
+      }
+
       default:
         return res.status(400).json({ error: `Ação desconhecida: ${action}` });
     }
