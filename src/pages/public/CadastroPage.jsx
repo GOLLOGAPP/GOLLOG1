@@ -12,8 +12,8 @@ export default function CadastroPage() {
   const [cepLoading, setCepLoading] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({
-    nome: '', cpf_cnpj: '', telefone: telefone ? telefone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : '',
-    email: '', cep: '', endereco: '', cidade: '', estado: '', unidade: 'Osasco'
+    nome: '', cpf_cnpj: '', contato: '', telefone: telefone ? telefone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : '',
+    email: '', cep: '', endereco: '', numero: '', cidade: '', estado: '', unidade: 'Osasco'
   });
 
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
@@ -49,10 +49,11 @@ export default function CadastroPage() {
           tipo,
           cpf_cnpj: form.cpf_cnpj,
           nome_razao_social: form.nome,
+          nome_contato: form.contato,
           telefone: form.telefone,
           email: form.email,
           cep: form.cep,
-          endereco_completo: form.endereco,
+          endereco_completo: form.numero ? `${form.endereco}, Nº ${form.numero}` : form.endereco,
           cidade: form.cidade,
           estado: form.estado,
           unidade_atendimento: form.unidade,
@@ -172,6 +173,13 @@ export default function CadastroPage() {
                   value={form.cpf_cnpj} onChange={e => handleChange('cpf_cnpj', e.target.value)} />
               </div>
 
+              <div className="form-group">
+                <label className="form-label" style={{ color:'#374151' }}>Nome do Contato *</label>
+                <input className="public-input" required
+                  placeholder={tipo === 'PJ' ? 'Nome do responsável pela conta' : 'Como prefere ser chamado(a)'}
+                  value={form.contato} onChange={e => handleChange('contato', e.target.value)} />
+              </div>
+
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div className="form-group">
                   <label className="form-label" style={{ color:'#374151' }}>Telefone *</label>
@@ -199,11 +207,18 @@ export default function CadastroPage() {
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label" style={{ color:'#374151' }}>Endereço Completo *</label>
-                <input className="public-input" required placeholder="Rua, número, complemento, bairro"
-                  value={form.endereco} onChange={e => handleChange('endereco', e.target.value)}
-                  style={{ background: form.endereco && cepLoading === false ? '#E8F5E9' : undefined }} />
+              <div style={{ display:'grid', gridTemplateColumns:'3fr 1fr', gap:12 }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ color:'#374151' }}>Endereço *</label>
+                  <input className="public-input" required placeholder="Rua, bairro"
+                    value={form.endereco} onChange={e => handleChange('endereco', e.target.value)}
+                    style={{ background: form.endereco && !cepLoading ? '#E8F5E9' : undefined }} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ color:'#374151' }}>Número *</label>
+                  <input className="public-input" required placeholder="Nº"
+                    value={form.numero} onChange={e => handleChange('numero', e.target.value)} />
+                </div>
               </div>
 
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
