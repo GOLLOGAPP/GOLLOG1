@@ -22,38 +22,46 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { phone } = req.body;
+    const { phone, nome } = req.body;
     if (!phone) return res.status(400).json({ error: 'phone é obrigatório' });
 
-    const { data: configKey } = await supabase
-      .from('configuracoes')
-      .select('valor')
-      .eq('chave', 'botconversa_api_key')
-      .single();
+    const [configKey, configWebhook] = await Promise.all([
+      supabase.from('configuracoes').select('valor').eq('chave', 'botconversa_api_key').single(),
+      supabase.from('configuracoes').select('valor').eq('chave', 'botconversa_webhook_url').single(),
+    ]);
 
-    const apiKey = configKey?.valor;
+    const apiKey = configKey?.data?.valor;
+    const webhookUrl = configWebhook?.data?.valor;
+
     if (!apiKey) {
       return res.status(200).json({ success: false, message: 'API key do Botconversa não configurada' });
     }
 
     const formattedPhone = toInternational(phone);
 
-    const response = await fetch('https://app.botconversa.com.br/api/v1/subscriber/add_tag/', {
+    // 1. Adiciona tag "Cliente"
+    const tagResponse = await fetch('https://app.botconversa.com.br/api/v1/subscriber/add_tag/', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': apiKey,
-      },
+      headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
       body: JSON.stringify({ phone: formattedPhone, tag: 'Cliente' }),
     });
+    const tagResult = await tagResponse.json().catch(() => null);
 
-    const result = await response.json().catch(() => null);
+    // 2. Dispara fluxo do menu via webhook de notificações (fire-and-forget)
+    if (webhookUrl) {
+      fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formattedPhone, nome: nome || '' }),
+      }).catch(() => {});
+    }
 
     return res.status(200).json({
-      success: response.ok,
+      success: tagResponse.ok,
       phone: formattedPhone,
-      botconversa_status: response.status,
-      botconversa_response: result,
+      tag_status: tagResponse.status,
+      tag_response: tagResult,
+      menu_triggered: !!webhookUrl,
     });
 
   } catch (error) {

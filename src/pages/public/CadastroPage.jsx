@@ -79,7 +79,7 @@ export default function CadastroPage() {
       fetch('/api/notify/cadastro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: form.telefone }),
+        body: JSON.stringify({ phone: form.telefone, nome: form.nome }),
       }).catch(() => {});
 
       setSubmitted(true);
