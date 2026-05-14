@@ -14,12 +14,14 @@ import FaqAdminPage from './pages/admin/FaqAdminPage';
 import ConfiguracoesPage from './pages/admin/ConfiguracoesPage';
 import RecepcaoPage from './pages/admin/RecepcaoPage';
 import LinksRapidosPage from './pages/admin/LinksRapidosPage';
+import FollowUpPage from './pages/admin/FollowUpPage';
 import CadastroPage from './pages/public/CadastroPage';
 import CotacaoPage from './pages/public/CotacaoPage';
 import ColetaPage from './pages/public/ColetaPage';
 import RastreamentoPage from './pages/public/RastreamentoPage';
 import FaqPage from './pages/public/FaqPage';
 import MotoristaAgregadoPage from './pages/public/MotoristaAgregadoPage';
+import AvaliacaoPage from './pages/public/AvaliacaoPage';
 
 export default function App() {
   return (
@@ -31,6 +33,7 @@ export default function App() {
           <Route path="/cotacao/:clienteId?" element={<CotacaoPage />} />
           <Route path="/coleta/:clienteId?" element={<ColetaPage />} />
           <Route path="/rastreamento" element={<RastreamentoPage />} />
+          <Route path="/avaliar/:rastreamento_id" element={<AvaliacaoPage />} />
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/motorista-agregado" element={<MotoristaAgregadoPage />} />
 
@@ -54,6 +57,7 @@ export default function App() {
             <Route path="faq" element={<FaqAdminPage />} />
             <Route path="recepcao" element={<RecepcaoPage />} />
             <Route path="links-rapidos" element={<LinksRapidosPage />} />
+            <Route path="followup" element={<FollowUpPage />} />
             <Route path="configuracoes" element={<ConfiguracoesPage />} />
           </Route>
 
