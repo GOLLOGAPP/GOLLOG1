@@ -19,6 +19,23 @@ export default async function handler(req, res) {
   try {
     const { action, phone, name, data } = req.body;
 
+    // Busca webhook de notificações uma vez para todos os casos
+    const { data: configNotif } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'botconversa_webhook_notificacoes')
+      .single();
+    const webhookNotif = configNotif?.valor;
+
+    const notificar = (mensagem) => {
+      if (!webhookNotif || !phone) return;
+      fetch(webhookNotif, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, nome: name || '', mensagem }),
+      }).catch(() => {});
+    };
+
     switch (action) {
       // ─── RASTREAMENTO: cliente envia código pelo WhatsApp ───
       case 'rastrear': {
@@ -110,6 +127,8 @@ export default async function handler(req, res) {
           }]);
         }
 
+        notificar(mensagemRastreio);
+
         return res.status(200).json({
           success: true,
           codigo,
@@ -178,12 +197,16 @@ export default async function handler(req, res) {
           }]);
         }
 
+        const msgCotacao = `💰 *Cotação GOLLOG*\n\n📍 Origem: ${cidadeOrigem || cepOrigem}\n📍 Destino: ${cidadeDestino || cepDestino}\n📦 Peso: ${pesoKg}kg\n🚀 Serviço: GOLLOG ${tipoServico}\n\n💲 *Valor Estimado: R$ ${valorEstimado}*\n⏱ Prazo: ${prazo}\n\n_* Valores sujeitos à confirmação na unidade._`;
+
+        notificar(msgCotacao);
+
         return res.status(200).json({
           success: true,
           valor: valorEstimado,
           prazo,
           servico: tipoServico,
-          message: `💰 *Cotação GOLLOG*\n\n📍 Origem: ${cidadeOrigem || cepOrigem}\n📍 Destino: ${cidadeDestino || cepDestino}\n📦 Peso: ${pesoKg}kg\n🚀 Serviço: GOLLOG ${tipoServico}\n\n💲 *Valor Estimado: R$ ${valorEstimado}*\n⏱ Prazo: ${prazo}\n\n_* Valores sujeitos à confirmação na unidade._`
+          message: msgCotacao,
         });
       }
 
@@ -221,9 +244,13 @@ export default async function handler(req, res) {
           }]);
         }
 
+        const msgColeta = `🚚 *Coleta Solicitada!*\n\n📍 Endereço: ${data?.endereco || 'A confirmar'}\n📅 Data: ${data?.data || 'A confirmar'}\n⏰ Horário: ${data?.horario || 'A confirmar'}\n📦 Volumes: ${data?.volumes || 1}\n\n✅ Nossa equipe entrará em contato para confirmar o agendamento.`;
+
+        notificar(msgColeta);
+
         return res.status(200).json({
           success: true,
-          message: `🚚 *Coleta Solicitada!*\n\n📍 Endereço: ${data?.endereco || 'A confirmar'}\n📅 Data: ${data?.data || 'A confirmar'}\n⏰ Horário: ${data?.horario || 'A confirmar'}\n📦 Volumes: ${data?.volumes || 1}\n\n✅ Nossa equipe entrará em contato para confirmar o agendamento.`
+          message: msgColeta,
         });
       }
 
