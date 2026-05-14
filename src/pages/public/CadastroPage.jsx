@@ -63,7 +63,19 @@ export default function CadastroPage() {
         }])
         .select();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        // CPF/CNPJ já cadastrado → trata como sucesso e envia menu
+        if (dbError.code === '23505') {
+          fetch('/api/notify/cadastro', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: form.telefone, nome: form.nome }),
+          }).catch(() => {});
+          setSubmitted(true);
+          return;
+        }
+        throw dbError;
+      }
 
       // Log the activity
       if (data && data[0]) {
