@@ -10,7 +10,7 @@ const LINKS_CONFIG = [
     id: 'cadastro',
     label: 'Cadastro',
     emoji: '📋',
-    desc: 'app GOLLOG',
+    desc: 'app LOGPROFIT',
     cor: '#F37021',
     buildUrl: (phone) => `${APP_URL}/cadastro/${phone}`,
   },
@@ -18,7 +18,7 @@ const LINKS_CONFIG = [
     id: 'cotacao',
     label: 'Cotação',
     emoji: '💰',
-    desc: 'app GOLLOG',
+    desc: 'app LOGPROFIT',
     cor: '#F37021',
     buildUrl: () => `${APP_URL}/cotacao`,
   },
@@ -26,7 +26,7 @@ const LINKS_CONFIG = [
     id: 'rastreamento',
     label: 'Rastreamento',
     emoji: '📦',
-    desc: 'app GOLLOG',
+    desc: 'app LOGPROFIT',
     cor: '#F37021',
     buildUrl: () => `${APP_URL}/rastreamento`,
   },
@@ -34,7 +34,7 @@ const LINKS_CONFIG = [
     id: 'motorista',
     label: 'Cadastro de Motorista',
     emoji: '🚛',
-    desc: 'app GOLLOG',
+    desc: 'app LOGPROFIT',
     cor: '#F37021',
     buildUrl: () => `${APP_URL}/motorista-agregado`,
   },
@@ -168,7 +168,7 @@ export default function LinksRapidosPage() {
       })
       .join('\n\n');
 
-    const mensagem = `Ola! Segue os links para seus servicos GOLLOG:\n\n${linksTexto}`;
+    const mensagem = `Ola! Segue os links para seus servicos LOGPROFIT:\n\n${linksTexto}`;
 
     try {
       await fetch(webhookUrl, {

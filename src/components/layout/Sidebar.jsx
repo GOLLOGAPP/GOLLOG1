@@ -67,9 +67,9 @@ export default function Sidebar() {
 
       <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
-          <img src="/logo.png" alt="GOLLOG" />
+          <img src="/logo.png" alt="LOGPROFIT" />
           <div>
-            <h1>GOLLOG</h1>
+            <h1>LOGPROFIT</h1>
             <span>APP</span>
           </div>
           {mobileOpen && (

@@ -199,7 +199,7 @@ export default function AvaliacaoPage() {
           </button>
         </div>
         <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#9CA3AF' }}>
-          © 2026 GOLLOG · Todos os direitos reservados
+          © 2026 LOGPROFIT · Todos os direitos reservados
         </p>
       </div>
     </div>

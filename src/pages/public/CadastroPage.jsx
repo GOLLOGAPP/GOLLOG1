@@ -135,7 +135,7 @@ export default function CadastroPage() {
       </header>
       <div className="public-container">
         <div className="public-card">
-          <h2>Cadastre-se na GOLLOG</h2>
+          <h2>Cadastre-se na LOGPROFIT</h2>
           <p className="subtitle">Preencha seus dados para começar a usar nossos serviços.</p>
 
           {error && (
@@ -269,7 +269,7 @@ export default function CadastroPage() {
           )}
         </div>
         <p style={{ textAlign:'center', marginTop:16, fontSize:12, color:'#9CA3AF' }}>
-          © 2026 GOLLOG · Todos os direitos reservados
+          © 2026 LOGPROFIT · Todos os direitos reservados
         </p>
       </div>
     </div>

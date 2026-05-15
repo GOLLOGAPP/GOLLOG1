@@ -37,7 +37,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-card">
         <div className="logo-area">
-          <img src="/logo.png" alt="GOLLOG" />
+          <img src="/logo.png" alt="LOGPROFIT" />
           <h2>Painel Administrativo</h2>
           <p>Acesse sua conta para gerenciar o sistema</p>
         </div>

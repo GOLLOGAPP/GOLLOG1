@@ -212,7 +212,7 @@ export default function RastreamentoPage() {
         )}
 
         <p style={{ textAlign:'center', marginTop:16, fontSize:12, color:'#9CA3AF' }}>
-          © 2026 GOLLOG · Dados em tempo real via API GOLLOG
+          © 2026 LOGPROFIT · Dados em tempo real via API GOLLOG
         </p>
       </div>
     </div>
