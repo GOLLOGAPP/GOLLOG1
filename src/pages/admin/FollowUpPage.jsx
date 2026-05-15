@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import Header from '../../components/layout/Header';
 import { supabase } from '../../lib/supabase';
 import {
-  FiRefreshCw, FiPlay, FiStar, FiUser, FiDollarSign, FiUsers,
-  FiCheck, FiX, FiClock, FiAlertTriangle, FiSettings, FiSave,
-  FiZap, FiActivity
+  FiRefreshCw, FiPlay, FiStar, FiUsers,
+  FiCheck, FiSave, FiZap, FiActivity
 } from 'react-icons/fi';
 
 const TABS = [
@@ -587,13 +586,16 @@ export default function FollowUpPage() {
                               </div>
                               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                 {res && !res.error && (
-                                  <span style={{ fontSize: 11, color: res.enviado ? 'var(--success)' : 'var(--text-muted)', fontWeight: 600 }}>
-                                    {res.enviado ? '✅ Enviado' : '👁️ Preview'}
-                                  </span>
+                                  <>
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: res.wppEnviado ? 'var(--success)' : res.mensagem ? 'var(--text-muted)' : undefined }}>
+                                      {res.wppEnviado ? '✅ WPP enviado' : res.mensagem ? '📱 WPP preview' : ''}
+                                    </span>
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: res.emailEnviado ? 'var(--success)' : res.emailSubject ? 'var(--text-muted)' : undefined }}>
+                                      {res.emailEnviado ? '✅ Email enviado' : res.emailSubject ? '📧 Email preview' : ''}
+                                    </span>
+                                  </>
                                 )}
-                                {res?.error && (
-                                  <span style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 600 }}>❌ Erro</span>
-                                )}
+                                {res?.error && <span style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 600 }}>❌ Erro</span>}
                                 <button
                                   className="btn btn-primary btn-sm"
                                   disabled={isLoading}
@@ -607,28 +609,58 @@ export default function FollowUpPage() {
                               </div>
                             </div>
 
-                            {/* Preview da mensagem */}
+                            {/* Preview WhatsApp + Email */}
                             {res && !res.error && res.mensagem && (
-                              <div style={{ padding: '12px 14px', background: '#1a1a2e', borderTop: '1px solid var(--border)' }}>
-                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>
-                                  Preview da mensagem WhatsApp:
+                              <div style={{ borderTop: '1px solid var(--border)' }}>
+                                {/* WhatsApp */}
+                                <div style={{ padding: '12px 14px', background: '#0d1117' }}>
+                                  <div style={{ fontSize: 10, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span>📱</span> WhatsApp
+                                    {res.wppEnviado && <span style={{ color: 'var(--success)', fontWeight: 700 }}>• Enviado</span>}
+                                    {testEnviar && !res.wppEnviado && testPhone && <span style={{ color: 'var(--danger)', fontWeight: 700 }}>• Falhou</span>}
+                                  </div>
+                                  <div style={{
+                                    background: '#dcf8c6', color: '#111', padding: '10px 12px',
+                                    borderRadius: '8px 8px 0 8px', fontSize: 13, lineHeight: 1.6,
+                                    maxWidth: 380, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                                  }}>
+                                    {res.mensagem}
+                                  </div>
+                                  {res.link_avaliacao && (
+                                    <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+                                      🔗 Link avaliação: <a href={res.link_avaliacao} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>{res.link_avaliacao}</a>
+                                    </div>
+                                  )}
                                 </div>
-                                <div style={{
-                                  background: '#dcf8c6', color: '#111', padding: '10px 12px', borderRadius: '8px 8px 0 8px',
-                                  fontSize: 13, lineHeight: 1.55, maxWidth: 420, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-                                }}>
-                                  {res.mensagem}
-                                </div>
-                                {res.link_avaliacao && (
-                                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-                                    🔗 Link de avaliação:{' '}
-                                    <a href={res.link_avaliacao} target="_blank" rel="noopener noreferrer"
-                                      style={{ color: 'var(--primary)' }}>{res.link_avaliacao}</a>
+
+                                {/* Email */}
+                                {res.emailSubject && (
+                                  <div style={{ padding: '12px 14px', background: '#111827', borderTop: '1px solid var(--border)' }}>
+                                    <div style={{ fontSize: 10, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                      <span>📧</span> Email
+                                      {res.emailEnviado && <span style={{ color: 'var(--success)', fontWeight: 700 }}>• Enviado</span>}
+                                      {testEnviar && !res.emailEnviado && testEmail && <span style={{ color: 'var(--danger)', fontWeight: 700 }}>• Falhou (sem API Key Resend?)</span>}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                                      <strong style={{ color: 'var(--text-secondary)' }}>Assunto:</strong> {res.emailSubject}
+                                    </div>
+                                    <iframe
+                                      srcDoc={res.emailHtml}
+                                      style={{ width: '100%', height: 320, border: '1px solid var(--border)', borderRadius: 8, background: '#fff' }}
+                                      title="preview-email"
+                                      sandbox="allow-same-origin"
+                                    />
                                   </div>
                                 )}
-                                {res.erro && (
-                                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--danger)' }}>⚠️ {res.erro}</div>
+
+                                {/* Erros */}
+                                {res.erros && res.erros.length > 0 && (
+                                  <div style={{ padding: '10px 14px', background: 'rgba(255,82,82,0.08)', borderTop: '1px solid var(--border)' }}>
+                                    {res.erros.map((e, i) => (
+                                      <div key={i} style={{ fontSize: 12, color: 'var(--danger)' }}>⚠️ {e}</div>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                             )}
