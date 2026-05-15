@@ -39,33 +39,46 @@ export default async function handler(req, res) {
 
     const formattedPhone = toInternational(phone);
 
-    // 1. Adiciona tag "Cliente"
-    const tagResponse = await fetch('https://app.botconversa.com.br/api/v1/subscriber/add_tag/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
-      body: JSON.stringify({ phone: formattedPhone, tag: 'Cliente' }),
-    });
-    const tagResult = await tagResponse.json().catch(() => null);
-
-    // 2. Dispara fluxo do menu via webhook de notificações (fire-and-forget)
-    if (webhookUrl) {
-      fetch(webhookUrl, {
+    // 1. Adiciona tag "Cliente" (falha não bloqueia o webhook)
+    let tagStatus = null;
+    let tagResult = null;
+    try {
+      const tagResponse = await fetch('https://app.botconversa.com.br/api/v1/subscriber/add_tag/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formattedPhone, nome: nome || '' }),
-      }).catch(() => {});
+        headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
+        body: JSON.stringify({ phone: formattedPhone, tag: 'Cliente' }),
+      });
+      tagStatus = tagResponse.status;
+      tagResult = await tagResponse.json().catch(() => null);
+    } catch (e) {
+      console.warn('add_tag falhou (não crítico):', e.message);
+    }
+
+    // 2. Dispara fluxo do menu via webhook — awaited para não ser morto pelo Vercel
+    let menuTriggered = false;
+    if (webhookUrl) {
+      try {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: formattedPhone, nome: nome || '' }),
+        });
+        menuTriggered = true;
+      } catch (e) {
+        console.error('Webhook menu falhou:', e.message);
+      }
     }
 
     return res.status(200).json({
-      success: tagResponse.ok,
+      success: true,
       phone: formattedPhone,
-      tag_status: tagResponse.status,
+      tag_status: tagStatus,
       tag_response: tagResult,
-      menu_triggered: !!webhookUrl,
+      menu_triggered: menuTriggered,
     });
 
   } catch (error) {
-    console.error('Erro ao adicionar tag Cliente:', error);
+    console.error('Erro ao processar cadastro:', error);
     return res.status(500).json({ error: 'Erro interno', details: error.message });
   }
 }
