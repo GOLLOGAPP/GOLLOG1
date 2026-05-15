@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Header from '../../components/layout/Header';
 import { supabase } from '../../lib/supabase';
-import { FiSearch, FiSend, FiUser, FiPhone, FiClock, FiX, FiCheck } from 'react-icons/fi';
+import { FiSearch, FiSend, FiUser, FiPhone, FiClock, FiX, FiCheck, FiLink, FiPrinter, FiExternalLink, FiSave, FiCopy } from 'react-icons/fi';
+import { QRCodeSVG } from 'qrcode.react';
 
 const APP_URL = window.location.origin;
 
@@ -86,9 +87,22 @@ export default function LinksRapidosPage() {
   const [webhookUrl, setWebhookUrl] = useState('');
   const searchRef = useRef(null);
 
+  // Hub & QR state
+  const [activeTab, setActiveTab] = useState('links');
+  const [hubConfig, setHubConfig] = useState({
+    hub_slug: 'gollog', hub_empresa_nome: 'GOLLOG',
+    hub_tagline: 'Logística com qualidade', hub_cor: '#F37021',
+    hub_links_ativos: 'cadastro,cotacao,rastreamento,motorista,minuta,malha,dce',
+  });
+  const [hubSaving, setHubSaving] = useState(false);
+  const [hubSaved, setHubSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const qrRef = useRef(null);
+
   useEffect(() => {
     fetchConfigs();
     fetchHistorico();
+    fetchHubConfig();
   }, []);
 
   useEffect(() => {
@@ -107,6 +121,61 @@ export default function LinksRapidosPage() {
       .eq('chave', 'botconversa_webhook_notificacoes')
       .single();
     if (data?.valor) setWebhookUrl(data.valor);
+  };
+
+  const fetchHubConfig = async () => {
+    const { data } = await supabase
+      .from('configuracoes')
+      .select('chave, valor')
+      .in('chave', ['hub_slug','hub_empresa_nome','hub_tagline','hub_cor','hub_links_ativos']);
+    if (data && data.length > 0) {
+      const map = Object.fromEntries(data.map(r => [r.chave, r.valor || '']));
+      setHubConfig(prev => ({ ...prev, ...map }));
+    }
+  };
+
+  const saveHubConfig = async () => {
+    setHubSaving(true);
+    for (const [chave, valor] of Object.entries(hubConfig)) {
+      await supabase.from('configuracoes').upsert({ chave, valor }, { onConflict: 'chave' });
+    }
+    setHubSaving(false);
+    setHubSaved(true);
+    setTimeout(() => setHubSaved(false), 2500);
+  };
+
+  const handleCopyHub = () => {
+    const url = `${APP_URL}/hub/${hubConfig.hub_slug}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handlePrintQR = () => {
+    const svg = qrRef.current?.querySelector('svg');
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const empresa = hubConfig.hub_empresa_nome || 'GOLLOG';
+    const tagline = hubConfig.hub_tagline || '';
+    const url = `${APP_URL}/hub/${hubConfig.hub_slug}`;
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR Code — ${empresa}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh}.wrap{text-align:center;padding:48px}.logo{height:80px;margin-bottom:24px}svg{display:block;margin:0 auto}.nome{font-size:32px;font-weight:800;color:#1a1a1a;margin:22px 0 6px}.tag{font-size:15px;color:#666;margin-bottom:4px}.url{font-size:13px;color:#aaa;margin-top:18px}@media print{@page{size:A4;margin:20mm}}</style>
+</head><body><div class="wrap">
+<img class="logo" src="${APP_URL}/logo.png" onerror="this.style.display='none'" />
+${svgData}
+<div class="nome">${empresa}</div>${tagline ? `<div class="tag">${tagline}</div>` : ''}
+<div class="url">${url}</div>
+</div></body></html>`);
+    w.document.close();
+    setTimeout(() => w.print(), 600);
+  };
+
+  const toggleHubLink = (id) => {
+    const ativos = hubConfig.hub_links_ativos.split(',').map(s => s.trim()).filter(Boolean);
+    const next = ativos.includes(id) ? ativos.filter(x => x !== id) : [...ativos, id];
+    setHubConfig(p => ({ ...p, hub_links_ativos: next.join(',') }));
   };
 
   const fetchHistorico = async () => {
@@ -198,10 +267,34 @@ export default function LinksRapidosPage() {
   const phoneValido = getPhone();
   const podEnviar = phoneValido && selectedLinks.length > 0 && !sending;
 
+  const hubUrl = `${APP_URL}/hub/${hubConfig.hub_slug}`;
+  const hubAtivos = hubConfig.hub_links_ativos.split(',').map(s => s.trim()).filter(Boolean);
+
   return (
     <>
       <Header title="Links Rápidos" />
       <div className="page-content animate-in">
+
+        {/* ── Tabs ── */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 24, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 4, width: 'fit-content' }}>
+          {[
+            { id: 'links', label: '📱 Links Rápidos' },
+            { id: 'hub',   label: '🌐 Hub & QR Code' },
+          ].map(t => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              style={{
+                padding: '8px 20px', borderRadius: 7, border: 'none', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
+                background: activeTab === t.id ? '#F37021' : 'transparent',
+                color: activeTab === t.id ? '#fff' : 'var(--text-muted)',
+              }}
+            >{t.label}</button>
+          ))}
+        </div>
+
+      {activeTab === 'links' && <>
 
         {error && (
           <div style={{ background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.3)', color: '#FF5252', padding: '10px 16px', borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
@@ -413,6 +506,116 @@ export default function LinksRapidosPage() {
             )}
           </div>
         </div>
+        </>}
+
+        {/* ── HUB & QR CODE TAB ── */}
+        {activeTab === 'hub' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+
+            {/* QR Preview */}
+            <div className="card">
+              <div className="card-header"><span className="card-title"><FiLink size={14} style={{ marginRight: 6 }} />QR Code do Hub</span></div>
+              <div className="card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+
+                {/* URL */}
+                <div style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <code style={{ fontSize: 13, color: '#F37021', wordBreak: 'break-all' }}>{hubUrl}</code>
+                  <button className="btn btn-ghost btn-icon" title="Copiar" onClick={handleCopyHub} style={{ flexShrink: 0 }}>
+                    {copied ? <FiCheck size={14} style={{ color: 'var(--success)' }} /> : <FiCopy size={14} />}
+                  </button>
+                </div>
+
+                {/* QR */}
+                <div ref={qrRef} style={{ padding: 16, background: '#fff', borderRadius: 12, display: 'inline-block', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+                  <QRCodeSVG
+                    value={hubUrl}
+                    size={240}
+                    bgColor="#ffffff"
+                    fgColor="#1a1a2e"
+                    level="H"
+                    imageSettings={{ src: '/logo.png', height: 52, width: 52, excavate: true }}
+                  />
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => window.open(hubUrl, '_blank')}>
+                    <FiExternalLink size={13} style={{ marginRight: 6 }} />Abrir Hub
+                  </button>
+                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={handlePrintQR}>
+                    <FiPrinter size={13} style={{ marginRight: 6 }} />Imprimir QR
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Config Editor */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">⚙️ Configurar Hub</span>
+                {hubSaved && <span style={{ fontSize: 12, color: 'var(--success)', fontWeight: 600 }}><FiCheck size={12} style={{ marginRight: 4 }} />Salvo!</span>}
+              </div>
+              <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Slug (URL)</label>
+                  <input className="form-input" value={hubConfig.hub_slug}
+                    onChange={e => setHubConfig(p => ({ ...p, hub_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }))}
+                    placeholder="gollog" />
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Somente letras minúsculas, números e hífens.</p>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Nome da empresa</label>
+                  <input className="form-input" value={hubConfig.hub_empresa_nome}
+                    onChange={e => setHubConfig(p => ({ ...p, hub_empresa_nome: e.target.value }))}
+                    placeholder="GOLLOG" />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Tagline</label>
+                  <input className="form-input" value={hubConfig.hub_tagline}
+                    onChange={e => setHubConfig(p => ({ ...p, hub_tagline: e.target.value }))}
+                    placeholder="Logística com qualidade" />
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Cor primária</label>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <input type="color" value={hubConfig.hub_cor}
+                      onChange={e => setHubConfig(p => ({ ...p, hub_cor: e.target.value }))}
+                      style={{ width: 44, height: 36, padding: 2, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', background: 'transparent' }} />
+                    <input className="form-input" value={hubConfig.hub_cor}
+                      onChange={e => setHubConfig(p => ({ ...p, hub_cor: e.target.value }))}
+                      style={{ flex: 1 }} placeholder="#F37021" />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Links ativos no hub</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                    {LINKS_CONFIG.map(link => {
+                      const on = hubAtivos.includes(link.id);
+                      return (
+                        <label key={link.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
+                          <input type="checkbox" checked={on} onChange={() => toggleHubLink(link.id)}
+                            style={{ width: 14, height: 14, accentColor: '#F37021' }} />
+                          <span>{link.emoji}</span>
+                          <span style={{ color: on ? 'var(--text-primary)' : 'var(--text-muted)' }}>{link.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <button className="btn btn-primary" onClick={saveHubConfig} disabled={hubSaving} style={{ marginTop: 4 }}>
+                  <FiSave size={13} style={{ marginRight: 6 }} />{hubSaving ? 'Salvando...' : 'Salvar Configurações'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+        )}
 
       </div>
     </>

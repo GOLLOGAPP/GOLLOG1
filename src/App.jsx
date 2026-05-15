@@ -22,6 +22,7 @@ import RastreamentoPage from './pages/public/RastreamentoPage';
 import FaqPage from './pages/public/FaqPage';
 import MotoristaAgregadoPage from './pages/public/MotoristaAgregadoPage';
 import AvaliacaoPage from './pages/public/AvaliacaoPage';
+import HubPage from './pages/public/HubPage';
 
 export default function App() {
   return (
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/avaliar/:rastreamento_id" element={<AvaliacaoPage />} />
           <Route path="/faq" element={<FaqPage />} />
           <Route path="/motorista-agregado" element={<MotoristaAgregadoPage />} />
+          <Route path="/hub/:slug" element={<HubPage />} />
 
           {/* Login */}
           <Route path="/login" element={<LoginPage />} />
