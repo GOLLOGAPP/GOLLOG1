@@ -640,7 +640,7 @@ export default function FollowUpPage() {
                                     <div style={{ fontSize: 10, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 6 }}>
                                       <span>📧</span> Email
                                       {res.emailEnviado && <span style={{ color: 'var(--success)', fontWeight: 700 }}>• Enviado</span>}
-                                      {testEnviar && !res.emailEnviado && testEmail && <span style={{ color: 'var(--danger)', fontWeight: 700 }}>• Falhou (sem API Key Resend?)</span>}
+                                      {testEnviar && !res.emailEnviado && testEmail && <span style={{ color: 'var(--danger)', fontWeight: 700 }}>• Falhou</span>}
                                     </div>
                                     <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
                                       <strong style={{ color: 'var(--text-secondary)' }}>Assunto:</strong> {res.emailSubject}
@@ -660,6 +660,11 @@ export default function FollowUpPage() {
                                     {res.erros.map((e, i) => (
                                       <div key={i} style={{ fontSize: 12, color: 'var(--danger)' }}>⚠️ {e}</div>
                                     ))}
+                                    {res.debug && (
+                                      <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+                                        Debug: API Key {res.debug.apiKeyPresent ? '✅ presente' : '❌ ausente'} · From: {res.debug.fromEmail}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>

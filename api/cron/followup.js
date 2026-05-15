@@ -43,7 +43,7 @@ async function notificar(phone, email, wppMsg, emailSubject, emailHtml, config) 
     if (ok) canais.push('whatsapp');
   }
   if (email && emailSubject && emailHtml) {
-    const ok = await sendEmail(email, emailSubject, emailHtml, config);
+    const { ok } = await sendEmail(email, emailSubject, emailHtml, config);
     if (ok) canais.push('email');
   }
   return canais;

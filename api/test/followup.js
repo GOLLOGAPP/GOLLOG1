@@ -1,4 +1,4 @@
-import { getConfig, sendWhatsApp, sendEmail, emailTemplate } from '../_lib/notify.js';
+import { getConfig, clearConfigCache, sendWhatsApp, sendEmail, emailTemplate } from '../_lib/notify.js';
 
 const TIPOS = {
   cotacao_d1: {
@@ -255,6 +255,7 @@ export default async function handler(req, res) {
   const def = TIPOS[tipo];
   if (!def) return res.status(400).json({ error: `Tipo desconhecido: ${tipo}. Tipos válidos: ${Object.keys(TIPOS).join(', ')}` });
 
+  clearConfigCache();
   const config = await getConfig();
   const baseUrl = config.app_base_url || 'https://gollog-1.vercel.app';
 
@@ -277,8 +278,9 @@ export default async function handler(req, res) {
       if (!wppEnviado) erros.push('WhatsApp: falha — verifique o webhook de notificações nas configurações.');
     }
     if (email) {
-      emailEnviado = await sendEmail(email, emailSubject, htmlEmail, config);
-      if (!emailEnviado) erros.push('Email: falha — verifique a API Key do Resend nas configurações.');
+      const result = await sendEmail(email, emailSubject, htmlEmail, config);
+      emailEnviado = result.ok;
+      if (!result.ok) erros.push(`Email: ${result.error || 'falha desconhecida'}`);
     }
   }
 
@@ -292,5 +294,9 @@ export default async function handler(req, res) {
     emailEnviado,
     erros,
     link_avaliacao: tipo === 'rastreio_entregue' ? `${baseUrl}/avaliar/${rastId}` : null,
+    debug: {
+      apiKeyPresent: !!config.resend_api_key,
+      fromEmail: config.resend_from_email || 'GOLLOG <noreply@gollog.com.br>',
+    },
   });
 }

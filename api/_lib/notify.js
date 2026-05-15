@@ -38,7 +38,8 @@ export async function sendEmail(to, subject, html, config = null) {
   const cfg = config || await getConfig();
   const apiKey = cfg.resend_api_key;
   const from = cfg.resend_from_email || 'GOLLOG <noreply@gollog.com.br>';
-  if (!apiKey || !to) return false;
+  if (!apiKey) return { ok: false, error: 'resend_api_key não configurada' };
+  if (!to) return { ok: false, error: 'destinatário não informado' };
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -48,9 +49,12 @@ export async function sendEmail(to, subject, html, config = null) {
       },
       body: JSON.stringify({ from, to, subject, html }),
     });
-    return res.ok;
-  } catch {
-    return false;
+    if (res.ok) return { ok: true, error: null };
+    let body = {};
+    try { body = await res.json(); } catch { /* ignore */ }
+    return { ok: false, error: body.message || body.error || `HTTP ${res.status}` };
+  } catch (e) {
+    return { ok: false, error: e.message };
   }
 }
 
