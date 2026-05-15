@@ -257,7 +257,7 @@ export default async function handler(req, res) {
 
   clearConfigCache();
   const config = await getConfig();
-  const baseUrl = config.app_base_url || 'https://gollog-1.vercel.app';
+  const baseUrl = config.app_base_url || 'https://www.logprofit.com.br';
 
   const params = { nome, origem, destino, valor, servico, codigo, status, rastId, endereco, horario, volumes, enviosMes, totalEnvios, baseUrl };
 

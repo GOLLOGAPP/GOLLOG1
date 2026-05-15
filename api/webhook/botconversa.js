@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
+const APP_URL = process.env.APP_URL || 'https://www.logprofit.com.br';
+
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || 'https://bkljbfqvlepmmwwylfdv.supabase.co',
   process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
@@ -99,7 +101,7 @@ export default async function handler(req, res) {
               `📅 Previsão: ${previsao}\n` +
               `📦 ${detail.totals?.pieces || 1} vol(s) · ${detail.totals?.weight || '?'} kg\n\n` +
               `📋 *Últimos eventos:*\n\n${ultimos}\n\n` +
-              `🔗 Rastreio completo:\nhttps://gollog-1.vercel.app/rastreamento?doc=${codigo}`;
+              `🔗 Rastreio completo:\n${APP_URL}/rastreamento?doc=${codigo}`;
           } else {
             statusAtual = 'Não encontrado';
             mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n❌ Documento não encontrado.\nVerifique o número e tente novamente.`;

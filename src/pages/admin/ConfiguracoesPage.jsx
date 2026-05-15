@@ -120,7 +120,7 @@ export default function ConfiguracoesPage() {
               </div>
               <p style={{ fontSize:11, color:'var(--text-muted)', marginTop:8 }}>
                 Webhook de entrada (bot → app):{' '}
-                <code style={{ color:'var(--primary)', fontSize:11 }}>https://gollog-1.vercel.app/api/webhook/botconversa</code>
+                <code style={{ color:'var(--primary)', fontSize:11 }}>{window.location.origin}/api/webhook/botconversa</code>
               </p>
             </div>
           </div>

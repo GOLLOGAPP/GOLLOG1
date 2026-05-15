@@ -3,7 +3,7 @@ import Header from '../../components/layout/Header';
 import { supabase } from '../../lib/supabase';
 import { FiSearch, FiSend, FiUser, FiPhone, FiClock, FiX, FiCheck } from 'react-icons/fi';
 
-const APP_URL = 'https://gollog-1.vercel.app';
+const APP_URL = window.location.origin;
 
 const LINKS_CONFIG = [
   {

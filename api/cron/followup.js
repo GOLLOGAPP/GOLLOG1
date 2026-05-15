@@ -59,7 +59,7 @@ export default async function handler(req, res) {
   }
 
   const config = await getConfig();
-  const baseUrl = config.app_base_url || 'https://gollog-1.vercel.app';
+  const baseUrl = config.app_base_url || 'https://www.logprofit.com.br';
   const results = { cotacoes: 0, cadastros: 0, inativos: 0, coletas: 0, relatorio: 0 };
 
   // ─── BLOCO 1: Cotações não contratadas ───────────────────────────────
