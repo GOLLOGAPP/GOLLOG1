@@ -11,7 +11,54 @@ const TABS = [
   { id: 'fila', label: 'Fila & Histórico' },
   { id: 'avaliacoes', label: 'Avaliações' },
   { id: 'inativos', label: 'Inativos' },
+  { id: 'testes', label: '🧪 Testes' },
   { id: 'config', label: 'Configurações' },
+];
+
+const GRUPOS_TESTE = [
+  {
+    label: '💰 Cotações não contratadas',
+    cor: '#448AFF',
+    testes: [
+      { tipo: 'cotacao_d1', label: 'D+1 — Lembrete suave' },
+      { tipo: 'cotacao_d3', label: 'D+3 — Urgência moderada' },
+      { tipo: 'cotacao_d7', label: 'D+7 — Última tentativa' },
+    ],
+  },
+  {
+    label: '👤 Cadastros sem cotação',
+    cor: '#F37021',
+    testes: [
+      { tipo: 'cadastro_d1', label: 'D+1 — Boas-vindas' },
+      { tipo: 'cadastro_d3', label: 'D+3 — Benefícios' },
+      { tipo: 'cadastro_d7', label: 'D+7 — Oferta de ajuda' },
+    ],
+  },
+  {
+    label: '😴 Clientes inativos',
+    cor: '#ffa726',
+    testes: [
+      { tipo: 'inativo_30d', label: '30 dias — Em risco' },
+      { tipo: 'inativo_60d', label: '60 dias — Dormindo' },
+      { tipo: 'inativo_90d', label: '90 dias — Reativação' },
+    ],
+  },
+  {
+    label: '📦 Rastreamento',
+    cor: '#00C853',
+    testes: [
+      { tipo: 'rastreio_atualizacao', label: 'Mudança de status' },
+      { tipo: 'rastreio_entregue', label: 'Entregue + link avaliação' },
+    ],
+  },
+  {
+    label: '🚚 Outras automações',
+    cor: '#9C27B0',
+    testes: [
+      { tipo: 'coleta_hoje', label: 'Alerta de coleta do dia' },
+      { tipo: 'relatorio_mensal', label: 'Relatório mensal' },
+    ],
+  },
 ];
 
 const TIPO_LABELS = {
@@ -80,6 +127,17 @@ export default function FollowUpPage() {
   const [configSaved, setConfigSaved] = useState(false);
   const [statusFila, setStatusFila] = useState('todos');
   const [stats, setStats] = useState({ enviados: 0, convertidos: 0, avaliacoes: 0, pendentes: 0 });
+
+  // Test state
+  const [testPhone, setTestPhone] = useState('');
+  const [testNome, setTestNome] = useState('João Teste');
+  const [testEmail, setTestEmail] = useState('');
+  const [testCodigo, setTestCodigo] = useState('GLL-12345678');
+  const [testOrigem, setTestOrigem] = useState('Osasco/SP');
+  const [testDestino, setTestDestino] = useState('São Paulo/SP');
+  const [testEnviar, setTestEnviar] = useState(false);
+  const [testResults, setTestResults] = useState({});
+  const [testLoading, setTestLoading] = useState(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -157,6 +215,40 @@ export default function FollowUpPage() {
 
   const toggle = (key) => {
     setConfigs(p => ({ ...p, [key]: p[key] === 'true' ? 'false' : 'true' }));
+  };
+
+  const runTest = async (tipo) => {
+    setTestLoading(tipo);
+    try {
+      const res = await fetch('/api/test/followup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tipo,
+          phone: testPhone,
+          nome: testNome,
+          email: testEmail,
+          codigo: testCodigo,
+          origem: testOrigem,
+          destino: testDestino,
+          enviar: testEnviar,
+          valor: '45.90',
+          servico: 'Rápido',
+          status: 'Em trânsito',
+          endereco: 'Rua Exemplo, 100 — Osasco',
+          horario: '14h–18h',
+          volumes: '2',
+          enviosMes: '5',
+          totalEnvios: '23',
+        }),
+      });
+      const data = await res.json();
+      setTestResults(prev => ({ ...prev, [tipo]: data }));
+    } catch (err) {
+      setTestResults(prev => ({ ...prev, [tipo]: { error: err.message } }));
+    } finally {
+      setTestLoading(null);
+    }
   };
 
   const formatDate = (d) => d ? new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '-';
@@ -414,6 +506,141 @@ export default function FollowUpPage() {
                         </table>
                       </div>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── TESTES ── */}
+            {activeTab === 'testes' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Painel de dados de teste */}
+                <div className="card">
+                  <div className="card-header"><span className="card-title">⚙️ Dados para o teste</span></div>
+                  <div className="card-body">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Nome</label>
+                        <input className="form-input" value={testNome}
+                          onChange={e => setTestNome(e.target.value)} placeholder="João Teste" />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Telefone (com DDI)</label>
+                        <input className="form-input" value={testPhone}
+                          onChange={e => setTestPhone(e.target.value)} placeholder="5511999999999" />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">E-mail (opcional)</label>
+                        <input className="form-input" type="email" value={testEmail}
+                          onChange={e => setTestEmail(e.target.value)} placeholder="teste@email.com" />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Código de rastreio</label>
+                        <input className="form-input" value={testCodigo}
+                          onChange={e => setTestCodigo(e.target.value)} placeholder="GLL-12345678" />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Cidade origem</label>
+                        <input className="form-input" value={testOrigem}
+                          onChange={e => setTestOrigem(e.target.value)} placeholder="Osasco/SP" />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Cidade destino</label>
+                        <input className="form-input" value={testDestino}
+                          onChange={e => setTestDestino(e.target.value)} placeholder="São Paulo/SP" />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: testEnviar ? 'rgba(243,112,33,0.08)' : 'var(--bg-surface)', borderRadius: 8, border: `1px solid ${testEnviar ? 'rgba(243,112,33,0.3)' : 'var(--border)'}` }}>
+                      <ToggleSwitch value={testEnviar} onChange={() => setTestEnviar(v => !v)} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: testEnviar ? 'var(--primary)' : 'var(--text-secondary)' }}>
+                          {testEnviar ? '📱 Envio real ativado' : '👁️ Modo preview (sem envio)'}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {testEnviar
+                            ? 'A mensagem será enviada de verdade para o telefone acima via BotConversa'
+                            : 'Gera a mensagem mas NÃO envia — seguro para ver o texto antes'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grupos de teste */}
+                {GRUPOS_TESTE.map(grupo => (
+                  <div key={grupo.label} className="card">
+                    <div className="card-header" style={{ borderLeft: `3px solid ${grupo.cor}`, paddingLeft: 12 }}>
+                      <span className="card-title">{grupo.label}</span>
+                    </div>
+                    <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {grupo.testes.map(t => {
+                        const res = testResults[t.tipo];
+                        const isLoading = testLoading === t.tipo;
+                        return (
+                          <div key={t.tipo} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                            {/* Header do teste */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg-surface)' }}>
+                              <div>
+                                <span style={{ fontSize: 13, fontWeight: 600 }}>{t.label}</span>
+                                <span style={{ marginLeft: 8, fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)' }}>{t.tipo}</span>
+                              </div>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                {res && !res.error && (
+                                  <span style={{ fontSize: 11, color: res.enviado ? 'var(--success)' : 'var(--text-muted)', fontWeight: 600 }}>
+                                    {res.enviado ? '✅ Enviado' : '👁️ Preview'}
+                                  </span>
+                                )}
+                                {res?.error && (
+                                  <span style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 600 }}>❌ Erro</span>
+                                )}
+                                <button
+                                  className="btn btn-primary btn-sm"
+                                  disabled={isLoading}
+                                  onClick={() => runTest(t.tipo)}
+                                  style={{ background: grupo.cor, border: 'none', minWidth: 90 }}
+                                >
+                                  {isLoading
+                                    ? <><FiRefreshCw size={12} className="spin" /> Gerando...</>
+                                    : <><FiPlay size={12} /> Testar</>}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Preview da mensagem */}
+                            {res && !res.error && res.mensagem && (
+                              <div style={{ padding: '12px 14px', background: '#1a1a2e', borderTop: '1px solid var(--border)' }}>
+                                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                  Preview da mensagem WhatsApp:
+                                </div>
+                                <div style={{
+                                  background: '#dcf8c6', color: '#111', padding: '10px 12px', borderRadius: '8px 8px 0 8px',
+                                  fontSize: 13, lineHeight: 1.55, maxWidth: 420, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+                                }}>
+                                  {res.mensagem}
+                                </div>
+                                {res.link_avaliacao && (
+                                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+                                    🔗 Link de avaliação:{' '}
+                                    <a href={res.link_avaliacao} target="_blank" rel="noopener noreferrer"
+                                      style={{ color: 'var(--primary)' }}>{res.link_avaliacao}</a>
+                                  </div>
+                                )}
+                                {res.erro && (
+                                  <div style={{ marginTop: 8, fontSize: 12, color: 'var(--danger)' }}>⚠️ {res.erro}</div>
+                                )}
+                              </div>
+                            )}
+                            {res?.error && (
+                              <div style={{ padding: '10px 14px', background: 'rgba(255,82,82,0.08)', fontSize: 12, color: 'var(--danger)' }}>
+                                {res.error}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
               </div>
