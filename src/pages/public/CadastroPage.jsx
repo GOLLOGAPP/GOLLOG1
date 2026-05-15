@@ -1,20 +1,60 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { FiUser, FiBriefcase, FiCheck, FiLoader } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { FiUser, FiBriefcase, FiCheck, FiLoader, FiMapPin } from 'react-icons/fi';
 import { supabase } from '../../lib/supabase';
 import { fetchCep, formatCep } from '../../lib/cep';
 
+const cleanPhone = (raw) => {
+  if (!raw) return '';
+  let d = raw.replace(/\D/g, '');
+  if (d.startsWith('55') && d.length >= 12) d = d.slice(2);
+  return d.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3') || d;
+};
+
 export default function CadastroPage() {
   const { telefone } = useParams();
+  const [searchParams] = useSearchParams();
   const [tipo, setTipo] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [cepLoading, setCepLoading] = useState(false);
   const [error, setError] = useState('');
+  const [unidadeLocked, setUnidadeLocked] = useState(false);
   const [form, setForm] = useState({
-    nome: '', cpf_cnpj: '', contato: '', telefone: telefone ? telefone.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : '',
+    nome: '', cpf_cnpj: '', contato: '', telefone: cleanPhone(telefone),
     email: '', cep: '', endereco: '', numero: '', cidade: '', estado: '', unidade: 'Osasco'
   });
+
+  useEffect(() => {
+    const detectUnit = async () => {
+      // Prioridade 1: parâmetro ?u= na URL (link gerado pelo admin)
+      const uParam = searchParams.get('u');
+      if (uParam) {
+        setForm(prev => ({ ...prev, unidade: uParam }));
+        setUnidadeLocked(true);
+        return;
+      }
+      // Prioridade 2: consulta no banco pelo telefone (webhook já processou etiqueta)
+      if (telefone) {
+        const digits = telefone.replace(/\D/g, '');
+        const sem55 = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+        const com55 = sem55.startsWith('55') ? sem55 : `55${sem55}`;
+        const { data } = await supabase
+          .from('clientes')
+          .select('unidade_atendimento')
+          .or(`telefone.ilike.%${sem55}%,telefone.ilike.%${com55}%`)
+          .not('unidade_atendimento', 'is', null)
+          .limit(1)
+          .maybeSingle();
+        if (data?.unidade_atendimento) {
+          setForm(prev => ({ ...prev, unidade: data.unidade_atendimento }));
+          setUnidadeLocked(true);
+        }
+      }
+    };
+    detectUnit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -135,7 +175,7 @@ export default function CadastroPage() {
       </header>
       <div className="public-container">
         <div className="public-card">
-          <h2>Cadastre-se na LOGPROFIT</h2>
+          <h2>Cadastre-se na GOLLOG</h2>
           <p className="subtitle">Preencha seus dados para começar a usar nossos serviços.</p>
 
           {error && (
@@ -255,11 +295,22 @@ export default function CadastroPage() {
 
               <div className="form-group">
                 <label className="form-label" style={{ color:'#374151' }}>Unidade de Atendimento *</label>
-                <select className="public-input" required value={form.unidade}
-                  onChange={e => handleChange('unidade', e.target.value)}>
-                  <option value="Osasco">📍 Osasco</option>
-                  <option value="Barueri">📍 Barueri</option>
-                </select>
+                {unidadeLocked ? (
+                  <div style={{
+                    background: 'rgba(243,112,33,0.08)', border: '1px solid rgba(243,112,33,0.3)',
+                    borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <FiMapPin size={14} color="#F37021" />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#F37021' }}>📍 {form.unidade}</span>
+                    <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 'auto' }}>Detectado automaticamente</span>
+                  </div>
+                ) : (
+                  <select className="public-input" required value={form.unidade}
+                    onChange={e => handleChange('unidade', e.target.value)}>
+                    <option value="Osasco">📍 Osasco</option>
+                    <option value="Barueri">📍 Barueri</option>
+                  </select>
+                )}
               </div>
 
               <button type="submit" className="public-btn" style={{ marginTop:8 }} disabled={loading}>

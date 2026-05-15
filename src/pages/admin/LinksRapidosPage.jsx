@@ -230,10 +230,13 @@ ${svgData}
     setSending(true);
     const nome = modo === 'cadastrado' ? selectedCliente?.nome_razao_social : 'Cliente';
 
+    const unidade = selectedCliente?.unidade_atendimento || '';
     const linksTexto = selectedLinks
       .map(id => {
         const lk = LINKS_CONFIG.find(l => l.id === id);
-        return `${lk.emoji} *${lk.label}*\n${lk.buildUrl(phone)}`;
+        let url = lk.buildUrl(phone);
+        if (id === 'cadastro' && unidade) url += `?u=${encodeURIComponent(unidade)}`;
+        return `${lk.emoji} *${lk.label}*\n${url}`;
       })
       .join('\n\n');
 
