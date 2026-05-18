@@ -70,7 +70,7 @@ export default async function handler(req, res) {
 
   const config = await getConfig();
   const baseUrl = config.app_base_url || 'https://www.logprofit.com.br';
-  const results = { abandonados: 0, cotacoes: 0, cadastros: 0, inativos: 0, coletas: 0, relatorio: 0 };
+  const results = { abandonados: 0, cotacoes: 0, cadastros: 0, inativos: 0, coletas: 0, relatorio: 0, aniversarios: 0 };
 
   // ─── BLOCO 0: Cadastros iniciados mas não finalizados ────────────────
   if (config.followup_cadastro_abandonado_ativo === 'true') {
@@ -514,6 +514,61 @@ export default async function handler(req, res) {
         const htmlEmail = emailTemplate(subject, emailBody, `${baseUrl}/cotacao`, 'Nova cotação');
         const canais = await notificar(cli.telefone, cli.email, wppMsg, subject, htmlEmail, config);
         if (canais.length > 0) results.relatorio++;
+      }
+    }
+  }
+
+  // ─── BLOCO 6: Aniversariantes do dia ─────────────────────────────────
+  if (config.followup_aniversario_ativo === 'true') {
+    const hoje = new Date();
+    const mesHoje  = String(hoje.getMonth() + 1).padStart(2, '0');
+    const diaHoje  = String(hoje.getDate()).padStart(2, '0');
+    const anoHoje  = String(hoje.getFullYear());
+
+    // Busca clientes PF cujo mês/dia de nascimento é hoje
+    const { data: aniversariantes } = await supabase
+      .from('clientes')
+      .select('id, nome_razao_social, telefone, data_nascimento')
+      .eq('tipo', 'PF')
+      .not('data_nascimento', 'is', null)
+      .not('telefone', 'is', null);
+
+    const msgTemplate = config.followup_aniversario_msg ||
+      '🎂 Feliz Aniversário, *{nome}*! 🎉\n\nA equipe GOLLOG deseja um dia incrível para você!\n\nConte sempre com a gente! 😊';
+
+    for (const cli of aniversariantes || []) {
+      if (!cli.data_nascimento) continue;
+      const [, mesCli, diaCli] = cli.data_nascimento.split('-');
+      if (mesCli !== mesHoje || diaCli !== diaHoje) continue;
+
+      // Evita mandar mais de uma vez por ano (verifica se já enviou em 2024 ou ano atual)
+      const anoInicio = `${anoHoje}-01-01T00:00:00Z`;
+      if (await jaEnviado('aniversario', cli.id)) continue;
+      const { data: jaEnviouEsteAno } = await supabase
+        .from('followups')
+        .select('id')
+        .eq('tipo', 'aniversario')
+        .eq('cliente_id', cli.id)
+        .gte('created_at', anoInicio)
+        .maybeSingle();
+      if (jaEnviouEsteAno) continue;
+
+      const nome = cli.nome_razao_social?.split(' ')[0] || 'Cliente';
+      const wppMsg = msgTemplate.replace(/\{nome\}/g, nome);
+
+      const ok = await sendWhatsApp(cli.telefone, wppMsg, config);
+      if (ok) {
+        await supabase.from('followups').insert([{
+          tipo: 'aniversario',
+          cliente_id: cli.id,
+          status: 'enviado',
+          canal: 'whatsapp',
+          mensagem: wppMsg,
+          scheduled_for: new Date().toISOString(),
+          sent_at: new Date().toISOString(),
+          metadata: { data_nascimento: cli.data_nascimento },
+        }]);
+        results.aniversarios++;
       }
     }
   }

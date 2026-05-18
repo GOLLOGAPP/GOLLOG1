@@ -58,7 +58,15 @@ const GRUPOS_TESTE = [
       { tipo: 'relatorio_mensal', label: 'Relatório mensal' },
     ],
   },
+  {
+    label: '🎂 Aniversário',
+    cor: '#E91E63',
+    testes: [
+      { tipo: 'aniversario', label: 'Mensagem de aniversário' },
+    ],
+  },
 ];
+
 
 const TIPO_LABELS = {
   cotacao_perdida_d1: 'Cotação D+1',
@@ -70,6 +78,10 @@ const TIPO_LABELS = {
   inativo_30d: 'Inativo 30d',
   inativo_60d: 'Inativo 60d',
   inativo_90d: 'Inativo 90d',
+  aniversario: '🎂 Aniversário',
+  cadastro_abandonado_d1: 'Cadastro abandonado D1',
+  cadastro_abandonado_d2: 'Cadastro abandonado D2',
+  cadastro_iniciado: 'Cadastro iniciado',
 };
 
 const STATUS_STYLE = {
@@ -199,7 +211,10 @@ export default function FollowUpPage() {
       ...(g.key ? [g.key] : []),
       ...g.sub.map(s => s.key),
     ]);
-    const extraKeys = ['google_review_link', 'resend_api_key', 'resend_from_email', 'app_base_url', 'numero_interno_suporte'];
+    const extraKeys = [
+      'google_review_link', 'resend_api_key', 'resend_from_email', 'app_base_url',
+      'numero_interno_suporte', 'followup_aniversario_ativo', 'followup_aniversario_msg',
+    ];
     for (const key of [...keys, ...extraKeys]) {
       if (configs[key] !== undefined) {
         await supabase.from('configuracoes')
@@ -721,6 +736,49 @@ export default function FollowUpPage() {
                     </div>
                   </div>
                 ))}
+
+                {/* Aniversário */}
+                <div className="card">
+                  <div className="card-header">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      <span className="card-title">🎂 Mensagem de Aniversário</span>
+                      <ToggleSwitch
+                        value={configs.followup_aniversario_ativo === 'true'}
+                        onChange={() => toggle('followup_aniversario_ativo')}
+                        label={configs.followup_aniversario_ativo === 'true' ? 'Ativo' : 'Pausado'}
+                      />
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+                      Enviada automaticamente para clientes <strong>Pessoa Física</strong> no dia do aniversário.
+                      Use <code style={{ color: 'var(--primary)', background: 'rgba(243,112,33,0.1)', padding: '1px 6px', borderRadius: 4 }}>{'{nome}'}</code> para inserir o primeiro nome do cliente.
+                    </p>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                      <label className="form-label">Texto da Mensagem</label>
+                      <textarea
+                        className="form-input"
+                        rows={6}
+                        style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: 13, lineHeight: 1.6 }}
+                        value={configs.followup_aniversario_msg || ''}
+                        onChange={e => setConfigs(p => ({ ...p, followup_aniversario_msg: e.target.value }))}
+                        placeholder={`🎂 Feliz Aniversário, *{nome}*! 🎉\n\nA equipe GOLLOG deseja um dia incrível para você!\n\nConte sempre com a gente! 😊`}
+                      />
+                    </div>
+                    {configs.followup_aniversario_msg && (
+                      <div style={{ marginTop: 12, padding: '10px 14px', background: '#0d1117', borderRadius: 8 }}>
+                        <div style={{ fontSize: 10, color: '#666', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>📱 Preview WhatsApp</div>
+                        <div style={{
+                          background: '#dcf8c6', color: '#111', padding: '10px 12px',
+                          borderRadius: '8px 8px 0 8px', fontSize: 13, lineHeight: 1.6,
+                          maxWidth: 340, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                        }}>
+                          {configs.followup_aniversario_msg.replace(/\{nome\}/g, 'João')}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Configurações de integração */}
                 <div className="card">
