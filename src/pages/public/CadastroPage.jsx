@@ -23,7 +23,8 @@ export default function CadastroPage() {
   const [iniciadoId, setIniciadoId] = useState(null);
   const [form, setForm] = useState({
     nome: '', cpf_cnpj: '', contato: '', telefone: cleanPhone(telefone),
-    email: '', cep: '', endereco: '', numero: '', cidade: '', estado: '', unidade: 'Osasco'
+    email: '', cep: '', endereco: '', numero: '', cidade: '', estado: '', unidade: 'Osasco',
+    data_nascimento: ''
   });
 
   useEffect(() => {
@@ -135,6 +136,7 @@ export default function CadastroPage() {
           cidade: form.cidade,
           estado: form.estado,
           unidade_atendimento: form.unidade,
+          data_nascimento: tipo === 'PF' && form.data_nascimento ? form.data_nascimento : null,
           cliente_gollog: false,
           status: 'prospecto',
           tags: ['Novo', 'WhatsApp'],
@@ -293,6 +295,16 @@ export default function CadastroPage() {
                     value={form.email} onChange={e => handleChange('email', e.target.value)} />
                 </div>
               </div>
+
+              {tipo === 'PF' && (
+                <div className="form-group">
+                  <label className="form-label" style={{ color:'#374151' }}>Data de Nascimento</label>
+                  <input className="public-input" type="date"
+                    max={new Date().toISOString().split('T')[0]}
+                    value={form.data_nascimento}
+                    onChange={e => handleChange('data_nascimento', e.target.value)} />
+                </div>
+              )}
 
               <div className="form-group">
                 <label className="form-label" style={{ color:'#374151' }}>CEP</label>
