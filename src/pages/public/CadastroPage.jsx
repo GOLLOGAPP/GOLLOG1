@@ -20,6 +20,7 @@ export default function CadastroPage() {
   const [cepLoading, setCepLoading] = useState(false);
   const [error, setError] = useState('');
   const [unidadeLocked, setUnidadeLocked] = useState(false);
+  const [iniciadoId, setIniciadoId] = useState(null);
   const [form, setForm] = useState({
     nome: '', cpf_cnpj: '', contato: '', telefone: cleanPhone(telefone),
     email: '', cep: '', endereco: '', numero: '', cidade: '', estado: '', unidade: 'Osasco'
@@ -53,6 +54,43 @@ export default function CadastroPage() {
       }
     };
     detectUnit();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Registra que o cliente abriu o formulário (gatilho de cadastro abandonado)
+  useEffect(() => {
+    if (!telefone) return;
+    const digits = telefone.replace(/\D/g, '');
+    const sem55 = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+
+    // Evita duplicata: verifica se já existe um registro pendente para este telefone
+    supabase
+      .from('followups')
+      .select('id')
+      .eq('tipo', 'cadastro_iniciado')
+      .eq('status', 'pendente')
+      .contains('metadata', { telefone: sem55 })
+      .maybeSingle()
+      .then(({ data: existing }) => {
+        if (existing) {
+          setIniciadoId(existing.id);
+          return;
+        }
+        const scheduledFor = new Date();
+        scheduledFor.setMinutes(scheduledFor.getMinutes() + 30);
+        supabase
+          .from('followups')
+          .insert([{
+            tipo: 'cadastro_iniciado',
+            status: 'pendente',
+            canal: 'whatsapp',
+            scheduled_for: scheduledFor.toISOString(),
+            metadata: { telefone: sem55, fonte: 'botconversa' },
+          }])
+          .select('id')
+          .single()
+          .then(({ data }) => { if (data) setIniciadoId(data.id); });
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -126,6 +164,15 @@ export default function CadastroPage() {
           canal: 'whatsapp',
           metadata: { telefone_original: telefone, unidade: form.unidade }
         }]);
+
+        // Marca o registro de intenção como convertido para não disparar follow-up de abandono
+        if (iniciadoId) {
+          supabase
+            .from('followups')
+            .update({ status: 'convertido', sent_at: new Date().toISOString() })
+            .eq('id', iniciadoId)
+            .then(() => {});
+        }
       }
 
       // Adiciona etiqueta "Cliente" no Botconversa (fire-and-forget)

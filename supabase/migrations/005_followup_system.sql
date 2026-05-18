@@ -85,3 +85,4 @@ INSERT INTO configuracoes (chave, valor, descricao) VALUES
   ('resend_from_email',             'GOLLOG <noreply@gollog.com.br>', 'E-mail remetente padrão'),
   ('app_base_url',                  'https://gollog-1.vercel.app', 'URL base do app (sem barra final)')
 ON CONFLICT (chave) DO NOTHING;
+

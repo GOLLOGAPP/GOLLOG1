@@ -20,6 +20,16 @@ async function jaEnviado(tipo, clienteId, referenciaId = null) {
   return data && data.length > 0;
 }
 
+async function jaEnviadoPorTelefone(tipo, telefone) {
+  const { data } = await supabase
+    .from('followups')
+    .select('id')
+    .eq('tipo', tipo)
+    .contains('metadata', { telefone })
+    .in('status', ['enviado', 'pendente']);
+  return data && data.length > 0;
+}
+
 async function registrarEnvio(tipo, clienteId, referenciaId, referenciaT, mensagem, canais = 'whatsapp', metadata = {}) {
   await supabase.from('followups').insert([{
     tipo,
@@ -60,7 +70,96 @@ export default async function handler(req, res) {
 
   const config = await getConfig();
   const baseUrl = config.app_base_url || 'https://www.logprofit.com.br';
-  const results = { cotacoes: 0, cadastros: 0, inativos: 0, coletas: 0, relatorio: 0 };
+  const results = { abandonados: 0, cotacoes: 0, cadastros: 0, inativos: 0, coletas: 0, relatorio: 0 };
+
+  // ─── BLOCO 0: Cadastros iniciados mas não finalizados ────────────────
+  if (config.followup_cadastro_abandonado_ativo === 'true') {
+    const stages = [
+      {
+        key: 'cadastro_abandonado_d1',
+        minMin: 30,       // mínimo 30min (evita disparar imediatamente)
+        maxMin: 1440,     // até 24h — cobre quem abriu no dia anterior
+        cfg: 'followup_cadastro_abandonado_30min',
+        wpp: () =>
+          `📋 *Olá! Vimos que você começou seu cadastro na GOLLOG* mas não finalizou.\n\n` +
+          `É rápido! Leva menos de 2 minutos. 😊\n\n` +
+          `Posso te ajudar com alguma dúvida antes de finalizar?\n\n` +
+          `🔗 Continuar cadastro: ${baseUrl}/cadastro`,
+      },
+      {
+        key: 'cadastro_abandonado_d2',
+        minMin: 1440,     // entre 24h e 48h — cron do dia seguinte
+        maxMin: 2880,
+        cfg: 'followup_cadastro_abandonado_2h',
+        wpp: () =>
+          `🚚 *GOLLOG* — Ainda posso te ajudar!\n\n` +
+          `Percebemos que você visitou nosso cadastro ontem mas não concluiu.\n\n` +
+          `Com o cadastro completo você pode:\n` +
+          `✅ Cotar fretes online\n` +
+          `✅ Solicitar coleta em domicílio\n` +
+          `✅ Rastrear encomendas em tempo real\n\n` +
+          `🔗 Finalizar agora: ${baseUrl}/cadastro`,
+      },
+    ];
+
+
+    const { data: iniciados } = await supabase
+      .from('followups')
+      .select('*')
+      .eq('tipo', 'cadastro_iniciado')
+      .eq('status', 'pendente');
+
+    for (const ini of iniciados || []) {
+      const phone = ini.metadata?.telefone;
+      if (!phone) continue;
+
+      // Verifica se o cliente já finalizou o cadastro
+      const com55 = phone.startsWith('55') ? phone : `55${phone}`;
+      const { data: clienteExiste } = await supabase
+        .from('clientes')
+        .select('id')
+        .or(`telefone.ilike.%${phone}%,telefone.ilike.%${com55}%`)
+        .maybeSingle();
+
+      if (clienteExiste) {
+        await supabase
+          .from('followups')
+          .update({ status: 'convertido', sent_at: new Date().toISOString() })
+          .eq('id', ini.id);
+        continue;
+      }
+
+      const elapsedMin = (Date.now() - new Date(ini.created_at).getTime()) / 60000;
+
+      // Expira registros com mais de 24h
+      if (elapsedMin > 1440) {
+        await supabase.from('followups').update({ status: 'cancelado' }).eq('id', ini.id);
+        continue;
+      }
+
+      for (const stage of stages) {
+        if (config[stage.cfg] !== 'true') continue;
+        if (elapsedMin < stage.minMin || elapsedMin > stage.maxMin) continue;
+        if (await jaEnviadoPorTelefone(stage.key, phone)) continue;
+
+        const wppMsg = stage.wpp();
+        const ok = await sendWhatsApp(phone, wppMsg, config);
+
+        if (ok) {
+          await supabase.from('followups').insert([{
+            tipo: stage.key,
+            status: 'enviado',
+            canal: 'whatsapp',
+            mensagem: wppMsg,
+            scheduled_for: new Date().toISOString(),
+            sent_at: new Date().toISOString(),
+            metadata: { telefone: phone, iniciado_id: ini.id },
+          }]);
+          results.abandonados++;
+        }
+      }
+    }
+  }
 
   // ─── BLOCO 1: Cotações não contratadas ───────────────────────────────
   if (config.followup_cotacao_ativo === 'true') {
