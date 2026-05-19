@@ -31,6 +31,7 @@ export default function RecepcaoPage() {
   const [dataFim, setDataFim] = useState('');
   const [acessos, setAcessos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [queryError, setQueryError] = useState(null);
 
   const getPeriodRange = () => {
     const now = new Date();
@@ -54,13 +55,15 @@ export default function RecepcaoPage() {
 
   const fetchAcessos = async () => {
     setLoading(true);
+    setQueryError(null);
     const { start, end } = getPeriodRange();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('acessos_base')
       .select('*')
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString())
       .order('created_at', { ascending: false });
+    if (error) setQueryError(error.message);
     setAcessos(data || []);
     setLoading(false);
   };
@@ -165,6 +168,15 @@ export default function RecepcaoPage() {
             </button>
           </div>
         </div>
+
+        {/* ── Query Error Banner ── */}
+        {queryError && (
+          <div className="card mb-24" style={{ borderLeft: '4px solid #EF4444', background: 'rgba(239,68,68,0.08)' }}>
+            <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#EF4444' }}>
+              <strong>Erro ao buscar dados:</strong> {queryError}
+            </div>
+          </div>
+        )}
 
         {/* ── KPI Cards ── */}
         <div className="kpi-grid mb-24">
@@ -311,7 +323,10 @@ export default function RecepcaoPage() {
               <div className="empty-state" style={{ padding: 40 }}>
                 <p>Nenhum acesso no período selecionado.</p>
                 <p style={{ fontSize: 13, marginTop: 8, color: '#6B7280' }}>
-                  Configure o Botconversa para enviar o webhook <code>selecao_base</code> ao receber a escolha do cliente.
+                  O Botconversa precisa enviar um webhook <code>POST</code> para{' '}
+                  <code>/api/webhook/botconversa</code> com o payload{' '}
+                  <code>{`{ "action": "selecao_base", "phone": "...", "name": "...", "data": { "base": "Osasco" } }`}</code>{' '}
+                  ao receber a escolha do cliente.
                 </p>
               </div>
             ) : (
