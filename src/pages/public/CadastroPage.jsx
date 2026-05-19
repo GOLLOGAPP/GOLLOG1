@@ -97,6 +97,14 @@ export default function CadastroPage() {
 
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
+  const buildBotNome = () => {
+    if (tipo === 'PJ' && form.contato) {
+      const primeiro = form.contato.trim().split(/\s+/)[0];
+      return `${primeiro} | ${form.nome}`;
+    }
+    return form.nome;
+  };
+
   const handleCep = async (value) => {
     const formatted = formatCep(value);
     handleChange('cep', formatted);
@@ -149,7 +157,7 @@ export default function CadastroPage() {
           fetch('/api/notify/cadastro', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: form.telefone, nome: form.nome }),
+            body: JSON.stringify({ phone: form.telefone, nome: buildBotNome() }),
           }).catch(() => {});
           setSubmitted(true);
           return;
@@ -181,7 +189,7 @@ export default function CadastroPage() {
       fetch('/api/notify/cadastro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: form.telefone, nome: form.nome }),
+        body: JSON.stringify({ phone: form.telefone, nome: buildBotNome() }),
       }).catch(() => {});
 
       setSubmitted(true);
