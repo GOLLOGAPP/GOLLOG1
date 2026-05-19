@@ -39,20 +39,24 @@ export default async function handler(req, res) {
 
     const formattedPhone = toInternational(phone);
 
-    // 1. Adiciona tags "Cliente" e "Novo" em paralelo (falha não bloqueia o webhook)
-    const addTag = (tag) =>
-      fetch('https://app.botconversa.com.br/api/v1/subscriber/add_tag/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
-        body: JSON.stringify({ phone: formattedPhone, tag }),
-      }).then(r => ({ tag, status: r.status })).catch(e => ({ tag, error: e.message }));
+    // 1. Adiciona tags sequencialmente — Botconversa rejeita chamadas simultâneas pro mesmo assinante
+    const addTag = async (tag) => {
+      try {
+        const r = await fetch('https://app.botconversa.com.br/api/v1/subscriber/add_tag/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
+          body: JSON.stringify({ phone: formattedPhone, tag }),
+        });
+        const body = await r.json().catch(() => null);
+        return { tag, status: r.status, body };
+      } catch (e) {
+        return { tag, error: e.message };
+      }
+    };
 
-    let tagResults = [];
-    try {
-      tagResults = await Promise.all([addTag('Cliente'), addTag('Novo')]);
-    } catch (e) {
-      console.warn('add_tag falhou (não crítico):', e.message);
-    }
+    const tagResults = [];
+    tagResults.push(await addTag('Cliente'));
+    tagResults.push(await addTag('Novo'));
 
     // 2. Dispara fluxo do menu via webhook — awaited para não ser morto pelo Vercel
     let menuTriggered = false;
