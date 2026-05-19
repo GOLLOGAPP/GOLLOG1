@@ -39,17 +39,17 @@ export default async function handler(req, res) {
 
     const formattedPhone = toInternational(phone);
 
-    // 1. Adiciona tag "Cliente" (falha não bloqueia o webhook)
-    let tagStatus = null;
-    let tagResult = null;
-    try {
-      const tagResponse = await fetch('https://app.botconversa.com.br/api/v1/subscriber/add_tag/', {
+    // 1. Adiciona tags "Cliente" e "Novo" em paralelo (falha não bloqueia o webhook)
+    const addTag = (tag) =>
+      fetch('https://app.botconversa.com.br/api/v1/subscriber/add_tag/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
-        body: JSON.stringify({ phone: formattedPhone, tag: 'Cliente' }),
-      });
-      tagStatus = tagResponse.status;
-      tagResult = await tagResponse.json().catch(() => null);
+        body: JSON.stringify({ phone: formattedPhone, tag }),
+      }).then(r => ({ tag, status: r.status })).catch(e => ({ tag, error: e.message }));
+
+    let tagResults = [];
+    try {
+      tagResults = await Promise.all([addTag('Cliente'), addTag('Novo')]);
     } catch (e) {
       console.warn('add_tag falhou (não crítico):', e.message);
     }
@@ -72,8 +72,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       phone: formattedPhone,
-      tag_status: tagStatus,
-      tag_response: tagResult,
+      tags: tagResults,
       menu_triggered: menuTriggered,
     });
 
