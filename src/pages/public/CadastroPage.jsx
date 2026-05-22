@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { FiUser, FiBriefcase, FiCheck, FiLoader, FiMapPin } from 'react-icons/fi';
+import { FiUser, FiBriefcase, FiCheck, FiLoader, FiMapPin, FiLock } from 'react-icons/fi';
 import { supabase } from '../../lib/supabase';
 import { fetchCep, formatCep } from '../../lib/cep';
 
@@ -22,7 +22,7 @@ export default function CadastroPage() {
   const [unidadeLocked, setUnidadeLocked] = useState(false);
   const [iniciadoId, setIniciadoId] = useState(null);
   const [form, setForm] = useState({
-    nome: '', cpf_cnpj: '', contato: '', telefone: cleanPhone(telefone),
+    nome: '', cpf_cnpj: '', contato: '', telefone: cleanPhone(telefone), telefone2: '',
     email: '', cep: '', endereco: '', numero: '', cidade: '', estado: '', unidade: 'Osasco',
     data_nascimento: ''
   });
@@ -138,6 +138,7 @@ export default function CadastroPage() {
           nome_razao_social: form.nome,
           nome_contato: form.contato,
           telefone: form.telefone,
+          telefone2: form.telefone2 || null,
           email: form.email,
           cep: form.cep,
           endereco_completo: form.numero ? `${form.endereco}, Nº ${form.numero}` : form.endereco,
@@ -292,16 +293,30 @@ export default function CadastroPage() {
               )}
 
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ color:'#374151' }}>Telefone *</label>
-                  <input className="public-input" required placeholder="(11) 99999-9999"
-                    value={form.telefone} onChange={e => handleChange('telefone', e.target.value)} />
+                <div className="form-group" style={{ marginBottom:0 }}>
+                  <label className="form-label" style={{ color:'#374151', display:'flex', alignItems:'center', gap:4 }}>
+                    Tel 1 (WhatsApp) <FiLock size={11} color="#9CA3AF" />
+                  </label>
+                  <div style={{ position:'relative' }}>
+                    <input className="public-input" readOnly tabIndex={-1}
+                      value={form.telefone}
+                      style={{ background:'#F3F4F6', color:'#6B7280', cursor:'not-allowed', paddingRight:34 }} />
+                    <FiLock size={13} style={{ position:'absolute', right:11, top:'50%', transform:'translateY(-50%)', color:'#9CA3AF', pointerEvents:'none' }} />
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label className="form-label" style={{ color:'#374151' }}>E-mail *</label>
-                  <input className="public-input" type="email" required placeholder="email@exemplo.com"
-                    value={form.email} onChange={e => handleChange('email', e.target.value)} />
+                <div className="form-group" style={{ marginBottom:0 }}>
+                  <label className="form-label" style={{ color:'#374151' }}>
+                    Tel 2 <span style={{ fontWeight:400, color:'#9CA3AF' }}>(opcional)</span>
+                  </label>
+                  <input className="public-input" placeholder="(11) 88888-8888"
+                    value={form.telefone2} onChange={e => handleChange('telefone2', e.target.value)} />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ color:'#374151' }}>E-mail *</label>
+                <input className="public-input" type="email" required placeholder="email@exemplo.com"
+                  value={form.email} onChange={e => handleChange('email', e.target.value)} />
               </div>
 
               {tipo === 'PF' && (
