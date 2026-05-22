@@ -63,34 +63,45 @@ export default function CadastroPage() {
     if (!telefone) return;
     const digits = telefone.replace(/\D/g, '');
     const sem55 = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+    const phoneFormatted = cleanPhone(telefone);
 
-    // Evita duplicata: verifica se já existe um registro pendente para este telefone
+    // Não cria followup se o cliente já está cadastrado
     supabase
-      .from('followups')
+      .from('clientes')
       .select('id')
-      .eq('tipo', 'cadastro_iniciado')
-      .eq('status', 'pendente')
-      .contains('metadata', { telefone: sem55 })
+      .or(`telefone.eq.${phoneFormatted},telefone.eq.${sem55},telefone.eq.55${sem55}`)
       .maybeSingle()
-      .then(({ data: existing }) => {
-        if (existing) {
-          setIniciadoId(existing.id);
-          return;
-        }
-        const scheduledFor = new Date();
-        scheduledFor.setMinutes(scheduledFor.getMinutes() + 30);
+      .then(({ data: clienteExistente }) => {
+        if (clienteExistente) return;
+
+        // Evita duplicata: verifica se já existe um registro pendente para este telefone
         supabase
           .from('followups')
-          .insert([{
-            tipo: 'cadastro_iniciado',
-            status: 'pendente',
-            canal: 'whatsapp',
-            scheduled_for: scheduledFor.toISOString(),
-            metadata: { telefone: sem55, fonte: 'botconversa' },
-          }])
           .select('id')
-          .single()
-          .then(({ data }) => { if (data) setIniciadoId(data.id); });
+          .eq('tipo', 'cadastro_iniciado')
+          .eq('status', 'pendente')
+          .contains('metadata', { telefone: sem55 })
+          .maybeSingle()
+          .then(({ data: existing }) => {
+            if (existing) {
+              setIniciadoId(existing.id);
+              return;
+            }
+            const scheduledFor = new Date();
+            scheduledFor.setMinutes(scheduledFor.getMinutes() + 30);
+            supabase
+              .from('followups')
+              .insert([{
+                tipo: 'cadastro_iniciado',
+                status: 'pendente',
+                canal: 'whatsapp',
+                scheduled_for: scheduledFor.toISOString(),
+                metadata: { telefone: sem55, fonte: 'botconversa' },
+              }])
+              .select('id')
+              .single()
+              .then(({ data }) => { if (data) setIniciadoId(data.id); });
+          });
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

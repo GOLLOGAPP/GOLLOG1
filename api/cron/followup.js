@@ -115,10 +115,12 @@ export default async function handler(req, res) {
 
       // Verifica se o cliente já finalizou o cadastro
       const com55 = phone.startsWith('55') ? phone : `55${phone}`;
+      // Formata como armazenado no banco: (11) 99999-9999
+      const phoneFormatted = phone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
       const { data: clienteExiste } = await supabase
         .from('clientes')
         .select('id')
-        .or(`telefone.ilike.%${phone}%,telefone.ilike.%${com55}%`)
+        .or(`telefone.eq.${phoneFormatted},telefone.eq.${phone},telefone.eq.${com55}`)
         .maybeSingle();
 
       if (clienteExiste) {
