@@ -85,6 +85,7 @@ export default async function handler(req, res) {
             success: true,
             rastreios_encontrados: 0,
             message: msgHumano,
+            precisa_humano: 'sim',
             custom_fields: { precisa_humano: 'sim', resposta_rastreio: msgHumano },
           });
         }
@@ -172,6 +173,8 @@ export default async function handler(req, res) {
         return res.status(200).json({
           success: true,
           rastreios_encontrados: codigos.length,
+          message: resultados[0]?.message || '',
+          precisa_humano: 'nao',
           resultados,
           custom_fields: {
             precisa_humano: 'nao',
