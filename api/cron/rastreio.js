@@ -26,6 +26,7 @@ export default async function handler(req, res) {
     .select('*, clientes(nome_razao_social, telefone, email)')
     .gte('created_at', cutoff.toISOString())
     .eq('notificado_entregue', false)
+    .eq('notificar_atualizacoes', true)
     .not('status_atual', 'in', '("Não encontrado","Erro na consulta","Consultando...")');
 
   if (!rastreamentos || rastreamentos.length === 0) {
@@ -61,7 +62,7 @@ export default async function handler(req, res) {
       if (novoStatus === rast.status_atual) continue;
 
       const isEntregue = /entregue/i.test(novoStatus);
-      const phone = rast.clientes?.telefone;
+      const phone = rast.clientes?.telefone || rast.telefone_notificacao;
       const email = rast.clientes?.email;
       const nome = rast.clientes?.nome_razao_social || 'Cliente';
       const nomeFirst = nome.split(' ')[0];

@@ -432,6 +432,69 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, base, codigo: codigoBase });
       }
 
+      // ─── ATIVAR NOTIFICAÇÃO: cliente opta por receber updates automáticos ───
+      case 'ativar_notificacao': {
+        if (!phone) return res.status(400).json({ error: 'Telefone não informado' });
+
+        // Busca o rastreamento mais recente deste telefone
+        const { data: rastreamento } = await supabase
+          .from('rastreamentos')
+          .select('id, codigo_rastreio, status_atual, cliente_id')
+          .or(`telefone_notificacao.eq.${phone},cliente_id.in.(${
+            // subquery via join não suportado aqui; busca por cliente_id se existir
+            'null'
+          })`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        // Fallback: busca pelo cliente_id associado ao telefone
+        let rastFinal = rastreamento;
+        if (!rastFinal) {
+          const { data: cliente } = await supabase
+            .from('clientes')
+            .select('id')
+            .eq('telefone', phone)
+            .single();
+
+          if (cliente) {
+            const { data: rastPorCliente } = await supabase
+              .from('rastreamentos')
+              .select('id, codigo_rastreio, status_atual')
+              .eq('cliente_id', cliente.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            rastFinal = rastPorCliente;
+          }
+        }
+
+        if (!rastFinal) {
+          const msgSemRastreio = `⚠️ Não encontrei nenhum rastreamento associado ao seu número.\n\nPor favor, consulte um código de rastreio primeiro e depois ative as notificações.`;
+          notificar(msgSemRastreio);
+          return res.status(200).json({ success: false, message: msgSemRastreio });
+        }
+
+        // Ativa notificação e salva telefone no registro
+        await supabase
+          .from('rastreamentos')
+          .update({
+            notificar_atualizacoes: true,
+            telefone_notificacao: phone,
+          })
+          .eq('id', rastFinal.id);
+
+        const msgAtivado = `✅ *Notificações ativadas!*\n\n📦 Código: *${rastFinal.codigo_rastreio}*\n🔄 Status atual: *${rastFinal.status_atual}*\n\nVocê receberá uma mensagem automática aqui no WhatsApp sempre que houver uma atualização no status da sua encomenda. 🔔`;
+        notificar(msgAtivado);
+
+        return res.status(200).json({
+          success: true,
+          codigo: rastFinal.codigo_rastreio,
+          message: msgAtivado,
+          custom_fields: { notificacao_ativada: 'sim' },
+        });
+      }
+
       default:
         return res.status(400).json({ error: `Ação desconhecida: ${action}` });
     }
