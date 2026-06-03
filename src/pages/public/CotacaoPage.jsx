@@ -17,6 +17,22 @@ const calcPrazo = (tipo) =>
 
 const EMPTY_DIMS = { cep_origem: '', cidade_origem: '', cep_destino: '', cidade_destino: '', peso_kg: '', altura_cm: '', largura_cm: '', comprimento_cm: '', tipo_servico: 'Rápido' };
 
+const CepInput = ({ label, value, onChange, loading: isLoading }) => (
+  <div className="form-group" style={{ marginBottom: 0, position: 'relative' }}>
+    <label className="form-label" style={{ color: '#374151' }}>{label}</label>
+    <div style={{ position: 'relative' }}>
+      <input className="public-input" required placeholder="00000-000" maxLength={9}
+        value={value} onChange={e => onChange(e.target.value)}
+        style={{ paddingRight: isLoading ? 36 : undefined }} />
+      {isLoading && (
+        <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#F37021' }}>
+          <FiLoader size={16} className="spin" />
+        </div>
+      )}
+    </div>
+  </div>
+);
+
 export default function CotacaoPage() {
   const { clienteId } = useParams();
   const [searchParams] = useSearchParams();
@@ -202,23 +218,6 @@ export default function CotacaoPage() {
       </div>
     );
   }
-
-  // ── CepInput helper ─────────────────────────────────────────────────────────
-  const CepInput = ({ label, value, onChange, loading: isLoading }) => (
-    <div className="form-group" style={{ marginBottom: 0, position: 'relative' }}>
-      <label className="form-label" style={{ color: '#374151' }}>{label}</label>
-      <div style={{ position: 'relative' }}>
-        <input className="public-input" required placeholder="00000-000" maxLength={9}
-          value={value} onChange={e => onChange(e.target.value)}
-          style={{ paddingRight: isLoading ? 36 : undefined }} />
-        {isLoading && (
-          <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#F37021' }}>
-            <FiLoader size={16} className="spin" />
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   const itemNum = items.length + 1;
 
