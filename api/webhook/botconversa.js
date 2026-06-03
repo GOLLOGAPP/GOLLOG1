@@ -39,12 +39,15 @@ export default async function handler(req, res) {
     };
 
     switch (action) {
-      // ─── RASTREAMENTO: cliente envia código pelo WhatsApp ───
+      // ─── RASTREAMENTO: cliente envia texto livre pelo WhatsApp ───
       case 'rastrear': {
-        const codigo = data?.codigo?.trim().toUpperCase();
-        if (!codigo) return res.status(400).json({ error: 'Código de rastreio não informado' });
+        // Extrai todos os códigos de 11 dígitos começando com 127 do texto livre
+        const textoLivre = data?.codigo || data?.texto || data?.message || '';
+        const codigos = [...new Set(
+          (textoLivre.match(/\b127\d{8}\b/g) || []).map(c => c.toUpperCase())
+        )];
 
-        // Buscar cliente pelo telefone
+        // Buscar cliente pelo telefone (uma vez só)
         let clienteId = null;
         if (phone) {
           const { data: cliente } = await supabase
@@ -55,88 +58,125 @@ export default async function handler(req, res) {
           if (cliente) clienteId = cliente.id;
         }
 
-        // Consultar API GOLLOG real
-        let statusAtual = 'Consultando...';
-        let historico = [];
-        let mensagemRastreio = '';
-        try {
-          const gollogRes = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/tracking', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'CompanyKey': process.env.GOLLOG_COMPANY_KEY || 'G3',
-              'language': 'pt-BR',
-            },
-            body: JSON.stringify({ type: 'documentnumber', value: codigo }),
-          });
+        // Nenhum código encontrado → encaminhar para atendimento humano
+        if (codigos.length === 0) {
+          const msgHumano = `⚠️ Não consegui identificar um número de rastreio na sua mensagem.\n\nOs códigos GOLLOG têm 11 dígitos e começam com *127* (ex: 12712345678).\n\nAguarde — vou transferir você para um atendente! 👨‍💼`;
+          notificar(msgHumano);
 
-          if (gollogRes.ok) {
-            const gollogData = await gollogRes.json();
-            const detail = gollogData.detail?.awbInfo || {};
-            const events = gollogData.events || [];
-            const lastEvt = events[events.length - 1];
-
-            statusAtual = detail.operationalStatusDescription || lastEvt?.status?.codeDescription || 'Em processamento';
-            historico = events.map(e => ({
-              status: e.status?.codeDescription,
-              data: e.eventDateTimeLT,
-              local: `${e.station} - ${e.status?.stationName || ''}`,
-              code: e.status?.code,
-            }));
-
-            const origem = detail.routing?.origin?.station || '?';
-            const destino = detail.routing?.destination?.station || '?';
-            const previsao = detail.expectedDeliveryDate
-              ? new Date(detail.expectedDeliveryDate).toLocaleDateString('pt-BR')
-              : 'N/A';
-
-            // Últimos 3 eventos para WhatsApp
-            const ultimos = events.slice(-3).reverse().map(e =>
-              `  📌 ${e.status?.codeDescription}\n     📍 ${e.station} · ${e.eventDateTimeLT}`
-            ).join('\n\n');
-
-            mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n` +
-              `🔄 Status: *${statusAtual}*\n` +
-              `✈️ Rota: ${origem} → ${destino}\n` +
-              `📅 Previsão: ${previsao}\n` +
-              `📦 ${detail.totals?.pieces || 1} vol(s) · ${detail.totals?.weight || '?'} kg\n\n` +
-              `📋 *Últimos eventos:*\n\n${ultimos}\n\n` +
-              `🔗 Rastreio completo:\n${APP_URL}/rastreamento?doc=${codigo}`;
-          } else {
-            statusAtual = 'Não encontrado';
-            mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n❌ Documento não encontrado.\nVerifique o número e tente novamente.`;
+          // Notifica equipe interna
+          const { data: configSuporte } = await supabase
+            .from('configuracoes')
+            .select('valor')
+            .eq('chave', 'numero_interno_suporte')
+            .single();
+          const numeroSuporte = configSuporte?.valor;
+          if (webhookNotif && numeroSuporte) {
+            fetch(webhookNotif, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phone: numeroSuporte,
+                mensagem: `🔔 *Atendimento solicitado*\n\nCliente: ${name || phone}\nMensagem: "${textoLivre.slice(0, 200)}"\n\nNenhum código de rastreio identificado. Cliente aguarda atendimento.`,
+              }),
+            }).catch(() => {});
           }
-        } catch (apiErr) {
-          statusAtual = 'Erro na consulta';
-          mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n⚠️ Erro temporário ao consultar. Tente novamente em instantes.`;
+
+          return res.status(200).json({
+            success: true,
+            rastreios_encontrados: 0,
+            message: msgHumano,
+            custom_fields: { precisa_humano: 'sim', resposta_rastreio: msgHumano },
+          });
         }
 
-        // Salvar rastreamento no Supabase
-        await supabase.from('rastreamentos').insert([{
-          cliente_id: clienteId,
-          codigo_rastreio: codigo,
-          status_atual: statusAtual,
-          historico_status: historico,
-        }]);
+        // Consulta e notifica cada código separadamente
+        const resultados = [];
+        for (const codigo of codigos) {
+          let statusAtual = 'Consultando...';
+          let historico = [];
+          let mensagemRastreio = '';
 
-        // Log atividade
-        if (clienteId) {
-          await supabase.from('atividades_log').insert([{
+          try {
+            const gollogRes = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/tracking', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'CompanyKey': process.env.GOLLOG_COMPANY_KEY || 'G3',
+                'language': 'pt-BR',
+              },
+              body: JSON.stringify({ type: 'documentnumber', value: codigo }),
+            });
+
+            if (gollogRes.ok) {
+              const gollogData = await gollogRes.json();
+              const detail = gollogData.detail?.awbInfo || {};
+              const events = gollogData.events || [];
+
+              statusAtual = detail.operationalStatusDescription || events[events.length - 1]?.status?.codeDescription || 'Em processamento';
+              historico = events.map(e => ({
+                status: e.status?.codeDescription,
+                data: e.eventDateTimeLT,
+                local: `${e.station} - ${e.status?.stationName || ''}`,
+                code: e.status?.code,
+              }));
+
+              const origem = detail.routing?.origin?.station || '?';
+              const destino = detail.routing?.destination?.station || '?';
+              const previsao = detail.expectedDeliveryDate
+                ? new Date(detail.expectedDeliveryDate).toLocaleDateString('pt-BR')
+                : 'N/A';
+
+              const ultimos = events.slice(-3).reverse().map(e =>
+                `  📌 ${e.status?.codeDescription}\n     📍 ${e.station} · ${e.eventDateTimeLT}`
+              ).join('\n\n');
+
+              mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n` +
+                `🔄 Status: *${statusAtual}*\n` +
+                `✈️ Rota: ${origem} → ${destino}\n` +
+                `📅 Previsão: ${previsao}\n` +
+                `📦 ${detail.totals?.pieces || 1} vol(s) · ${detail.totals?.weight || '?'} kg\n\n` +
+                `📋 *Últimos eventos:*\n\n${ultimos}\n\n` +
+                `🔗 Rastreio completo:\n${APP_URL}/rastreamento?doc=${codigo}`;
+            } else {
+              statusAtual = 'Não encontrado';
+              mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n❌ Documento não encontrado.\nVerifique o número e tente novamente.`;
+            }
+          } catch (_) {
+            statusAtual = 'Erro na consulta';
+            mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n⚠️ Erro temporário ao consultar. Tente novamente em instantes.`;
+          }
+
+          // Salvar rastreamento no Supabase
+          await supabase.from('rastreamentos').insert([{
             cliente_id: clienteId,
-            tipo: 'rastreamento',
-            descricao: `Rastreio ${codigo}: ${statusAtual}`,
-            canal: 'whatsapp',
+            codigo_rastreio: codigo,
+            status_atual: statusAtual,
+            historico_status: historico,
           }]);
-        }
 
-        notificar(mensagemRastreio);
+          // Log atividade
+          if (clienteId) {
+            await supabase.from('atividades_log').insert([{
+              cliente_id: clienteId,
+              tipo: 'rastreamento',
+              descricao: `Rastreio ${codigo}: ${statusAtual}`,
+              canal: 'whatsapp',
+            }]);
+          }
+
+          // Envia mensagem separada para cada código
+          notificar(mensagemRastreio);
+          resultados.push({ codigo, status: statusAtual, message: mensagemRastreio });
+        }
 
         return res.status(200).json({
           success: true,
-          codigo,
-          status: statusAtual,
-          message: mensagemRastreio,
-          custom_fields: { resposta_rastreio: mensagemRastreio }
+          rastreios_encontrados: codigos.length,
+          resultados,
+          custom_fields: {
+            precisa_humano: 'nao',
+            resposta_rastreio: resultados[0]?.message || '',
+          },
         });
       }
 
