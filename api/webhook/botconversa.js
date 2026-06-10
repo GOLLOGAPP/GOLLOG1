@@ -626,8 +626,8 @@ export default async function handler(req, res) {
   </td></tr></table>
 </body></html>`;
 
-            // CC apenas se origem diferente da base atual
-            const ccList = (emailOrigem !== emailAtual) ? [emailOrigem] : [];
+            // CC sempre para a base de origem (quando disponível)
+            const ccList = emailOrigem ? [emailOrigem] : [];
 
             // Envia via Resend
             const resendRes = await fetch('https://api.resend.com/emails', {
