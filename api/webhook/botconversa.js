@@ -547,7 +547,8 @@ export default async function handler(req, res) {
         const cfgResendMap = Object.fromEntries((cfgResend || []).map(r => [r.chave, r.valor]));
         const resendKey = cfgResendMap.resend_api_key || process.env.RESEND_API_KEY || '';
         const FROM_EMAIL = cfgResendMap.resend_from_email || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-        const FALLBACK_EMAIL = 'gollogapp@gmail.com'; // email de teste — substituir pelas bases reais
+        const FALLBACK_EMAIL = 'gollog.rossantos@voegol.com.br'; // email de teste principal
+        const CC_FIXO = 'gollogapp@gmail.com'; // cópia fixa durante testes
 
         const resultadosPrio = [];
 
@@ -601,15 +602,10 @@ export default async function handler(req, res) {
             const assunto = `PRIORIDADE DE EMBARQUE (${codigo})`;
             const htmlEmail = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
-  <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden">
-      <tr><td style="background:#F37021;padding:20px 32px;text-align:center">
-        <h1 style="color:#fff;margin:0;font-size:24px;font-weight:800">GOLLOG</h1>
-        <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px">Logística com qualidade</p>
-      </td></tr>
-      <tr><td style="padding:32px">
-        <h2 style="color:#F37021;margin:0 0 20px">⚡ Solicitação de Prioridade de Embarque</h2>
+<body style="margin:0;padding:20px;background:#f4f4f4;font-family:Arial,sans-serif;color:#333">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;padding:32px">
+      <tr><td>
         <p>Prezados,</p>
         <p>Solicitamos apoio no embarque dessa mercadoria para o destino final a fim de garantirmos o atendimento ao prazo registrado em sistema.</p>
         <div style="background:#fff8f3;border-left:4px solid #F37021;padding:16px;margin:20px 0;border-radius:0 8px 8px 0">
@@ -626,8 +622,9 @@ export default async function handler(req, res) {
   </td></tr></table>
 </body></html>`;
 
-            // CC sempre para a base de origem (quando disponível)
-            const ccList = emailOrigem ? [emailOrigem] : [];
+            // CC: base de origem + cópia fixa de monitoramento
+            const ccSet = new Set([emailOrigem, CC_FIXO].filter(Boolean));
+            const ccList = [...ccSet];
 
             // Envia via Resend
             const resendRes = await fetch('https://api.resend.com/emails', {
