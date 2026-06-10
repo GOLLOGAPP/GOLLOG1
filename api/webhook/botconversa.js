@@ -199,6 +199,7 @@ export default async function handler(req, res) {
           custom_fields: {
             precisa_humano: 'nao',
             resposta_rastreio: mensagemCompleta,
+            codigos_rastreados: codigos.join(','),
           },
         });
       }
@@ -510,6 +511,192 @@ export default async function handler(req, res) {
           codigos: listaRastreios.map(r => r.codigo_rastreio),
           message: msgAtivado,
           custom_fields: { notificacao_ativada: 'sim' },
+        });
+      }
+
+      // ─── SOLICITAR PRIORIDADE: cliente solicita embarque prioritário ───
+      case 'solicitar_prioridade': {
+        // Códigos podem vir como string separada por vírgula/espaço/linha
+        const rawCodigos = data?.codigos || data?.codigo || data?.awb || '';
+        const codigosPrioridade = [...new Set(
+          String(rawCodigos).split(/[,\s\n]+/).map(c => c.trim()).filter(c => /^\d{11}$/.test(c))
+        )];
+
+        if (codigosPrioridade.length === 0) {
+          const msgInvalido = `⚠️ Não identifiquei nenhum código de rastreio válido.\n\nPor favor, informe o número de 11 dígitos (ex: 12740370864).`;
+          notificar(msgInvalido);
+          return res.status(200).json({
+            success: false,
+            message: msgInvalido,
+            custom_fields: { resposta_prioridade: msgInvalido, prioridade_enviada: 'nao' },
+          });
+        }
+
+        // Busca cliente
+        let clienteIdPrio = null;
+        if (phone) {
+          const { data: clientePrio } = await supabase
+            .from('clientes').select('id').eq('telefone', phone).single();
+          if (clientePrio) clienteIdPrio = clientePrio.id;
+        }
+
+        // Chave Resend e email de fallback
+        const { data: cfgResend } = await supabase
+          .from('configuracoes').select('valor').eq('chave', 'resend_api_key').single();
+        const resendKey = cfgResend?.valor || process.env.RESEND_API_KEY || '';
+        const FROM_EMAIL = 'noreply@gollog.com.br';
+        const FALLBACK_EMAIL = 'gollogapp@gmail.com'; // email de teste — substituir pelas bases reais
+
+        const resultadosPrio = [];
+
+        for (const codigo of codigosPrioridade) {
+          try {
+            // Consulta API GOLLOG
+            const gRes = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/tracking', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'CompanyKey': process.env.GOLLOG_COMPANY_KEY || 'G3',
+                'language': 'pt-BR',
+              },
+              body: JSON.stringify({ type: 'documentnumber', value: codigo }),
+            });
+
+            if (!gRes.ok) {
+              resultadosPrio.push({ codigo, success: false, erro: 'Não encontrado na API GOLLOG' });
+              continue;
+            }
+
+            const gData = await gRes.json();
+            const det = gData.detail?.awbInfo || {};
+            const evts = gData.events || [];
+
+            // Identifica bases
+            const siglaOrigem = det.routing?.origin?.station || '';
+            const siglaAtual = evts.length > 0 ? evts[evts.length - 1].station : siglaOrigem;
+            const nomeDestino = det.routing?.destination?.airport || det.routing?.destination?.station || '?';
+            const siglaDestino = det.routing?.destination?.station || '?';
+
+            // Busca emails das bases no Supabase
+            let emailAtual = FALLBACK_EMAIL;
+            let emailOrigem = FALLBACK_EMAIL;
+            let nomeAtual = siglaAtual;
+            let nomeOrigem = siglaOrigem;
+
+            const siglasParaBuscar = [...new Set([siglaAtual, siglaOrigem].filter(Boolean))];
+            if (siglasParaBuscar.length > 0) {
+              const { data: bases } = await supabase
+                .from('bases_email').select('sigla, nome, email').in('sigla', siglasParaBuscar);
+              if (bases) {
+                const bAtual = bases.find(b => b.sigla === siglaAtual);
+                const bOrigem = bases.find(b => b.sigla === siglaOrigem);
+                if (bAtual) { emailAtual = bAtual.email; nomeAtual = bAtual.nome; }
+                if (bOrigem) { emailOrigem = bOrigem.email; nomeOrigem = bOrigem.nome; }
+              }
+            }
+
+            // Monta email HTML
+            const assunto = `PRIORIDADE DE EMBARQUE (${codigo})`;
+            const htmlEmail = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden">
+      <tr><td style="background:#F37021;padding:20px 32px;text-align:center">
+        <h1 style="color:#fff;margin:0;font-size:24px;font-weight:800">GOLLOG</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px">Logística com qualidade</p>
+      </td></tr>
+      <tr><td style="padding:32px">
+        <h2 style="color:#F37021;margin:0 0 20px">⚡ Solicitação de Prioridade de Embarque</h2>
+        <p>Prezados,</p>
+        <p>Solicitamos apoio no embarque dessa mercadoria para o destino final a fim de garantirmos o atendimento ao prazo registrado em sistema.</p>
+        <div style="background:#fff8f3;border-left:4px solid #F37021;padding:16px;margin:20px 0;border-radius:0 8px 8px 0">
+          <p style="margin:0;font-size:18px;font-weight:bold;color:#333">Nº do RASTREIO: ${codigo}</p>
+          <p style="margin:8px 0 0;color:#666"><strong>Base atual:</strong> ${nomeAtual} (${siglaAtual})</p>
+          <p style="margin:4px 0 0;color:#666"><strong>Destino final:</strong> ${nomeDestino} (${siglaDestino})</p>
+        </div>
+        <p>Desde já, agradeço a atenção e colaboração. Fico no aguardo do retorno.</p>
+        <p style="margin-top:32px;padding-top:16px;border-top:1px solid #eee;color:#999;font-size:12px">
+          Solicitação gerada automaticamente pelo sistema GOLLOG · ${new Date().toLocaleString('pt-BR')}
+        </p>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`;
+
+            // CC apenas se origem diferente da base atual
+            const ccList = (emailOrigem !== emailAtual) ? [emailOrigem] : [];
+
+            // Envia via Resend
+            const resendRes = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${resendKey}`,
+              },
+              body: JSON.stringify({
+                from: FROM_EMAIL,
+                to: [emailAtual],
+                cc: ccList,
+                subject: assunto,
+                html: htmlEmail,
+              }),
+            });
+
+            const enviado = resendRes.ok;
+
+            // Log atividade
+            if (clienteIdPrio) {
+              await supabase.from('atividades_log').insert([{
+                cliente_id: clienteIdPrio,
+                tipo: 'prioridade',
+                descricao: `Prioridade solicitada: ${codigo} | Base: ${nomeAtual} (${siglaAtual}) | Email: ${emailAtual}`,
+                canal: 'whatsapp',
+              }]);
+            }
+
+            resultadosPrio.push({
+              codigo,
+              success: enviado,
+              base_atual: `${nomeAtual} (${siglaAtual})`,
+              email_para: emailAtual,
+              email_cc: ccList[0] || null,
+            });
+
+          } catch (err) {
+            resultadosPrio.push({ codigo, success: false, erro: err.message });
+          }
+        }
+
+        const ok = resultadosPrio.filter(r => r.success);
+        const fail = resultadosPrio.filter(r => !r.success);
+
+        let msgPrioridade;
+        if (ok.length > 0 && fail.length === 0) {
+          msgPrioridade =
+            `✅ *Prioridade solicitada com sucesso!*\n\n` +
+            ok.map(r => `📦 *${r.codigo}*\n📍 Solicitação enviada para: ${r.base_atual}`).join('\n\n') +
+            `\n\nA equipe foi notificada e está ciente do pedido. 🚀`;
+        } else if (ok.length > 0) {
+          msgPrioridade =
+            `⚠️ *Prioridade parcialmente enviada*\n\n` +
+            `✅ Enviados: ${ok.map(r => r.codigo).join(', ')}\n` +
+            `❌ Falha: ${fail.map(r => r.codigo).join(', ')}`;
+        } else {
+          msgPrioridade = `❌ Não foi possível enviar a solicitação de prioridade. Entre em contato com nossa equipe.`;
+        }
+
+        notificar(msgPrioridade);
+
+        return res.status(200).json({
+          success: ok.length > 0,
+          emails_enviados: ok.length,
+          resultados: resultadosPrio,
+          message: msgPrioridade,
+          custom_fields: {
+            resposta_prioridade: msgPrioridade,
+            prioridade_enviada: ok.length > 0 ? 'sim' : 'nao',
+          },
         });
       }
 
