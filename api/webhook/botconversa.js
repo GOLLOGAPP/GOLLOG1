@@ -542,9 +542,11 @@ export default async function handler(req, res) {
 
         // Chave Resend e email de fallback
         const { data: cfgResend } = await supabase
-          .from('configuracoes').select('valor').eq('chave', 'resend_api_key').single();
-        const resendKey = cfgResend?.valor || process.env.RESEND_API_KEY || '';
-        const FROM_EMAIL = 'noreply@gollog.com.br';
+          .from('configuracoes').select('chave, valor')
+          .in('chave', ['resend_api_key', 'resend_from_email']);
+        const cfgResendMap = Object.fromEntries((cfgResend || []).map(r => [r.chave, r.valor]));
+        const resendKey = cfgResendMap.resend_api_key || process.env.RESEND_API_KEY || '';
+        const FROM_EMAIL = cfgResendMap.resend_from_email || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
         const FALLBACK_EMAIL = 'gollogapp@gmail.com'; // email de teste — substituir pelas bases reais
 
         const resultadosPrio = [];
