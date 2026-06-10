@@ -42,10 +42,14 @@ export default async function handler(req, res) {
       // ─── RASTREAMENTO: cliente envia texto livre pelo WhatsApp ───
       case 'rastrear': {
         // Extrai todos os códigos de 11 dígitos começando com 127 do texto livre
-        const textoLivre = data?.codigo || data?.texto || data?.message || '';
+        const textoLivre = data?.codigo || data?.texto || data?.message || data?.input || '';
+        // Também tenta capturar de campos alternativos para debug
+        const _debugPayload = { data_recebido: data, texto_usado: textoLivre };
         const codigos = [...new Set(
           (textoLivre.match(/\b127\d{8}\b/g) || []).map(c => c.toUpperCase())
         )];
+        // Log para debug
+        console.log('[RASTREAR DEBUG]', JSON.stringify({ textoLivre, codigos, dataKeys: Object.keys(data || {}) }));
 
         // Buscar cliente pelo telefone (uma vez só)
         let clienteId = null;
@@ -147,12 +151,13 @@ export default async function handler(req, res) {
             mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n⚠️ Erro temporário ao consultar. Tente novamente em instantes.`;
           }
 
-          // Salvar rastreamento no Supabase
+          // Salvar rastreamento no Supabase (incluindo telefone para facilitar busca posterior)
           await supabase.from('rastreamentos').insert([{
             cliente_id: clienteId,
             codigo_rastreio: codigo,
             status_atual: statusAtual,
             historico_status: historico,
+            telefone_notificacao: phone || null,
           }]);
 
           // Log atividade
@@ -165,20 +170,32 @@ export default async function handler(req, res) {
             }]);
           }
 
-          // Envia mensagem separada para cada código
-          notificar(mensagemRastreio);
           resultados.push({ codigo, status: statusAtual, message: mensagemRastreio });
         }
+
+        // Concatena todos os resultados em uma única mensagem separada por divisores
+        const mensagemCompleta = resultados.length === 1
+          ? resultados[0].message
+          : resultados.map((r, i) =>
+              `${i > 0 ? '\n✦──────────────────✦\n\n' : ''}${r.message}`
+            ).join('');
 
         return res.status(200).json({
           success: true,
           rastreios_encontrados: codigos.length,
-          message: resultados[0]?.message || '',
+          message: mensagemCompleta,
           precisa_humano: 'nao',
           resultados,
+          // ⚠️ CAMPOS DE DEBUG — remover após diagnóstico
+          _debug: {
+            texto_recebido: textoLivre,
+            codigos_capturados: codigos,
+            campos_recebidos: Object.keys(data || {}),
+            payload_completo: data,
+          },
           custom_fields: {
             precisa_humano: 'nao',
-            resposta_rastreio: resultados[0]?.message || '',
+            resposta_rastreio: mensagemCompleta,
           },
         });
       }
@@ -436,21 +453,18 @@ export default async function handler(req, res) {
       case 'ativar_notificacao': {
         if (!phone) return res.status(400).json({ error: 'Telefone não informado' });
 
-        // Busca o rastreamento mais recente deste telefone
-        const { data: rastreamento } = await supabase
+        // Busca todos os rastreamentos feitos por este telefone nos últimos 5 minutos
+        const cincoMinAtras = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { data: rastreamentosRecentes } = await supabase
           .from('rastreamentos')
-          .select('id, codigo_rastreio, status_atual, cliente_id')
-          .or(`telefone_notificacao.eq.${phone},cliente_id.in.(${
-            // subquery via join não suportado aqui; busca por cliente_id se existir
-            'null'
-          })`)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .select('id, codigo_rastreio, status_atual')
+          .eq('telefone_notificacao', phone)
+          .gte('created_at', cincoMinAtras)
+          .order('created_at', { ascending: false });
 
         // Fallback: busca pelo cliente_id associado ao telefone
-        let rastFinal = rastreamento;
-        if (!rastFinal) {
+        let listaRastreios = rastreamentosRecentes || [];
+        if (listaRastreios.length === 0) {
           const { data: cliente } = await supabase
             .from('clientes')
             .select('id')
@@ -462,34 +476,35 @@ export default async function handler(req, res) {
               .from('rastreamentos')
               .select('id, codigo_rastreio, status_atual')
               .eq('cliente_id', cliente.id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-            rastFinal = rastPorCliente;
+              .gte('created_at', cincoMinAtras)
+              .order('created_at', { ascending: false });
+            listaRastreios = rastPorCliente || [];
           }
         }
 
-        if (!rastFinal) {
-          const msgSemRastreio = `⚠️ Não encontrei nenhum rastreamento associado ao seu número.\n\nPor favor, consulte um código de rastreio primeiro e depois ative as notificações.`;
+        if (listaRastreios.length === 0) {
+          const msgSemRastreio = `⚠️ Não encontrei nenhum rastreamento recente associado ao seu número.\n\nPor favor, consulte um código de rastreio primeiro e depois ative as notificações.`;
           notificar(msgSemRastreio);
           return res.status(200).json({ success: false, message: msgSemRastreio });
         }
 
-        // Ativa notificação e salva telefone no registro
+        // Ativa notificação para TODOS os rastreios da sessão atual
+        const ids = listaRastreios.map(r => r.id);
         await supabase
           .from('rastreamentos')
           .update({
             notificar_atualizacoes: true,
             telefone_notificacao: phone,
           })
-          .eq('id', rastFinal.id);
+          .in('id', ids);
 
-        const msgAtivado = `✅ *Notificações ativadas!*\n\n📦 Código: *${rastFinal.codigo_rastreio}*\n🔄 Status atual: *${rastFinal.status_atual}*\n\nVocê receberá uma mensagem automática aqui no WhatsApp sempre que houver uma atualização no status da sua encomenda. 🔔`;
+        const codigos = listaRastreios.map(r => `*${r.codigo_rastreio}*`).join(', ');
+        const msgAtivado = `✅ *Notificações ativadas!*\n\n📦 Código(s): ${codigos}\n\nVocê receberá uma mensagem automática aqui no WhatsApp sempre que houver uma atualização no status da sua encomenda. 🔔`;
         notificar(msgAtivado);
 
         return res.status(200).json({
           success: true,
-          codigo: rastFinal.codigo_rastreio,
+          codigos: listaRastreios.map(r => r.codigo_rastreio),
           message: msgAtivado,
           custom_fields: { notificacao_ativada: 'sim' },
         });
