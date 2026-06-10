@@ -117,9 +117,12 @@ export default async function handler(req, res) {
               const detail = gollogData.detail?.awbInfo || {};
               const events = gollogData.events || [];
 
-              statusAtual = detail.operationalStatusDescription || events[events.length - 1]?.status?.codeDescription || 'Em processamento';
+              statusAtual = detail.operationalStatusDescription
+                || events[events.length - 1]?.status?.codeDescription
+                || events[events.length - 1]?.status?.code
+                || 'Em processamento';
               historico = events.map(e => ({
-                status: e.status?.codeDescription,
+                status: e.status?.codeDescription || e.status?.code || 'Atualização de status',
                 data: e.eventDateTimeLT,
                 local: `${e.station} - ${e.status?.stationName || ''}`,
                 code: e.status?.code,
@@ -132,7 +135,7 @@ export default async function handler(req, res) {
                 : 'N/A';
 
               const ultimos = events.slice(-3).reverse().map(e =>
-                `  📌 ${e.status?.codeDescription}\n     📍 ${e.station} · ${e.eventDateTimeLT}`
+                `  📌 ${e.status?.codeDescription || e.status?.code || 'Atualização'}\n     📍 ${e.station} · ${e.eventDateTimeLT}`
               ).join('\n\n');
 
               mensagemRastreio = `📦 *Rastreio ${codigo}*\n\n` +
