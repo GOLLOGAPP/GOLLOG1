@@ -644,6 +644,10 @@ export default async function handler(req, res) {
             });
 
             const enviado = resendRes.ok;
+            let resendErro = null;
+            if (!enviado) {
+              try { resendErro = await resendRes.json(); } catch { resendErro = { status: resendRes.status }; }
+            }
 
             // Log atividade
             if (clienteIdPrio) {
@@ -658,6 +662,7 @@ export default async function handler(req, res) {
             resultadosPrio.push({
               codigo,
               success: enviado,
+              _resend_erro: resendErro,
               base_atual: `${nomeAtual} (${siglaAtual})`,
               email_para: emailAtual,
               email_cc: ccList[0] || null,
