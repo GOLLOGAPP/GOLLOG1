@@ -80,7 +80,7 @@ INSERT INTO bases_email (sigla, nome, email) VALUES
   ('QBR', 'São Paulo',                         'qbrfk@voegol.com.br'),
   ('QBX', 'Barueri',                           'qbxfk@voegol.com.br'),
   ('QCC', 'Santa Cruz do Capibaribe',          'qccfk@voegol.com.br'),
-  ('QCH', 'São Paulo',                         NULL),
+
   ('QCS', 'São Caetano do Sul',                'qcsfk@voegol.com.br'),
   ('QDI', 'Uberlândia',                        'qdifk@voegol.com.br'),
   ('QDM', 'Diadema',                           'qdmfk@voegol.com.br'),
