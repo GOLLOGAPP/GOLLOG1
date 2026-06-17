@@ -59,8 +59,7 @@ INSERT INTO bases_email (sigla, nome, email) VALUES
   ('MCP', 'Macapá',                            'mcpfk@voegol.com.br'),
   ('MCZ', 'Rio Largo',                         'mczfk@voegol.com.br'),
   ('MGF', 'Maringa',                           'mgffk@voegol.com.br'),
-  -- MII: e-mail conforme planilha (verificar se é mlifk ou miifk)
-  ('MII', 'Marilia',                           'mlifk@voegol.com.br'),
+  ('MII', 'Marilia',                           'miifk@voegol.com.br'),
   ('MOC', 'Montes Claros',                     'mocfk@voegol.com.br'),
   ('NAT', 'Natal - São Gonçalo Do Amarante',   'natfk@voegol.com.br'),
   ('NSA', 'Nova Serrana',                      'nsafk@voegol.com.br'),
@@ -72,8 +71,7 @@ INSERT INTO bases_email (sigla, nome, email) VALUES
   ('PMW', 'Palmas',                            'pmwfk@voegol.com.br'),
   ('PNZ', 'Petrolina',                         'pnzfk@voegol.com.br'),
   ('POA', 'Porto Alegre',                      'poafk@voegol.com.br'),
-  -- PPB: planilha mostra @vogol.com.br (possível erro de digitação — verificar)
-  ('PPB', 'Presidente Prudente',               'ppbfk@vogol.com.br'),
+  ('PPB', 'Presidente Prudente',               'ppfk@voegol.com.br'),
   ('PTS', 'Petrópolis',                        'ptsfk@voegol.com.br'),
   ('PVH', 'Porto Velho',                       'pvhfk@voegol.com.br'),
   ('QAT', 'Atibaia',                           'qatfk@voegol.com.br'),
@@ -130,8 +128,7 @@ INSERT INTO bases_email (sigla, nome, email) VALUES
   ('VAG', 'Varginha',                          'vagfk@voegol.com.br'),
   ('VCP', 'Campinas',                          'vcpfk@voegol.com.br'),
   ('VDC', 'Vitória da Conquista',              'vdcfk@voegol.com.br'),
-  -- VGP: planilha mostra vglfk (verificar se é vgpfk ou vglfk)
-  ('VGP', 'São Paulo (Campos Elíseos)',         'vglfk@voegol.com.br'),
+  ('VGP', 'São Paulo (Campos Elíseos)',         'vgpfk@voegol.com.br'),
   ('VIX', 'Vitória',                           'vixfk@voegol.com.br'),
   ('VJD', 'São Paulo (Santo Amaro)',            'vjdfk@voegol.com.br'),
   ('VNH', 'Vinhedo',                           'vnhfk@voegol.com.br'),
