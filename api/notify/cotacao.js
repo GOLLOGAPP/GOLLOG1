@@ -44,32 +44,50 @@ async function bcTriggerFlow(phone, flowId, apiKey) {
 }
 
 function formatarCotacao(c, idx, total) {
-  const destino = c.local_entrega_tipo === 'aeroporto'
-    ? `✈️ Retirada no aeroporto (${c.estado_aeroporto})`
-    : c.cidade_destino || c.cep_destino || 'Destino não informado';
+  const volumes = c.volumes || [];
+  const totalPeso = volumes.reduce((s, v) => s + (parseFloat(v.peso_kg) || 0), 0);
 
-  const medidas = (c.comprimento_cm && c.altura_cm && c.largura_cm)
-    ? `📐 ${c.comprimento_cm}cm × ${c.altura_cm}cm × ${c.largura_cm}cm`
-    : '';
+  let destinoLine;
+  if (c.local_entrega_tipo === 'aeroporto') {
+    destinoLine = `✈️ Retirada: ${c.aeroporto_sigla} — ${c.aeroporto_cidade}`;
+  } else {
+    const cidade = c.cidade_destino ? `${c.cidade_destino}` : '';
+    const cep = c.cep_destino ? `CEP ${c.cep_destino}` : '';
+    destinoLine = `📍 Destino: ${[cidade, cep].filter(Boolean).join(' — ') || 'Não informado'}`;
+  }
+
+  const volumeLines = volumes.length > 1
+    ? volumes.map((v, i) =>
+        `  Vol.${i + 1}: ${v.comprimento_cm || '?'}×${v.altura_cm || '?'}×${v.largura_cm || '?'} cm | ${v.peso_kg || '?'} kg`
+      )
+    : volumes.length === 1 && (volumes[0].comprimento_cm || volumes[0].peso_kg)
+      ? [`📐 ${volumes[0].comprimento_cm}×${volumes[0].altura_cm}×${volumes[0].largura_cm} cm`]
+      : [];
 
   return [
     total > 1 ? `*Cotação ${idx + 1}/${total}*` : `*Dados da Cotação*`,
     `🚀 Serviço: ${c.tipo_servico}`,
     `💳 Pagamento: ${c.modalidade_pagamento}`,
-    `📍 Destino: ${destino}`,
+    destinoLine,
     `🛡️ Seguro: ${c.seguro}`,
     c.descricao_carga ? `📋 Carga: ${c.descricao_carga}` : '',
     c.valor_nota ? `🧾 Valor NF: R$ ${parseFloat(c.valor_nota).toFixed(2)}` : '',
-    medidas,
-    c.peso_kg ? `⚖️ Peso: ${c.peso_kg}kg` : '',
+    volumes.length > 1 ? `📦 ${volumes.length} volumes:` : '',
+    ...volumeLines,
+    totalPeso > 0 ? `⚖️ Peso total: ${totalPeso} kg` : '',
   ].filter(Boolean).join('\n');
 }
 
 function buildResumo(globalData, cotacoes) {
-  const { unidade = '', com_coleta } = globalData || {};
+  const { unidade = '', com_coleta, cep_origem, cidade_origem } = globalData || {};
   const coletaStr = com_coleta ? '🚚 Com coleta' : '🏢 Sem coleta';
   const total = cotacoes.length;
-  const header = [`🏢 Unidade: ${unidade}`, coletaStr].join('\n');
+
+  const origemStr = com_coleta && (cidade_origem || cep_origem)
+    ? `📦 Origem: ${[cidade_origem, cep_origem ? `CEP ${cep_origem}` : ''].filter(Boolean).join(' — ')}`
+    : '';
+
+  const header = [`🏢 Unidade: ${unidade}`, coletaStr, origemStr].filter(Boolean).join('\n');
   const corpo = cotacoes
     .map((c, idx) => formatarCotacao(c, idx, total))
     .join('\n\n─────────────\n\n');
