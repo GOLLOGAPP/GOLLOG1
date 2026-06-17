@@ -1,11 +1,34 @@
-import { createClient } from '@supabase/supabase-js';
+import { sendWhatsApp } from '../_lib/notify.js';
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || 'https://bkljbfqvlepmmwwylfdv.supabase.co',
-  process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
-);
+function formatarCotacao(c, idx, total) {
+  const destino = c.local_entrega_tipo === 'aeroporto'
+    ? `✈️ Retirada no aeroporto (${c.estado_aeroporto})`
+    : c.cidade_destino || c.cep_destino || 'Destino não informado';
 
-// Envia mensagem de volta para o BotConversa após cotação ser gerada no site
+  const medidas = [c.comprimento_cm, c.altura_cm, c.largura_cm]
+    .map(v => parseFloat(v) || 0)
+    .filter(v => v > 0);
+  const medidasStr = medidas.length === 3
+    ? `📐 ${c.comprimento_cm}cm × ${c.altura_cm}cm × ${c.largura_cm}cm`
+    : '';
+
+  const pesoStr = c.peso_kg ? `⚖️ Peso: ${c.peso_kg}kg` : '';
+
+  const lines = [
+    total > 1 ? `*📦 Cotação ${idx + 1}/${total}*` : `*📦 Dados da Cotação*`,
+    `🚀 Serviço: ${c.tipo_servico}`,
+    `💳 Pagamento: ${c.modalidade_pagamento}`,
+    `📍 Destino: ${destino}`,
+    `🛡️ Seguro: ${c.seguro}`,
+    c.descricao_carga ? `📋 Carga: ${c.descricao_carga}` : '',
+    c.valor_nota ? `🧾 Valor NF: R$ ${parseFloat(c.valor_nota).toFixed(2)}` : '',
+    medidasStr,
+    pesoStr,
+  ].filter(Boolean);
+
+  return lines.join('\n');
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -15,67 +38,34 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { phone, cotacao } = req.body;
+    const { phone, global: globalData, cotacoes } = req.body;
 
-    if (!phone || !cotacao) {
-      return res.status(400).json({ error: 'Phone e cotacao são obrigatórios' });
+    if (!phone || !cotacoes?.length) {
+      return res.status(400).json({ error: 'phone e cotacoes são obrigatórios' });
     }
 
-    // Buscar configuração do BotConversa no banco
-    const { data: configWebhook } = await supabase
-      .from('configuracoes')
-      .select('valor')
-      .eq('chave', 'botconversa_webhook_url')
-      .single();
+    const { unidade = '', com_coleta } = globalData || {};
+    const coletaStr = com_coleta ? '🚚 Com coleta' : '🏢 Sem coleta (cliente entrega na base)';
+    const total = cotacoes.length;
 
-    const { data: configKey } = await supabase
-      .from('configuracoes')
-      .select('valor')
-      .eq('chave', 'botconversa_api_key')
-      .single();
+    const header = [
+      `📬 *Nova Solicitação de Cotação*`,
+      `🏢 Unidade: ${unidade}`,
+      `${coletaStr}`,
+    ].join('\n');
 
-    const webhookUrl = configWebhook?.valor;
-    const apiKey = configKey?.valor;
+    const corposCotacoes = cotacoes.map((c, idx) => formatarCotacao(c, idx, total)).join('\n\n─────────────\n\n');
 
-    // Montar mensagem formatada
-    const mensagem = `💰 *Cotação GOLLOG*\n\n📍 Origem: ${cotacao.cidade_origem || cotacao.cep_origem}\n📍 Destino: ${cotacao.cidade_destino || cotacao.cep_destino}\n📦 Peso: ${cotacao.peso_kg}kg\n🚀 Serviço: GOLLOG ${cotacao.tipo_servico}\n\n💲 *Valor Estimado: R$ ${cotacao.valor}*\n⏱ Prazo: ${cotacao.prazo}\n\n_* Valores sujeitos à confirmação na unidade._`;
+    const footer = `_Nossa equipe entrará em contato com os valores em breve._`;
 
-    let botconversaResponse = null;
+    const mensagem = `${header}\n\n${corposCotacoes}\n\n${footer}`;
 
-    // Se o webhook do BotConversa está configurado, envia a mensagem
-    if (webhookUrl && apiKey) {
-      try {
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'API-KEY': apiKey,
-          },
-          body: JSON.stringify({
-            phone: phone,
-            custom_fields: {
-              resposta_cotacao: mensagem,
-              valor_cotacao: cotacao.valor,
-              prazo_cotacao: cotacao.prazo,
-              servico_cotacao: cotacao.tipo_servico,
-            },
-          }),
-        });
-        botconversaResponse = await response.json().catch(() => null);
-      } catch (err) {
-        console.error('Erro ao enviar para BotConversa:', err);
-      }
-    }
+    const sent = await sendWhatsApp(phone, mensagem);
 
-    return res.status(200).json({
-      success: true,
-      message: mensagem,
-      botconversa_sent: !!webhookUrl,
-      botconversa_response: botconversaResponse,
-    });
+    return res.status(200).json({ success: true, sent, total });
 
   } catch (error) {
-    console.error('Notify error:', error);
+    console.error('Notify cotacao error:', error);
     return res.status(500).json({ error: 'Erro interno', details: error.message });
   }
 }

@@ -1,216 +1,190 @@
-import { useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { fetchCep, formatCep } from '../../lib/cep';
-import { FiMapPin, FiBox, FiCheck, FiLoader, FiTrash2, FiPlus } from 'react-icons/fi';
+import { FiBox, FiCheck, FiLoader, FiTrash2, FiPlus } from 'react-icons/fi';
 
-const calcValor = (form) => {
-  const peso = parseFloat(form.peso_kg) || 1;
-  const cubagem = ((parseFloat(form.altura_cm) || 10) * (parseFloat(form.largura_cm) || 10) * (parseFloat(form.comprimento_cm) || 10)) / 6000;
-  const pesoFinal = Math.max(peso, cubagem);
-  const basePrice = form.tipo_servico === 'Rápido' ? 15 : form.tipo_servico === 'Urgente' ? 25 : 8;
-  return (pesoFinal * basePrice + 18).toFixed(2);
+const ESTADOS_BR = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+
+const EMPTY_COTACAO = {
+  tipo_servico: 'Rápido',
+  modalidade_pagamento: 'À vista',
+  local_entrega_tipo: 'domicilio',
+  estado_aeroporto: '',
+  cep_destino: '',
+  cidade_destino: '',
+  seguro: 'Sem Seguro',
+  descricao_carga: '',
+  valor_nota: '',
+  comprimento_cm: '',
+  altura_cm: '',
+  largura_cm: '',
+  peso_kg: '',
 };
 
-const calcPrazo = (tipo) =>
-  tipo === 'Rápido' ? '1-2 dias úteis' : tipo === 'Urgente' ? '1 dia útil' : '3-7 dias úteis';
-
-const EMPTY_DIMS = { cep_origem: '', cidade_origem: '', cep_destino: '', cidade_destino: '', peso_kg: '', altura_cm: '', largura_cm: '', comprimento_cm: '', tipo_servico: 'Rápido' };
-
-const CepInput = ({ label, value, onChange, loading: isLoading }) => (
-  <div className="form-group" style={{ marginBottom: 0, position: 'relative' }}>
-    <label className="form-label" style={{ color: '#374151' }}>{label}</label>
-    <div style={{ position: 'relative' }}>
-      <input className="public-input" required placeholder="00000-000" maxLength={9}
-        value={value} onChange={e => onChange(e.target.value)}
-        style={{ paddingRight: isLoading ? 36 : undefined }} />
-      {isLoading && (
-        <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#F37021' }}>
-          <FiLoader size={16} className="spin" />
-        </div>
-      )}
+function ToggleGroup({ options, value, onChange, wrap = false }) {
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: wrap ? 'wrap' : 'nowrap' }}>
+      {options.map(opt => {
+        const val = opt.val ?? opt;
+        const label = opt.label ?? opt;
+        const selected = value === val;
+        return (
+          <button key={val} type="button" onClick={() => onChange(val)}
+            style={{
+              flex: wrap ? undefined : 1,
+              padding: '10px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', border: '1.5px solid', transition: 'all 0.15s',
+              textAlign: 'center', lineHeight: 1.3,
+              borderColor: selected ? '#F37021' : '#E5E7EB',
+              background: selected ? '#FFF3E0' : '#fff',
+              color: selected ? '#F37021' : '#6B7280',
+            }}>
+            {label}
+          </button>
+        );
+      })}
     </div>
-  </div>
-);
+  );
+}
 
 export default function CotacaoPage() {
-  const { clienteId } = useParams();
   const [searchParams] = useSearchParams();
   const phoneFromUrl = searchParams.get('phone') || '';
 
+  const [globalForm, setGlobalForm] = useState({ telefone: '', unidade: 'Osasco', com_coleta: true });
+  const [clienteId, setClienteId] = useState(null);
+  const [telefoneFound, setTelefoneFound] = useState(false);
+  const [telefoneLoading, setTelefoneLoading] = useState(false);
+
+  const [cotacoes, setCotacoes] = useState([]);
+  const [current, setCurrent] = useState({ ...EMPTY_COTACAO });
+  const [cepLoading, setCepLoading] = useState(false);
+  const [showDupDialog, setShowDupDialog] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [cepLoading, setCepLoading] = useState({ origem: false, destino: false });
-  const [lastResult, setLastResult] = useState(null);
-  const [items, setItems] = useState([]);
   const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({
-    telefone: phoneFromUrl ? phoneFromUrl.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3') : '',
-    unidade: 'Osasco',
-    ...EMPTY_DIMS,
-  });
 
-  const handleChange = (f, v) => setForm(p => ({ ...p, [f]: v }));
+  useEffect(() => {
+    if (phoneFromUrl) lookupPhone(phoneFromUrl);
+  }, [phoneFromUrl]);
 
-  const handleCepOrigem = async (value) => {
-    const formatted = formatCep(value);
-    handleChange('cep_origem', formatted);
-    if (formatted.replace(/\D/g, '').length === 8) {
-      setCepLoading(p => ({ ...p, origem: true }));
-      const res = await fetchCep(formatted);
-      if (res) handleChange('cidade_origem', `${res.cidade}/${res.estado}`);
-      setCepLoading(p => ({ ...p, origem: false }));
+  const lookupPhone = async (phone) => {
+    setTelefoneLoading(true);
+    const clean = phone.replace(/\D/g, '');
+    const formatted = clean.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
+    try {
+      const { data: cli } = await supabase
+        .from('clientes').select('id')
+        .or(`telefone.eq.${formatted},telefone.eq.${clean},telefone.eq.55${clean}`)
+        .maybeSingle();
+      if (cli) {
+        setClienteId(cli.id);
+        setTelefoneFound(true);
+      }
+      setGlobalForm(p => ({ ...p, telefone: formatted || clean }));
+    } catch (_) {
+      setGlobalForm(p => ({ ...p, telefone: '' }));
+    } finally {
+      setTelefoneLoading(false);
     }
   };
 
-  const handleCepDestino = async (value) => {
-    const formatted = formatCep(value);
-    handleChange('cep_destino', formatted);
-    if (formatted.replace(/\D/g, '').length === 8) {
-      setCepLoading(p => ({ ...p, destino: true }));
-      const res = await fetchCep(formatted);
-      if (res) handleChange('cidade_destino', `${res.cidade}/${res.estado}`);
-      setCepLoading(p => ({ ...p, destino: false }));
+  const handleCepChange = async (value) => {
+    const fmt = formatCep(value);
+    setCurrent(p => ({ ...p, cep_destino: fmt, cidade_destino: '' }));
+    if (fmt.replace(/\D/g, '').length === 8) {
+      setCepLoading(true);
+      const res = await fetchCep(fmt);
+      if (res) setCurrent(p => ({ ...p, cidade_destino: `${res.cidade}/${res.estado}` }));
+      setCepLoading(false);
     }
+  };
+
+  const handleAddOutra = () => {
+    setCotacoes(prev => [...prev, { ...current }]);
+    setShowDupDialog(true);
+  };
+
+  const handleDuplicate = (dup) => {
+    setShowDupDialog(false);
+    if (dup) {
+      setCurrent(p => ({
+        ...p,
+        descricao_carga: '', valor_nota: '',
+        comprimento_cm: '', altura_cm: '', largura_cm: '', peso_kg: '',
+        cep_destino: '', cidade_destino: '', estado_aeroporto: '',
+      }));
+    } else {
+      setCurrent({ ...EMPTY_COTACAO });
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    const all = [...cotacoes, { ...current }];
     try {
-      let resolvedClienteId = clienteId || null;
-      if (!resolvedClienteId && form.telefone) {
-        const cleanPhone = form.telefone.replace(/\D/g, '');
-        const { data: cliente } = await supabase
-          .from('clientes').select('id')
-          .or(`telefone.eq.${form.telefone},telefone.eq.${cleanPhone}`)
-          .single();
-        if (cliente) resolvedClienteId = cliente.id;
-      }
+      const inserts = all.map(c => ({
+        cliente_id: clienteId || null,
+        cep_destino: c.cep_destino || null,
+        cidade_destino: c.cidade_destino || null,
+        peso_kg: parseFloat(c.peso_kg) || null,
+        altura_cm: parseFloat(c.altura_cm) || null,
+        largura_cm: parseFloat(c.largura_cm) || null,
+        comprimento_cm: parseFloat(c.comprimento_cm) || null,
+        tipo_servico: c.tipo_servico,
+        status: 'pendente',
+        unidade: globalForm.unidade,
+        valor_cotado: 0,
+        metadata: {
+          modalidade_pagamento: c.modalidade_pagamento,
+          local_entrega_tipo: c.local_entrega_tipo,
+          estado_aeroporto: c.estado_aeroporto || null,
+          seguro: c.seguro,
+          descricao_carga: c.descricao_carga,
+          valor_nota: c.valor_nota,
+          com_coleta: globalForm.com_coleta,
+        },
+      }));
 
-      const valorEstimado = calcValor(form);
-      const prazo = calcPrazo(form.tipo_servico);
+      await supabase.from('cotacoes').insert(inserts);
 
-      const { data, error } = await supabase.from('cotacoes').insert([{
-        cliente_id: resolvedClienteId,
-        cep_origem: form.cep_origem, cep_destino: form.cep_destino,
-        cidade_origem: form.cidade_origem, cidade_destino: form.cidade_destino,
-        peso_kg: parseFloat(form.peso_kg) || 0,
-        altura_cm: parseFloat(form.altura_cm) || 0,
-        largura_cm: parseFloat(form.largura_cm) || 0,
-        comprimento_cm: parseFloat(form.comprimento_cm) || 0,
-        tipo_servico: form.tipo_servico, status: 'pendente',
-        unidade: form.unidade, valor_cotado: parseFloat(valorEstimado),
-      }]).select();
-
-      if (error) throw error;
-
-      if (resolvedClienteId) {
-        await supabase.from('atividades_log').insert([{
-          cliente_id: resolvedClienteId, tipo: 'cotacao',
-          descricao: `Cotação: ${form.cidade_origem || form.cep_origem} → ${form.cidade_destino || form.cep_destino} (${form.peso_kg}kg)`,
-          canal: 'whatsapp',
-        }]);
-      }
-
-      setLastResult({
-        id: data?.[0]?.id,
-        origem: form.cidade_origem || form.cep_origem,
-        destino: form.cidade_destino || form.cep_destino,
-        peso: form.peso_kg,
-        servico: form.tipo_servico,
-        valor: valorEstimado,
-        prazo,
-      });
-    } catch (err) {
-      alert('Erro ao gerar cotação: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAddMore = () => {
-    if (lastResult) setItems(prev => [...prev, lastResult]);
-    setLastResult(null);
-    setForm(prev => ({ ...prev, ...EMPTY_DIMS }));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleRemoveItem = (idx) => setItems(prev => prev.filter((_, i) => i !== idx));
-
-  const handleSendAll = async () => {
-    const allItems = lastResult ? [...items, lastResult] : items;
-    if (!allItems.length) return;
-    setLoading(true);
-    try {
-      const ids = allItems.filter(i => i.id).map(i => i.id);
-      if (ids.length) await supabase.from('cotacoes').update({ status: 'enviada' }).in('id', ids);
-
-      const cleanPhone = form.telefone.replace(/\D/g, '');
+      const cleanPhone = globalForm.telefone.replace(/\D/g, '');
       if (cleanPhone) {
-        const total = allItems.reduce((acc, i) => acc + parseFloat(i.valor), 0);
-        try {
-          await fetch('/api/notify/cotacao', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: cleanPhone, cotacoes: allItems, total: total.toFixed(2), multi: true }),
-          });
-        } catch (_) {}
+        await fetch('/api/notify/cotacao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: cleanPhone,
+            global: { unidade: globalForm.unidade, com_coleta: globalForm.com_coleta },
+            cotacoes: all,
+          }),
+        });
       }
 
-      setItems(allItems);
-      setLastResult(null);
       setSubmitted(true);
     } catch (err) {
-      alert('Erro ao enviar cotação: ' + err.message);
+      alert('Erro ao enviar: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Success screen ──────────────────────────────────────────────────────────
   if (submitted) {
-    const total = items.reduce((acc, i) => acc + parseFloat(i.valor), 0);
+    const total = cotacoes.length + 1;
     return (
       <div className="public-page">
         <header className="public-header"><img src="/logo.png" alt="GOLLOG" /></header>
         <div className="public-container">
-          <div className="public-card">
-            <div style={{ textAlign: 'center', marginBottom: 24 }}>
-              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,200,83,0.12)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '0 auto 16px', color: '#00C853', fontSize: 28 }}><FiCheck /></div>
-              <h2 style={{ marginBottom: 4 }}>Cotação Enviada!</h2>
-              <p className="subtitle">Resumo completo enviado ao seu WhatsApp 📱</p>
-            </div>
-
-            <div style={{ background: '#F9FAFB', borderRadius: 12, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-              <div style={{ padding: '12px 20px', background: '#1A1A1A', color: '#fff', fontSize: 13, fontWeight: 600 }}>
-                {items.length} {items.length === 1 ? 'Pacote Cotado' : 'Pacotes Cotados'}
-              </div>
-              <div style={{ padding: '8px 20px' }}>
-                {items.map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '12px 0', borderBottom: idx < items.length - 1 ? '1px solid #E5E7EB' : 'none' }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A' }}>
-                        #{idx + 1} — {item.origem} → {item.destino}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
-                        {item.peso}kg · GOLLOG {item.servico} · {item.prazo}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#F37021' }}>R$ {item.valor}</div>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '16px 0 8px', borderTop: '2px solid #1A1A1A', marginTop: 4 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1A1A' }}>TOTAL GERAL</div>
-                  <div style={{ fontSize: 30, fontWeight: 800, color: '#F37021' }}>R$ {total.toFixed(2)}</div>
-                </div>
-              </div>
-            </div>
-
-            <p style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginTop: 16 }}>
-              * Valores estimados sujeitos à confirmação. Nossa equipe entrará em contato em breve!
+          <div className="public-card" style={{ textAlign: 'center' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,200,83,0.12)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px', color: '#00C853', fontSize: 28 }}><FiCheck /></div>
+            <h2 style={{ marginBottom: 8 }}>Solicitação Enviada!</h2>
+            <p className="subtitle">
+              Recebemos {total} {total === 1 ? 'cotação' : 'cotações'}.<br />
+              Nossa equipe entrará em contato pelo WhatsApp com os valores. 📱
             </p>
           </div>
           <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#9CA3AF' }}>© 2026 LOGPROFIT · Todos os direitos reservados</p>
@@ -219,207 +193,270 @@ export default function CotacaoPage() {
     );
   }
 
-  const itemNum = items.length + 1;
+  const cotacaoNum = cotacoes.length + 1;
 
-  // ── Main form ───────────────────────────────────────────────────────────────
   return (
     <div className="public-page">
       <header className="public-header">
         <img src="/logo.png" alt="GOLLOG" />
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#4A4A4A' }}>Cotação de Envio</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#4A4A4A' }}>Solicitar Cotação</span>
       </header>
       <div className="public-container">
 
-        {/* Accumulated items panel */}
-        {items.length > 0 && (
-          <div style={{ background: '#fff', borderRadius: 12, padding: 16, marginBottom: 16,
-            border: '1px solid #E5E7EB', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A', marginBottom: 10 }}>
-              📦 Pacotes adicionados ({items.length})
-            </div>
-            {items.map((item, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12,
-                padding: '8px 0', borderBottom: idx < items.length - 1 ? '1px solid #F3F4F6' : 'none' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
-                    #{idx + 1}  {item.origem} → {item.destino}
-                  </div>
-                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>
-                    {item.peso}kg · GOLLOG {item.servico} · {item.prazo}
-                  </div>
-                </div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: '#F37021', whiteSpace: 'nowrap' }}>
-                  R$ {item.valor}
-                </div>
-                <button type="button" onClick={() => handleRemoveItem(idx)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D1D5DB', padding: 4, lineHeight: 0 }}>
-                  <FiTrash2 size={14} />
+        {/* Dialog duplicar */}
+        {showDupDialog && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 340, width: '100%' }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Nova cotação #{cotacaoNum}</h3>
+              <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 20px' }}>
+                Deseja duplicar os dados da cotação anterior?
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" onClick={() => handleDuplicate(false)}
+                  style={{ flex: 1, padding: 12, borderRadius: 8, border: '1.5px solid #E5E7EB',
+                    background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>
+                  Não, novo
                 </button>
-              </div>
-            ))}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              marginTop: 12, paddingTop: 12, borderTop: '1.5px solid #1A1A1A' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
-                Subtotal ({items.length} {items.length === 1 ? 'pacote' : 'pacotes'})
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#F37021' }}>
-                R$ {items.reduce((acc, i) => acc + parseFloat(i.valor), 0).toFixed(2)}
+                <button type="button" onClick={() => handleDuplicate(true)}
+                  style={{ flex: 1, padding: 12, borderRadius: 8, border: 'none',
+                    background: '#F37021', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                  Sim, duplicar
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        <div className="public-card">
-          {items.length > 0 && (
-            <div style={{ background: '#FFF3E0', borderRadius: 8, padding: '10px 14px', marginBottom: 16,
-              fontSize: 13, color: '#E65100', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <FiPlus size={14} /> Adicionando pacote #{itemNum}
+        {/* Lista de cotações adicionadas */}
+        {cotacoes.length > 0 && (
+          <div style={{ background: '#fff', borderRadius: 12, padding: 16, marginBottom: 16, border: '1px solid #E5E7EB' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1A1A1A', marginBottom: 10 }}>
+              ✅ {cotacoes.length} {cotacoes.length === 1 ? 'cotação adicionada' : 'cotações adicionadas'}
             </div>
-          )}
-
-          <h2 style={{ marginBottom: items.length === 0 ? undefined : 4 }}>
-            {items.length === 0 ? 'Calcular Envio' : `Pacote #${itemNum}`}
-          </h2>
-          {items.length === 0 && <p className="subtitle">Preencha os dados para receber a cotação do seu envio.</p>}
-
-          <form onSubmit={handleSubmit}>
-            {items.length === 0 && (
-              <div className="form-group">
-                <label className="form-label" style={{ color: '#374151' }}>📱 Seu Telefone (WhatsApp) *</label>
-                <input className="public-input" required placeholder="(11) 99999-9999"
-                  value={form.telefone} onChange={e => handleChange('telefone', e.target.value)} />
-                <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>O resultado também será enviado no seu WhatsApp</div>
-              </div>
-            )}
-
-            <div style={{ background: '#F9FAFB', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12,
-                display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FiMapPin size={14} color="#F37021" /> Origem e Destino
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <CepInput label="CEP Origem *" value={form.cep_origem} onChange={handleCepOrigem} loading={cepLoading.origem} />
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: '#374151' }}>Cidade Origem</label>
-                  <input className="public-input" placeholder="São Paulo/SP" value={form.cidade_origem}
-                    onChange={e => handleChange('cidade_origem', e.target.value)}
-                    style={{ background: form.cidade_origem ? '#E8F5E9' : undefined }} />
-                </div>
-                <CepInput label="CEP Destino *" value={form.cep_destino} onChange={handleCepDestino} loading={cepLoading.destino} />
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label" style={{ color: '#374151' }}>Cidade Destino</label>
-                  <input className="public-input" placeholder="Curitiba/PR" value={form.cidade_destino}
-                    onChange={e => handleChange('cidade_destino', e.target.value)}
-                    style={{ background: form.cidade_destino ? '#E8F5E9' : undefined }} />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ background: '#F9FAFB', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12,
-                display: 'flex', alignItems: 'center', gap: 6 }}>
-                <FiBox size={14} color="#F37021" /> Dimensões do Pacote
-              </div>
-              <div className="form-group">
-                <label className="form-label" style={{ color: '#374151' }}>Peso (kg) *</label>
-                <input className="public-input" type="number" step="0.1" required placeholder="Ex: 5.0"
-                  value={form.peso_kg} onChange={e => handleChange('peso_kg', e.target.value)} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                {[['altura_cm', 'Altura (cm)', '30'], ['largura_cm', 'Largura (cm)', '20'], ['comprimento_cm', 'Comprimento (cm)', '40']].map(([field, label, placeholder]) => (
-                  <div key={field} className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ color: '#374151' }}>{label}</label>
-                    <input className="public-input" type="number" placeholder={placeholder}
-                      value={form[field]} onChange={e => handleChange(field, e.target.value)} />
+            {cotacoes.map((c, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10,
+                padding: '8px 0', borderBottom: idx < cotacoes.length - 1 ? '1px solid #F3F4F6' : 'none' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                    #{idx + 1} — {c.local_entrega_tipo === 'aeroporto'
+                      ? `Retirada Aeroporto / ${c.estado_aeroporto}`
+                      : c.cidade_destino || c.cep_destino || 'Destino não informado'}
                   </div>
-                ))}
+                  <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>
+                    {c.tipo_servico} · {c.modalidade_pagamento} · Seguro: {c.seguro}
+                    {c.peso_kg ? ` · ${c.peso_kg}kg` : ''}
+                  </div>
+                </div>
+                <button type="button" onClick={() => setCotacoes(p => p.filter((_, i) => i !== idx))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D1D5DB', padding: 4 }}>
+                  <FiTrash2 size={14} />
+                </button>
               </div>
+            ))}
+          </div>
+        )}
+
+        {/* Dados globais — só no primeiro preenchimento */}
+        {cotacoes.length === 0 && (
+          <div className="public-card" style={{ marginBottom: 16 }}>
+            <h2 style={{ marginBottom: 4 }}>Solicitar Cotação</h2>
+            <p className="subtitle">Preencha os dados abaixo e receba os valores no WhatsApp.</p>
+
+            <div className="form-group">
+              <label className="form-label" style={{ color: '#374151' }}>📱 WhatsApp *</label>
+              <div style={{ position: 'relative' }}>
+                <input className="public-input" required placeholder="(11) 99999-9999"
+                  value={globalForm.telefone}
+                  readOnly={telefoneFound}
+                  onChange={e => setGlobalForm(p => ({ ...p, telefone: e.target.value }))}
+                  style={{ background: telefoneFound ? '#F0FDF4' : undefined }} />
+                {telefoneLoading && (
+                  <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#F37021' }}>
+                    <FiLoader size={16} className="spin" />
+                  </div>
+                )}
+                {telefoneFound && !telefoneLoading && (
+                  <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#00C853' }}>
+                    <FiCheck size={16} />
+                  </div>
+                )}
+              </div>
+              {telefoneFound && <div style={{ fontSize: 11, color: '#00C853', marginTop: 4 }}>✓ Cadastro encontrado</div>}
             </div>
 
             <div className="form-group">
+              <label className="form-label" style={{ color: '#374151' }}>Unidade *</label>
+              <ToggleGroup
+                options={[{ val: 'Osasco', label: '📍 Osasco' }, { val: 'Barueri', label: '📍 Barueri' }]}
+                value={globalForm.unidade}
+                onChange={v => setGlobalForm(p => ({ ...p, unidade: v }))}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label" style={{ color: '#374151' }}>Coleta *</label>
+              <ToggleGroup
+                options={[
+                  { val: 'sim', label: '🚚 Com Coleta — buscamos a mercadoria' },
+                  { val: 'nao', label: '🏢 Sem Coleta — trago na base' },
+                ]}
+                value={globalForm.com_coleta ? 'sim' : 'nao'}
+                onChange={v => setGlobalForm(p => ({ ...p, com_coleta: v === 'sim' }))}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Formulário da cotação atual */}
+        <div className="public-card">
+          {cotacoes.length > 0 && (
+            <div style={{ background: '#FFF3E0', borderRadius: 8, padding: '10px 14px', marginBottom: 16,
+              fontSize: 13, color: '#E65100', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <FiPlus size={14} /> Cotação #{cotacaoNum}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+
+            {/* Tipo de Serviço */}
+            <div className="form-group">
               <label className="form-label" style={{ color: '#374151' }}>Tipo de Serviço *</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-                {[
-                  { val: 'Econômico', label: 'Econômico', desc: '3-7 dias', icon: '💰' },
-                  { val: 'Rápido', label: 'Rápido', desc: '1-2 dias', icon: '⚡' },
-                  { val: 'Urgente', label: 'Urgente', desc: '1 dia', icon: '🔥' },
-                ].map(s => (
-                  <button key={s.val} type="button"
-                    className={`type-option ${form.tipo_servico === s.val ? 'selected' : ''}`}
-                    onClick={() => handleChange('tipo_servico', s.val)} style={{ padding: 12 }}>
-                    <div style={{ fontSize: 20 }}>{s.icon}</div>
-                    <div className="label" style={{ fontSize: 13 }}>{s.label}</div>
-                    <div style={{ fontSize: 11, color: '#6B7280' }}>{s.desc}</div>
-                  </button>
-                ))}
+              <ToggleGroup
+                options={[
+                  { val: 'Econômico', label: '💰 Econômico\n3-7 dias' },
+                  { val: 'Rápido',    label: '⚡ Rápido\n1-2 dias' },
+                  { val: 'Urgente',   label: '🔥 Urgente\n1 dia' },
+                ]}
+                value={current.tipo_servico}
+                onChange={v => setCurrent(p => ({ ...p, tipo_servico: v }))}
+              />
+            </div>
+
+            {/* Modalidade de Pagamento */}
+            <div className="form-group">
+              <label className="form-label" style={{ color: '#374151' }}>Modalidade de Pagamento *</label>
+              <ToggleGroup
+                wrap
+                options={[
+                  { val: 'À vista',        label: '💵 À vista' },
+                  { val: 'Conta GOL',      label: '🏦 Conta corrente GOL' },
+                  { val: 'Frete a cobrar', label: '📦 Frete a cobrar' },
+                ]}
+                value={current.modalidade_pagamento}
+                onChange={v => setCurrent(p => ({ ...p, modalidade_pagamento: v }))}
+              />
+            </div>
+
+            {/* Local de Entrega */}
+            <div className="form-group">
+              <label className="form-label" style={{ color: '#374151' }}>Local de Entrega *</label>
+              <ToggleGroup
+                options={[
+                  { val: 'domicilio',  label: '🏠 Entrega a Domicílio' },
+                  { val: 'aeroporto', label: '✈️ Retirada Aeroporto' },
+                ]}
+                value={current.local_entrega_tipo}
+                onChange={v => setCurrent(p => ({
+                  ...p, local_entrega_tipo: v,
+                  cep_destino: '', cidade_destino: '', estado_aeroporto: '',
+                }))}
+              />
+              <div style={{ marginTop: 12 }}>
+                {current.local_entrega_tipo === 'domicilio' ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div style={{ position: 'relative' }}>
+                      <input className="public-input" placeholder="CEP destino" maxLength={9}
+                        value={current.cep_destino} onChange={e => handleCepChange(e.target.value)}
+                        style={{ paddingRight: cepLoading ? 36 : undefined }} />
+                      {cepLoading && (
+                        <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#F37021' }}>
+                          <FiLoader size={14} className="spin" />
+                        </div>
+                      )}
+                    </div>
+                    <input className="public-input" placeholder="Cidade/UF"
+                      value={current.cidade_destino}
+                      onChange={e => setCurrent(p => ({ ...p, cidade_destino: e.target.value }))}
+                      style={{ background: current.cidade_destino ? '#E8F5E9' : undefined }} />
+                  </div>
+                ) : (
+                  <select className="public-input" required={current.local_entrega_tipo === 'aeroporto'}
+                    value={current.estado_aeroporto}
+                    onChange={e => setCurrent(p => ({ ...p, estado_aeroporto: e.target.value }))}>
+                    <option value="">Selecione o Estado</option>
+                    {ESTADOS_BR.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                  </select>
+                )}
               </div>
             </div>
 
-            {items.length === 0 && (
-              <div className="form-group">
-                <label className="form-label" style={{ color: '#374151' }}>Unidade de Atendimento *</label>
-                <select className="public-input" value={form.unidade} onChange={e => handleChange('unidade', e.target.value)}>
-                  <option value="Osasco">📍 Osasco</option>
-                  <option value="Barueri">📍 Barueri</option>
-                </select>
+            {/* Seguro */}
+            <div className="form-group">
+              <label className="form-label" style={{ color: '#374151' }}>Seguro *</label>
+              <ToggleGroup
+                options={[
+                  { val: 'GOL',        label: '🛡️ GOL' },
+                  { val: 'Próprio',    label: '🔒 Próprio' },
+                  { val: 'Sem Seguro', label: '❌ Sem Seguro' },
+                ]}
+                value={current.seguro}
+                onChange={v => setCurrent(p => ({ ...p, seguro: v }))}
+              />
+            </div>
+
+            {/* Descrição + Valor NF */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ color: '#374151' }}>Descrição da Carga *</label>
+                <input className="public-input" required placeholder="Ex: Eletrônicos, roupas..."
+                  value={current.descricao_carga}
+                  onChange={e => setCurrent(p => ({ ...p, descricao_carga: e.target.value }))} />
               </div>
-            )}
-
-            <button type="submit" className="public-btn" disabled={loading}>
-              {loading ? 'Calculando...' : '📦 Calcular'}
-            </button>
-          </form>
-
-          {/* Inline result card */}
-          {lastResult && (
-            <div style={{ marginTop: 20, background: '#F0FDF4', borderRadius: 12, padding: 20,
-              border: '1px solid #BBF7D0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#00C853',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14 }}>
-                  <FiCheck />
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#14532D' }}>
-                  Pacote #{itemNum} calculado!
-                </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ color: '#374151' }}>Valor da Nota (R$) *</label>
+                <input className="public-input" required type="number" step="0.01" min="0" placeholder="0,00"
+                  value={current.valor_nota}
+                  onChange={e => setCurrent(p => ({ ...p, valor_nota: e.target.value }))} />
               </div>
+            </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+            {/* Medidas */}
+            <div style={{ background: '#F9FAFB', borderRadius: 8, padding: 16, marginBottom: 24 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 12,
+                display: 'flex', alignItems: 'center', gap: 6 }}>
+                <FiBox size={14} color="#F37021" /> Medidas do Pacote
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
                 {[
-                  ['Origem', lastResult.origem],
-                  ['Destino', lastResult.destino],
-                  ['Serviço', `GOLLOG ${lastResult.servico}`],
-                  ['Prazo', lastResult.prazo],
-                ].map(([lbl, val]) => (
-                  <div key={lbl}>
-                    <div style={{ fontSize: 10, color: '#6B7280', textTransform: 'uppercase', letterSpacing: 0.5 }}>{lbl}</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A' }}>{val}</div>
+                  ['comprimento_cm', 'Comp. (cm)'],
+                  ['altura_cm',      'Alt. (cm)'],
+                  ['largura_cm',     'Larg. (cm)'],
+                  ['peso_kg',        'Peso (kg)'],
+                ].map(([field, label]) => (
+                  <div key={field} className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ color: '#374151', fontSize: 11 }}>{label}</label>
+                    <input className="public-input" type="number" step="0.1" min="0" placeholder="0"
+                      value={current[field]}
+                      onChange={e => setCurrent(p => ({ ...p, [field]: e.target.value }))} />
                   </div>
                 ))}
               </div>
-
-              <div style={{ textAlign: 'center', padding: '10px 0', borderTop: '1px solid #BBF7D0',
-                borderBottom: '1px solid #BBF7D0', marginBottom: 14 }}>
-                <div style={{ fontSize: 11, color: '#6B7280' }}>Valor Estimado</div>
-                <div style={{ fontSize: 30, fontWeight: 800, color: '#F37021' }}>R$ {lastResult.valor}</div>
-                <div style={{ fontSize: 12, color: '#6B7280' }}>{lastResult.prazo}</div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button type="button" onClick={handleAddMore}
-                  style={{ background: '#fff', border: '1.5px solid #F37021', color: '#F37021',
-                    borderRadius: 8, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  <FiPlus size={14} /> Adicionar Outro
-                </button>
-                <button type="button" onClick={handleSendAll} disabled={loading}
-                  style={{ background: '#F37021', border: 'none', color: '#fff',
-                    borderRadius: 8, padding: '11px 0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                  {loading ? 'Enviando...' : '✉️ Enviar Cotação'}
-                </button>
-              </div>
             </div>
-          )}
+
+            {/* Botões */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <button type="button" onClick={handleAddOutra}
+                style={{ background: '#fff', border: '1.5px solid #F37021', color: '#F37021',
+                  borderRadius: 8, padding: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <FiPlus size={14} /> Adicionar Outra
+              </button>
+              <button type="submit" className="public-btn" disabled={loading} style={{ margin: 0 }}>
+                {loading ? 'Enviando...' : '✉️ Enviar Cotações'}
+              </button>
+            </div>
+          </form>
         </div>
 
         <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#9CA3AF' }}>© 2026 LOGPROFIT · Todos os direitos reservados</p>
