@@ -534,10 +534,14 @@ export default async function handler(req, res) {
 
         // Busca cliente
         let clienteIdPrio = null;
+        let emailClientePrio = null;
         if (phone) {
           const { data: clientePrio } = await supabase
-            .from('clientes').select('id').eq('telefone', phone).single();
-          if (clientePrio) clienteIdPrio = clientePrio.id;
+            .from('clientes').select('id, email').eq('telefone', phone).single();
+          if (clientePrio) {
+            clienteIdPrio = clientePrio.id;
+            emailClientePrio = clientePrio.email || null;
+          }
         }
 
         // Chave Resend e email de fallback
@@ -624,8 +628,8 @@ export default async function handler(req, res) {
   </td></tr></table>
 </body></html>`;
 
-            // CC: base de origem + cópia fixa de monitoramento
-            const ccSet = new Set([emailOrigem, CC_FIXO].filter(Boolean));
+            // CC: base de origem + cliente solicitante + cópia fixa de monitoramento
+            const ccSet = new Set([emailOrigem, emailClientePrio, CC_FIXO].filter(Boolean));
             const ccList = [...ccSet];
 
             // Envia via Resend
