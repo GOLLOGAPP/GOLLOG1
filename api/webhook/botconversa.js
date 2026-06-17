@@ -628,8 +628,11 @@ export default async function handler(req, res) {
   </td></tr></table>
 </body></html>`;
 
-            // CC: base de origem + cliente solicitante + cópia fixa de monitoramento
-            const ccSet = new Set([emailOrigem, emailClientePrio, CC_FIXO].filter(Boolean));
+            // CC: supervisão da base atual (QBX/QOZ) + cliente solicitante + monitoramento fixo
+            const ccSupervisao = siglaAtual === 'QBX' ? 'qbxfs@voegol.com.br'
+                               : siglaAtual === 'QOZ' ? 'qozfs@voegol.com.br'
+                               : null;
+            const ccSet = new Set([emailClientePrio, CC_FIXO, ccSupervisao].filter(Boolean));
             const ccList = [...ccSet];
 
             // Envia via Resend
