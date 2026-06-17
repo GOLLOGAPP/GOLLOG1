@@ -1,6 +1,6 @@
 import { sendWhatsApp, getConfig } from '../_lib/notify.js';
 
-const BC_BASE = 'https://backend.botconversa.com.br/api/v1';
+const BC_BASE = 'https://new-backend.botconversa.com.br/api/v1';
 
 async function bcRequest(method, path, body, apiKey) {
   const url = `${BC_BASE}${path}`;
