@@ -184,7 +184,7 @@ export default function CotacaoPage() {
             <h2 style={{ marginBottom: 8 }}>Solicitação Enviada!</h2>
             <p className="subtitle">
               Recebemos {total} {total === 1 ? 'cotação' : 'cotações'}.<br />
-              Nossa equipe entrará em contato pelo WhatsApp com os valores. 📱
+              Volte para o seu WhatsApp e confirme os dados para nossa equipe te retornar com a cotação.
             </p>
           </div>
           <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#9CA3AF' }}>© 2026 LOGPROFIT · Todos os direitos reservados</p>

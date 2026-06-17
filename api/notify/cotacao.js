@@ -2,26 +2,45 @@ import { sendWhatsApp, getConfig } from '../_lib/notify.js';
 
 const BC_BASE = 'https://backend.botconversa.com.br/api/v1';
 
-async function bcPatch(phone, body, apiKey) {
+async function bcRequest(method, path, body, apiKey) {
+  const url = `${BC_BASE}${path}`;
+  let responseBody = null;
+  let status = null;
   try {
-    const res = await fetch(`${BC_BASE}/subscriber/${phone}/`, {
-      method: 'PATCH',
+    const res = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json', 'API-KEY': apiKey },
-      body: JSON.stringify(body),
+      body: body ? JSON.stringify(body) : undefined,
     });
-    return res.ok;
-  } catch { return false; }
+    status = res.status;
+    try { responseBody = await res.json(); } catch { responseBody = await res.text().catch(() => null); }
+    console.log(`[BC API] ${method} ${url} → ${status}`, JSON.stringify(responseBody));
+    return { ok: res.ok, status, body: responseBody };
+  } catch (err) {
+    console.error(`[BC API] ${method} ${url} → ERRO`, err.message);
+    return { ok: false, status: null, body: null, error: err.message };
+  }
+}
+
+// BotConversa pode exigir telefone com código do país (55) ou sem
+// Tentamos com e sem prefixo, retornando o que funcionar
+async function bcPatchSubscriber(phoneClean, body, apiKey) {
+  // Tenta sem prefixo primeiro
+  let result = await bcRequest('PATCH', `/subscriber/${phoneClean}/`, body, apiKey);
+  if (result.ok) return { ok: true, phone: phoneClean, result };
+
+  // Tenta com prefixo 55
+  const phoneWith55 = phoneClean.startsWith('55') ? phoneClean : `55${phoneClean}`;
+  if (phoneWith55 !== phoneClean) {
+    result = await bcRequest('PATCH', `/subscriber/${phoneWith55}/`, body, apiKey);
+    if (result.ok) return { ok: true, phone: phoneWith55, result };
+  }
+
+  return { ok: false, phone: phoneClean, result };
 }
 
 async function bcTriggerFlow(phone, flowId, apiKey) {
-  try {
-    const res = await fetch(`${BC_BASE}/subscriber/${phone}/send-flow/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'API-KEY': apiKey },
-      body: JSON.stringify({ flow_id: Number(flowId) }),
-    });
-    return res.ok;
-  } catch { return false; }
+  return bcRequest('POST', `/subscriber/${phone}/send-flow/`, { flow_id: Number(flowId) }, apiKey);
 }
 
 function formatarCotacao(c, idx, total) {
@@ -50,12 +69,10 @@ function buildResumo(globalData, cotacoes) {
   const { unidade = '', com_coleta } = globalData || {};
   const coletaStr = com_coleta ? '🚚 Com coleta' : '🏢 Sem coleta';
   const total = cotacoes.length;
-
   const header = [`🏢 Unidade: ${unidade}`, coletaStr].join('\n');
   const corpo = cotacoes
     .map((c, idx) => formatarCotacao(c, idx, total))
     .join('\n\n─────────────\n\n');
-
   return `${header}\n\n${corpo}`;
 }
 
@@ -75,7 +92,7 @@ export default async function handler(req, res) {
     }
 
     const cfg = await getConfig();
-    const bcApiKey   = cfg.botconversa_api_key   || '';
+    const bcApiKey = cfg.botconversa_api_key || '';
     const confirmarFlowId = cfg.botconversa_confirmar_flow_id || '9022833';
 
     const resumo = buildResumo(globalData, cotacoes);
@@ -84,34 +101,42 @@ export default async function handler(req, res) {
     // 1. Envia resumo por WhatsApp
     const sent = await sendWhatsApp(phone, mensagemWpp, cfg);
 
-    // 2. Atualiza campos personalizados no BotConversa
-    let bcFieldsOk = false;
-    let bcFlowOk   = false;
+    // 2. Atualiza campos personalizados e dispara fluxo no BotConversa
+    let bcDebug = { api_key_present: !!bcApiKey, phone_raw: phone };
 
     if (bcApiKey) {
       const phoneClean = phone.replace(/\D/g, '');
+      bcDebug.phone_clean = phoneClean;
 
-      bcFieldsOk = await bcPatch(phoneClean, {
+      // Atualiza cotacao_status e cotacao_resumo
+      const patchResult = await bcPatchSubscriber(phoneClean, {
         custom_fields: {
           cotacao_status: 'enviada',
           cotacao_resumo: resumo,
         },
       }, bcApiKey);
 
-      // 3. Dispara fluxo de confirmação
-      if (bcFieldsOk) {
-        // Pequeno delay para garantir que o campo foi salvo antes do fluxo disparar
+      bcDebug.patch = { ok: patchResult.ok, phone_used: patchResult.phone, status: patchResult.result?.status, body: patchResult.result?.body };
+
+      if (patchResult.ok) {
         await new Promise(r => setTimeout(r, 1500));
-        bcFlowOk = await bcTriggerFlow(phoneClean, confirmarFlowId, bcApiKey);
+        const flowResult = await bcTriggerFlow(patchResult.phone, confirmarFlowId, bcApiKey);
+        bcDebug.flow = { ok: flowResult.ok, status: flowResult.status, body: flowResult.body };
+      } else {
+        bcDebug.flow = { skipped: true, reason: 'patch falhou' };
       }
+    } else {
+      bcDebug.skipped = true;
+      bcDebug.reason = 'botconversa_api_key não configurada no Supabase';
     }
+
+    console.log('[cotacao] debug:', JSON.stringify(bcDebug));
 
     return res.status(200).json({
       success: true,
       sent,
-      bc_fields: bcFieldsOk,
-      bc_flow: bcFlowOk,
       total: cotacoes.length,
+      debug: bcDebug,
     });
 
   } catch (error) {
