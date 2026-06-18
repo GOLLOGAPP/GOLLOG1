@@ -37,7 +37,7 @@ export async function sendWhatsApp(phone, mensagem, config = null) {
 export async function sendEmail(to, subject, html, config = null) {
   const cfg = config || await getConfig();
   const apiKey = cfg.resend_api_key;
-  const from = cfg.resend_from_email || 'GOLLOG <noreply@gollog.com.br>';
+  const from = cfg.resend_from_email || 'GOLLOG <noreply@golcargo.com.br>';
   if (!apiKey) return { ok: false, error: 'resend_api_key não configurada' };
   if (!to) return { ok: false, error: 'destinatário não informado' };
   try {

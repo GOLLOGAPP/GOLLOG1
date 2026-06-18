@@ -296,7 +296,7 @@ export default async function handler(req, res) {
     link_avaliacao: tipo === 'rastreio_entregue' ? `${baseUrl}/avaliar/${rastId}` : null,
     debug: {
       apiKeyPresent: !!config.resend_api_key,
-      fromEmail: config.resend_from_email || 'GOLLOG <noreply@gollog.com.br>',
+      fromEmail: config.resend_from_email || 'GOLLOG <noreply@golcargo.com.br>',
     },
   });
 }

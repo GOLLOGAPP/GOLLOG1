@@ -549,7 +549,7 @@ export default async function handler(req, res) {
           .in('chave', ['resend_api_key', 'resend_from_email']);
         const cfgResendMap = Object.fromEntries((cfgResend || []).map(r => [r.chave, r.valor]));
         const resendKey = cfgResendMap.resend_api_key || process.env.RESEND_API_KEY || '';
-        const emailAddr = (cfgResendMap.resend_from_email || process.env.RESEND_FROM_EMAIL || 'noreply@gollog.com.br')
+        const emailAddr = (cfgResendMap.resend_from_email || process.env.RESEND_FROM_EMAIL || 'noreply@golcargo.com.br')
           .replace(/.*<(.+)>.*/, '$1').trim();
         const FROM_EMAIL = `GOLLOG PRIORIDADE <${emailAddr}>`;
         const FALLBACK_EMAIL = 'gollog.rossantos@voegol.com.br'; // email de teste principal
