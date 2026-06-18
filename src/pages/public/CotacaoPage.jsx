@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { fetchCep, formatCep } from '../../lib/cep';
@@ -767,7 +767,7 @@ export default function CotacaoPage() {
                 <FiPlus size={14} /> Adicionar Outra
               </button>
               <button type="submit" className="public-btn" disabled={loading} style={{ margin: 0 }}>
-                {loading ? 'Enviando...' : '✉️ Enviar Cotações'}
+                {loading ? 'Enviando...' : 'Enviar Cotações'}
               </button>
             </div>
           </form>
