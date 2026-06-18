@@ -45,9 +45,12 @@ export default async function handler(req, res) {
         const textoLivre = data?.codigo || data?.texto || data?.message || data?.input || '';
         // Também tenta capturar de campos alternativos para debug
         const _debugPayload = { data_recebido: data, texto_usado: textoLivre };
+        // Sanitiza texto: aceita 127-12345678 (com traço), 127 12345678 (com espaço) e 12712345678 (sem separador)
+        const textoSanitizado = textoLivre.replace(/(\d)[- ](\d)/g, '$1$2');
         const codigos = [...new Set(
-          (textoLivre.match(/\b127\d{8}\b/g) || []).map(c => c.toUpperCase())
+          (textoSanitizado.match(/\b127\d{8}\b/g) || []).map(c => c.toUpperCase())
         )];
+
         // Log para debug
         console.log('[RASTREAR DEBUG]', JSON.stringify({ textoLivre, codigos, dataKeys: Object.keys(data || {}) }));
 
