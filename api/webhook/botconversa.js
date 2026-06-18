@@ -524,7 +524,6 @@ export default async function handler(req, res) {
 
         if (codigosPrioridade.length === 0) {
           const msgInvalido = `⚠️ Não identifiquei nenhum código de rastreio válido.\n\nPor favor, informe o número de 11 dígitos (ex: 12740370864).`;
-          notificar(msgInvalido);
           return res.status(200).json({
             success: false,
             message: msgInvalido,
@@ -698,8 +697,6 @@ export default async function handler(req, res) {
         } else {
           msgPrioridade = `❌ Não foi possível enviar a solicitação de prioridade. Entre em contato com nossa equipe.`;
         }
-
-        notificar(msgPrioridade);
 
         return res.status(200).json({
           success: ok.length > 0,
