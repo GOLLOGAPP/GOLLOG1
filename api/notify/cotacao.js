@@ -6,11 +6,11 @@ function formatarCotacao(c, idx, total) {
 
   let destinoLine;
   if (c.local_entrega_tipo === 'aeroporto') {
-    destinoLine = `✈️ Retirada: ${c.aeroporto_sigla} — ${c.aeroporto_cidade}`;
+    destinoLine = `✈️ Retirada na Base | ${c.aeroporto_sigla} — ${c.aeroporto_cidade}`;
   } else {
     const cidade = c.cidade_destino || '';
     const cep = c.cep_destino ? `CEP ${c.cep_destino}` : '';
-    destinoLine = `📍 Destino: ${[cidade, cep].filter(Boolean).join(' — ') || 'Não informado'}`;
+    destinoLine = `🏠 Entrega a Domicílio | ${[cidade, cep].filter(Boolean).join(' — ') || 'Não informado'}`;
   }
 
   const volumeLines = volumes.length > 1
