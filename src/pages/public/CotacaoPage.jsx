@@ -137,6 +137,10 @@ const EMPTY_COTACAO = {
   aeroporto_sigla: '',
   aeroporto_cidade: '',
   cep_destino: '',
+  logradouro_destino: '',
+  numero_destino: '',
+  complemento_destino: '',
+  bairro_destino: '',
   cidade_destino: '',
   seguro: 'Sem Seguro',
   descricao_carga: '',
@@ -226,6 +230,10 @@ export default function CotacaoPage() {
     telefone: '',
     com_coleta: true,
     cep_origem: '',
+    logradouro_origem: '',
+    numero_origem: '',
+    complemento_origem: '',
+    bairro_origem: '',
     cidade_origem: '',
   });
   const [clienteId, setClienteId] = useState(null);
@@ -260,22 +268,32 @@ export default function CotacaoPage() {
 
   const handleCepOrigemChange = async (value) => {
     const fmt = formatCep(value);
-    setGlobalForm(p => ({ ...p, cep_origem: fmt, cidade_origem: '' }));
+    setGlobalForm(p => ({ ...p, cep_origem: fmt, logradouro_origem: '', bairro_origem: '', cidade_origem: '' }));
     if (fmt.replace(/\D/g, '').length === 8) {
       setCepOrigemLoading(true);
       const res = await fetchCep(fmt);
-      if (res) setGlobalForm(p => ({ ...p, cidade_origem: `${res.cidade}/${res.estado}` }));
+      if (res) setGlobalForm(p => ({
+        ...p,
+        logradouro_origem: res.logradouro,
+        bairro_origem: res.bairro,
+        cidade_origem: `${res.cidade}/${res.estado}`,
+      }));
       setCepOrigemLoading(false);
     }
   };
 
   const handleCepDestinoChange = async (value) => {
     const fmt = formatCep(value);
-    setCurrent(p => ({ ...p, cep_destino: fmt, cidade_destino: '' }));
+    setCurrent(p => ({ ...p, cep_destino: fmt, logradouro_destino: '', bairro_destino: '', cidade_destino: '' }));
     if (fmt.replace(/\D/g, '').length === 8) {
       setCepDestinoLoading(true);
       const res = await fetchCep(fmt);
-      if (res) setCurrent(p => ({ ...p, cidade_destino: `${res.cidade}/${res.estado}` }));
+      if (res) setCurrent(p => ({
+        ...p,
+        logradouro_destino: res.logradouro,
+        bairro_destino: res.bairro,
+        cidade_destino: `${res.cidade}/${res.estado}`,
+      }));
       setCepDestinoLoading(false);
     }
   };
@@ -369,6 +387,10 @@ export default function CotacaoPage() {
               unidade: unidadeFromUrl,
               com_coleta: globalForm.com_coleta,
               cep_origem: globalForm.cep_origem,
+              logradouro_origem: globalForm.logradouro_origem,
+              numero_origem: globalForm.numero_origem,
+              complemento_origem: globalForm.complemento_origem,
+              bairro_origem: globalForm.bairro_origem,
               cidade_origem: globalForm.cidade_origem,
             },
             cotacoes: all,
@@ -502,30 +524,47 @@ export default function CotacaoPage() {
                   { val: 'nao', label: '🏢 Sem Coleta\ntrago na base' },
                 ]}
                 value={globalForm.com_coleta ? 'sim' : 'nao'}
-                onChange={v => setGlobalForm(p => ({ ...p, com_coleta: v === 'sim', cep_origem: '', cidade_origem: '' }))}
+                onChange={v => setGlobalForm(p => ({ ...p, com_coleta: v === 'sim', cep_origem: '', logradouro_origem: '', numero_origem: '', complemento_origem: '', bairro_origem: '', cidade_origem: '' }))}
               />
             </div>
 
             {globalForm.com_coleta && (
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ color: '#374151' }}>📦 CEP de Origem (endereço de coleta) *</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div style={{ position: 'relative' }}>
-                    <input className="public-input" placeholder="00000-000" maxLength={9}
-                      value={globalForm.cep_origem}
-                      onChange={e => handleCepOrigemChange(e.target.value)}
-                      style={{ paddingRight: cepOrigemLoading ? 36 : undefined }} />
-                    {cepOrigemLoading && (
-                      <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#F37021' }}>
-                        <FiLoader size={14} />
-                      </div>
-                    )}
-                  </div>
-                  <input className="public-input" placeholder="Cidade/UF"
-                    value={globalForm.cidade_origem}
-                    onChange={e => setGlobalForm(p => ({ ...p, cidade_origem: e.target.value }))}
-                    style={{ background: globalForm.cidade_origem ? '#E8F5E9' : undefined }} />
+                <div style={{ position: 'relative', marginBottom: 8 }}>
+                  <input className="public-input" placeholder="00000-000" maxLength={9}
+                    value={globalForm.cep_origem}
+                    onChange={e => handleCepOrigemChange(e.target.value)}
+                    style={{ paddingRight: cepOrigemLoading ? 36 : undefined }} />
+                  {cepOrigemLoading && (
+                    <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#F37021' }}>
+                      <FiLoader size={14} />
+                    </div>
+                  )}
                 </div>
+                {globalForm.cidade_origem && (
+                  <>
+                    <input className="public-input" placeholder="Logradouro" style={{ marginBottom: 8, background: '#E8F5E9' }}
+                      value={globalForm.logradouro_origem}
+                      onChange={e => setGlobalForm(p => ({ ...p, logradouro_origem: e.target.value }))} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                      <input className="public-input" placeholder="Número *" required
+                        value={globalForm.numero_origem}
+                        onChange={e => setGlobalForm(p => ({ ...p, numero_origem: e.target.value }))} />
+                      <input className="public-input" placeholder="Complemento (opcional)"
+                        value={globalForm.complemento_origem}
+                        onChange={e => setGlobalForm(p => ({ ...p, complemento_origem: e.target.value }))} />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <input className="public-input" placeholder="Bairro" style={{ background: '#E8F5E9' }}
+                        value={globalForm.bairro_origem}
+                        onChange={e => setGlobalForm(p => ({ ...p, bairro_origem: e.target.value }))} />
+                      <input className="public-input" placeholder="Cidade/UF" style={{ background: '#E8F5E9' }}
+                        value={globalForm.cidade_origem}
+                        onChange={e => setGlobalForm(p => ({ ...p, cidade_origem: e.target.value }))} />
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -597,8 +636,8 @@ export default function CotacaoPage() {
               />
               <div style={{ marginTop: 12 }}>
                 {current.local_entrega_tipo === 'domicilio' ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <div style={{ position: 'relative' }}>
+                  <>
+                    <div style={{ position: 'relative', marginBottom: 8 }}>
                       <input className="public-input" placeholder="CEP destino" maxLength={9}
                         value={current.cep_destino}
                         onChange={e => handleCepDestinoChange(e.target.value)}
@@ -609,11 +648,30 @@ export default function CotacaoPage() {
                         </div>
                       )}
                     </div>
-                    <input className="public-input" placeholder="Cidade/UF"
-                      value={current.cidade_destino}
-                      onChange={e => setCurrent(p => ({ ...p, cidade_destino: e.target.value }))}
-                      style={{ background: current.cidade_destino ? '#E8F5E9' : undefined }} />
-                  </div>
+                    {current.cidade_destino && (
+                      <>
+                        <input className="public-input" placeholder="Logradouro" style={{ marginBottom: 8, background: '#E8F5E9' }}
+                          value={current.logradouro_destino}
+                          onChange={e => setCurrent(p => ({ ...p, logradouro_destino: e.target.value }))} />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                          <input className="public-input" placeholder="Número *" required
+                            value={current.numero_destino}
+                            onChange={e => setCurrent(p => ({ ...p, numero_destino: e.target.value }))} />
+                          <input className="public-input" placeholder="Complemento (opcional)"
+                            value={current.complemento_destino}
+                            onChange={e => setCurrent(p => ({ ...p, complemento_destino: e.target.value }))} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                          <input className="public-input" placeholder="Bairro" style={{ background: '#E8F5E9' }}
+                            value={current.bairro_destino}
+                            onChange={e => setCurrent(p => ({ ...p, bairro_destino: e.target.value }))} />
+                          <input className="public-input" placeholder="Cidade/UF" style={{ background: '#E8F5E9' }}
+                            value={current.cidade_destino}
+                            onChange={e => setCurrent(p => ({ ...p, cidade_destino: e.target.value }))} />
+                        </div>
+                      </>
+                    )}
+                  </>
                 ) : (
                   <BaseAutocomplete
                     value={current.aeroporto_sigla}

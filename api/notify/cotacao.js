@@ -8,9 +8,15 @@ function formatarCotacao(c, idx, total) {
   if (c.local_entrega_tipo === 'aeroporto') {
     destinoLine = `✈️ Retirada na Base | ${c.aeroporto_sigla} — ${c.aeroporto_cidade}`;
   } else {
-    const cidade = c.cidade_destino || '';
-    const cep = c.cep_destino ? `CEP ${c.cep_destino}` : '';
-    destinoLine = `🏠 Entrega a Domicílio | ${[cidade, cep].filter(Boolean).join(' — ') || 'Não informado'}`;
+    const partes = [
+      c.logradouro_destino,
+      c.numero_destino ? `nº ${c.numero_destino}` : '',
+      c.complemento_destino,
+      c.bairro_destino,
+      c.cidade_destino,
+      c.cep_destino ? `CEP ${c.cep_destino}` : '',
+    ].filter(Boolean).join(', ');
+    destinoLine = `🏠 Entrega a Domicílio | ${partes || 'Não informado'}`;
   }
 
   const volumeLines = volumes.length > 1
@@ -36,11 +42,20 @@ function formatarCotacao(c, idx, total) {
 }
 
 function buildResumo(globalData, cotacoes) {
-  const { unidade = '', com_coleta, cep_origem, cidade_origem } = globalData || {};
+  const { unidade = '', com_coleta, cep_origem, logradouro_origem, numero_origem, complemento_origem, bairro_origem, cidade_origem } = globalData || {};
   const coletaStr = com_coleta ? '🚚 Com coleta' : '🏢 Sem coleta';
-  const origemStr = com_coleta && (cidade_origem || cep_origem)
-    ? `📦 Origem: ${[cidade_origem, cep_origem ? `CEP ${cep_origem}` : ''].filter(Boolean).join(' — ')}`
-    : '';
+  let origemStr = '';
+  if (com_coleta && (cidade_origem || cep_origem)) {
+    const partes = [
+      logradouro_origem,
+      numero_origem ? `nº ${numero_origem}` : '',
+      complemento_origem,
+      bairro_origem,
+      cidade_origem,
+      cep_origem ? `CEP ${cep_origem}` : '',
+    ].filter(Boolean).join(', ');
+    origemStr = `📦 Origem: ${partes}`;
+  }
   const header = [`🏢 Unidade: ${unidade}`, coletaStr, origemStr].filter(Boolean).join('\n');
   const corpo = cotacoes
     .map((c, idx) => formatarCotacao(c, idx, cotacoes.length))
