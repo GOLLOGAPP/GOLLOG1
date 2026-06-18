@@ -18,6 +18,7 @@ import FollowUpPage from './pages/admin/FollowUpPage';
 import CadastroPage from './pages/public/CadastroPage';
 import CotacaoPage from './pages/public/CotacaoPage';
 import CotacaoLinkPage from './pages/public/CotacaoLinkPage';
+import LinkRedirectPage from './pages/public/LinkRedirectPage';
 import ColetaPage from './pages/public/ColetaPage';
 import RastreamentoPage from './pages/public/RastreamentoPage';
 import FaqPage from './pages/public/FaqPage';
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/cadastro/:telefone?" element={<CadastroPage />} />
           <Route path="/cotacao/:clienteId?" element={<CotacaoPage />} />
           <Route path="/c/:token" element={<CotacaoLinkPage />} />
+          <Route path="/l/:token" element={<LinkRedirectPage />} />
           <Route path="/coleta/:clienteId?" element={<ColetaPage />} />
           <Route path="/rastreamento" element={<RastreamentoPage />} />
           <Route path="/avaliar/:rastreamento_id" element={<AvaliacaoPage />} />
