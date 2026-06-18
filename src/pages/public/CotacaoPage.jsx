@@ -219,6 +219,7 @@ function BaseAutocomplete({ value, onChange }) {
 export default function CotacaoPage() {
   const [searchParams] = useSearchParams();
   const phoneFromUrl = searchParams.get('phone') || '';
+  const nameFromUrl = searchParams.get('name') || '';
   const unidadeFromUrl = searchParams.get('unidade') || 'Osasco';
 
   const [globalForm, setGlobalForm] = useState({
@@ -364,6 +365,7 @@ export default function CotacaoPage() {
           body: JSON.stringify({
             phone: cleanPhone,
             global: {
+              nome: nameFromUrl,
               unidade: unidadeFromUrl,
               com_coleta: globalForm.com_coleta,
               cep_origem: globalForm.cep_origem,

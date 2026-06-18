@@ -1,4 +1,4 @@
-import { sendWhatsApp, getConfig } from '../_lib/notify.js';
+import { getConfig } from '../_lib/notify.js';
 
 function formatarCotacao(c, idx, total) {
   const volumes = c.volumes || [];
@@ -65,12 +65,7 @@ export default async function handler(req, res) {
 
     const cfg = await getConfig();
     const resumo = buildResumo(globalData, cotacoes);
-    const mensagemWpp = `📬 *Solicitação de Cotação Recebida!*\n\n${resumo}\n\n_Em breve você receberá uma mensagem para confirmar os dados._`;
 
-    // 1. Envia resumo por WhatsApp
-    const sent = await sendWhatsApp(phone, mensagemWpp, cfg);
-
-    // 2. Dispara webhook de automação do BotConversa (Confirmar Cotação)
     const bcWebhook = cfg.botconversa_cotacao_webhook_url;
     let bcWebhookOk = false;
     let bcWebhookStatus = null;
@@ -83,6 +78,7 @@ export default async function handler(req, res) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             phone: phoneClean,
+            name: globalData?.nome || '',
             cotacao_resumo: resumo,
             cotacao_status: 'enviada',
           }),
@@ -99,7 +95,6 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      sent,
       total: cotacoes.length,
       bc_webhook: { ok: bcWebhookOk, status: bcWebhookStatus },
     });
