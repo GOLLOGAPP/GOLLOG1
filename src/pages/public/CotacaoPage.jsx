@@ -547,13 +547,24 @@ export default function CotacaoPage() {
               <label className="form-label" style={{ color: '#374151' }}>Tipo de Serviço *</label>
               <ToggleGroup
                 options={[
-                  { val: 'Econômico', label: '💰 Econômico\n3-7 dias' },
-                  { val: 'Rápido',    label: '⚡ Rápido\n1-2 dias' },
-                  { val: 'Urgente',   label: '🔥 Urgente\n1 dia' },
+                  { val: 'Econômico', label: '💰 Econômico' },
+                  { val: 'Rápido',    label: '⚡ Rápido' },
+                  { val: 'Urgente',   label: '🔥 Urgente' },
                 ]}
                 value={current.tipo_servico}
                 onChange={v => setCurrent(p => ({ ...p, tipo_servico: v }))}
               />
+              <button type="button" onClick={() => setCurrent(p => ({ ...p, tipo_servico: 'Todos os Serviços' }))}
+                style={{
+                  width: '100%', marginTop: 8, padding: '10px 12px', borderRadius: 8,
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'center',
+                  border: '1.5px solid', transition: 'all 0.15s',
+                  borderColor: current.tipo_servico === 'Todos os Serviços' ? '#F37021' : '#E5E7EB',
+                  background: current.tipo_servico === 'Todos os Serviços' ? '#FFF3E0' : '#fff',
+                  color: current.tipo_servico === 'Todos os Serviços' ? '#F37021' : '#6B7280',
+                }}>
+                📋 Todos os Serviços
+              </button>
             </div>
 
             {/* Modalidade de Pagamento */}
