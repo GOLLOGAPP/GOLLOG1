@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ skipped: true, reason: 'polling disabled' });
   }
 
-  const baseUrl = config.app_base_url || 'https://www.logprofit.com.br';
+  const baseUrl = config.app_base_url || 'https://golcargo.com.br';
 
   // Busca rastreamentos ativos dos últimos 60 dias
   const cutoff = new Date();

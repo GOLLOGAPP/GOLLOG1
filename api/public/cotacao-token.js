@@ -27,6 +27,6 @@ export default async function handler(req, res) {
 
   return res.status(200).json({
     token,
-    url: `https://www.logprofit.com.br/c/${token}`,
+    url: `https://golcargo.com.br/c/${token}`,
   });
 }
