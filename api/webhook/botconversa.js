@@ -507,7 +507,8 @@ export default async function handler(req, res) {
 
         const codigos = listaRastreios.map(r => `*${r.codigo_rastreio}*`).join(', ');
         const msgAtivado = `✅ *Notificações ativadas!*\n\n📦 Código(s): ${codigos}\n\nVocê receberá uma mensagem automática aqui no WhatsApp sempre que houver uma atualização no status da sua encomenda. 🔔`;
-        notificar(msgAtivado);
+        // Não chamar notificar() aqui — o BotConversa já envia via nó de Conteúdo com {resposta_notificacao}
+
 
         return res.status(200).json({
           success: true,
