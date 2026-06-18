@@ -386,6 +386,7 @@ export default function CotacaoPage() {
 
   if (submitted) {
     const total = cotacoes.length + 1;
+    window.scrollTo(0, 0);
     return (
       <div className="public-page">
         <header className="public-header"><img src="/logo.png" alt="GOLLOG" /></header>
@@ -663,7 +664,7 @@ export default function CotacaoPage() {
               </div>
 
               {current.volumes.map((vol, idx) => (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 28px', gap: 6, marginBottom: 6 }}>
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 28px', gap: 6, marginBottom: 6, minWidth: 0 }}>
                   {['comprimento_cm', 'altura_cm', 'largura_cm', 'peso_kg'].map(field => (
                     <input key={field} className="public-input" type="number" step="0.1" min="0" placeholder="0"
                       value={vol[field]}

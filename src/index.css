@@ -594,6 +594,7 @@ input,select,textarea { font-family:inherit; }
   min-height: 100vh;
   background: #F5F5F7;
   color: #1A1A1A;
+  overflow-x: hidden;
 }
 
 .public-header {
@@ -610,14 +611,14 @@ input,select,textarea { font-family:inherit; }
 .public-container {
   max-width: 640px;
   margin: 0 auto;
-  padding: 32px 20px;
+  padding: 24px 16px;
 }
 
 .public-card {
   background: white;
   border-radius: var(--radius);
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  padding: 32px;
+  padding: 24px 20px;
 }
 
 .public-card h2 {
