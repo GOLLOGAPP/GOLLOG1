@@ -127,34 +127,47 @@ export default function MalhaAereaPage() {
   async function handlePublicar() {
     if (!rows.length || !file) return;
     setLoading(true);
-    setStatus('Enviando arquivo...');
 
     try {
-      // Upload do arquivo original para Supabase Storage
+      // 1. Upload do arquivo para Storage
+      setStatus('Enviando arquivo...');
       const timestamp = Date.now();
-      const storagePath = `${timestamp}_${file.name}`;
+      const safeName = file.name.replace(/\s+/g, '_');
+      const storagePath = `${timestamp}_${safeName}`;
       const { error: storageErr } = await supabase.storage
         .from('malha-aerea').upload(storagePath, file, { upsert: true });
-
       if (storageErr) {
         setStatus('Erro no upload do arquivo: ' + storageErr.message);
         setLoading(false);
         return;
       }
 
-      setStatus('Importando voos...');
+      // 2. Desativa uploads anteriores
+      setStatus('Substituindo malha anterior...');
+      await supabase.from('malha_uploads').update({ ativo: false }).eq('ativo', true);
 
-      // Envia dados para a API
-      const res = await fetch('/api/admin/malha-upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows, filename: file.name, storage_path: storagePath }),
+      // 3. Limpa tabela
+      await supabase.from('malha_aerea').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+      // 4. Insere em lotes de 500 (evita limite de payload)
+      const batchSize = 500;
+      const total = rows.length;
+      for (let i = 0; i < total; i += batchSize) {
+        const pct = Math.round(((i + batchSize) / total) * 100);
+        setStatus(`Importando voos... ${Math.min(i + batchSize, total)}/${total} (${Math.min(pct,100)}%)`);
+        const { error } = await supabase.from('malha_aerea').insert(rows.slice(i, i + batchSize));
+        if (error) throw new Error('Erro ao inserir lote: ' + error.message);
+      }
+
+      // 5. Registra upload
+      await supabase.from('malha_uploads').insert({
+        filename: file.name,
+        storage_path: storagePath,
+        total_voos: total,
+        ativo: true,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erro desconhecido');
-
-      setStatus(`✅ Malha publicada com sucesso! ${data.total} voos importados.`);
+      setStatus(`✅ Malha publicada com sucesso! ${total} voos importados.`);
       setRows([]);
       setFile(null);
       fetchUploadAtual();
