@@ -2,6 +2,22 @@ import { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from '../../lib/supabase';
 
+function excelTime(v) {
+  if (typeof v === 'number' && v >= 0 && v < 1) {
+    const mins = Math.round(v * 24 * 60);
+    return `${String(Math.floor(mins / 60)).padStart(2,'0')}:${String(mins % 60).padStart(2,'0')}`;
+  }
+  return String(v ?? '').trim();
+}
+
+function excelDate(v) {
+  if (typeof v === 'number' && v > 40000) {
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+  }
+  return String(v ?? '').trim();
+}
+
 function parseXLS(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -9,10 +25,21 @@ function parseXLS(file) {
       try {
         const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        // raw: true preserves números para detectar e converter datas/horários
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
         if (raw.length < 2) { reject(new Error('Planilha vazia')); return; }
 
-        const headers = raw[0].map(h => String(h || '').trim().toLowerCase());
+        // Localiza a linha de cabeçalho (pode não ser a linha 0)
+        let headerIdx = 0;
+        for (let i = 0; i < Math.min(5, raw.length); i++) {
+          const r = raw[i].map(h => String(h || '').trim().toLowerCase());
+          if (r.some(h => h === 'aln' || h.includes('airline') || h === 'flt num' || h === 'flt')) {
+            headerIdx = i;
+            break;
+          }
+        }
+
+        const headers = raw[headerIdx].map(h => String(h || '').trim().toLowerCase());
         const find = (...terms) => headers.findIndex(h => terms.some(t => h.includes(t.toLowerCase())));
 
         const cols = {
@@ -20,11 +47,11 @@ function parseXLS(file) {
           flight_number:    find('flt', 'flight'),
           day_date:         find('day'),
           weekday:          find('weekday'),
-          dept_station:     find('dept st', 'dept s'),
-          dept_time:        find('dept t'),
-          arrival_time:     find('arrv t', 'arrv tm'),
+          dept_station:     find('dept st', 'dept s', 'dep st', 'dep s'),
+          dept_time:        find('dept tm', 'dept t', 'dep tm', 'dep t'),
+          arrival_time:     find('arrv tm', 'arrv t', 'arr tm', 'arr t'),
           rel_arrival:      find('rel'),
-          arrival_station:  find('arrv s', 'arrv st'),
+          arrival_station:  find('arrv st', 'arrv s', 'arr st', 'arr s'),
           ac_owner:         find('a/c', 'owner'),
           equipment:        find('equip'),
           aircraft:         find('aircraft'),
@@ -32,23 +59,23 @@ function parseXLS(file) {
           pode_carga:       find('pode', 'cargo', 'carga'),
         };
 
-        const rows = raw.slice(1)
+        const rows = raw.slice(headerIdx + 1)
           .filter(r => String(r[cols.airline] || '').trim())
           .map(r => ({
-            airline:          String(r[cols.airline]         ?? '').trim(),
-            flight_number:    String(r[cols.flight_number]   ?? '').trim(),
-            day_date:         String(r[cols.day_date]        ?? '').trim(),
-            weekday:          String(r[cols.weekday]         ?? '').trim(),
-            dept_station:     String(r[cols.dept_station]    ?? '').trim(),
-            dept_time:        String(r[cols.dept_time]       ?? '').trim(),
-            arrival_time:     String(r[cols.arrival_time]    ?? '').trim(),
-            rel_arrival:      String(r[cols.rel_arrival]     ?? '').trim(),
-            arrival_station:  String(r[cols.arrival_station] ?? '').trim(),
-            ac_owner:         String(r[cols.ac_owner]        ?? '').trim(),
-            equipment:        String(r[cols.equipment]       ?? '').trim(),
-            aircraft:         String(r[cols.aircraft]        ?? '').trim(),
-            service_type:     String(r[cols.service_type]    ?? '').trim(),
-            pode_enviar_carga: String(r[cols.pode_carga]     ?? '').trim().toUpperCase(),
+            airline:           String(r[cols.airline]         ?? '').trim(),
+            flight_number:     String(r[cols.flight_number]   ?? '').trim(),
+            day_date:          excelDate(r[cols.day_date]),
+            weekday:           String(r[cols.weekday]         ?? '').trim(),
+            dept_station:      String(r[cols.dept_station]    ?? '').trim().toUpperCase(),
+            dept_time:         excelTime(r[cols.dept_time]),
+            arrival_time:      excelTime(r[cols.arrival_time]),
+            rel_arrival:       excelTime(r[cols.rel_arrival]),
+            arrival_station:   String(r[cols.arrival_station] ?? '').trim().toUpperCase(),
+            ac_owner:          String(r[cols.ac_owner]        ?? '').trim(),
+            equipment:         String(r[cols.equipment]       ?? '').trim(),
+            aircraft:          String(r[cols.aircraft]        ?? '').trim(),
+            service_type:      String(r[cols.service_type]    ?? '').trim(),
+            pode_enviar_carga: String(r[cols.pode_carga]      ?? '').trim().toUpperCase(),
           }));
 
         resolve(rows);
