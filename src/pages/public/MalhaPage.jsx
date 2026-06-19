@@ -3,6 +3,72 @@ import { useState, useEffect } from 'react';
 const WEEKDAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const WEEKDAY_PT = { Monday:'Segunda',Tuesday:'Terça',Wednesday:'Quarta',Thursday:'Quinta',Friday:'Sexta',Saturday:'Sábado',Sunday:'Domingo' };
 
+const AEROPORTOS = {
+  // São Paulo
+  GRU: 'GRU - Guarulhos/SP',
+  CGH: 'CGH - Congonhas/SP',
+  VCP: 'VCP - Viracopos/SP',
+  // Rio de Janeiro
+  GIG: 'GIG - Galeão/RJ',
+  SDU: 'SDU - Santos Dumont/RJ',
+  // Minas Gerais
+  CNF: 'CNF - Confins/MG',
+  PLU: 'PLU - Pampulha/MG',
+  UDI: 'UDI - Uberlândia/MG',
+  UBA: 'UBA - Uberaba/MG',
+  MOC: 'MOC - Montes Claros/MG',
+  GVR: 'GVR - Gov. Valadares/MG',
+  // Brasília / Centro-Oeste
+  BSB: 'BSB - Brasília/DF',
+  GYN: 'GYN - Goiânia/GO',
+  CGB: 'CGB - Cuiabá/MT',
+  CGR: 'CGR - Campo Grande/MS',
+  PMW: 'PMW - Palmas/TO',
+  OPS: 'OPS - Sinop/MT',
+  CLV: 'CLV - Caldas Novas/GO',
+  BYO: 'BYO - Bonito/MS',
+  // Nordeste
+  SSA: 'SSA - Salvador/BA',
+  REC: 'REC - Recife/PE',
+  FOR: 'FOR - Fortaleza/CE',
+  NAT: 'NAT - Natal/RN',
+  MCZ: 'MCZ - Maceió/AL',
+  THE: 'THE - Teresina/PI',
+  JPA: 'JPA - João Pessoa/PB',
+  AJU: 'AJU - Aracaju/SE',
+  SLZ: 'SLZ - São Luís/MA',
+  JDO: 'JDO - Juazeiro do Norte/CE',
+  IMP: 'IMP - Imperatriz/MA',
+  // Bahia interior
+  IOS: 'IOS - Ilhéus/BA',
+  BPS: 'BPS - Porto Seguro/BA',
+  LEC: 'LEC - Lençóis/BA',
+  // Norte
+  MAO: 'MAO - Manaus/AM',
+  BEL: 'BEL - Belém/PA',
+  PVH: 'PVH - Porto Velho/RO',
+  BVB: 'BVB - Boa Vista/RR',
+  MCP: 'MCP - Macapá/AP',
+  STM: 'STM - Santarém/PA',
+  RBR: 'RBR - Rio Branco/AC',
+  // Sul
+  CWB: 'CWB - Curitiba/PR',
+  POA: 'POA - Porto Alegre/RS',
+  FLN: 'FLN - Florianópolis/SC',
+  JOI: 'JOI - Joinville/SC',
+  NVT: 'NVT - Navegantes/SC',
+  XAP: 'XAP - Chapecó/SC',
+  LDB: 'LDB - Londrina/PR',
+  MGF: 'MGF - Maringá/PR',
+  CAC: 'CAC - Cascavel/PR',
+  PFB: 'PFB - Passo Fundo/RS',
+  // Espírito Santo
+  VIX: 'VIX - Vitória/ES',
+  // SP interior
+  BAU: 'BAU - Bauru/SP',
+  ARU: 'ARU - Araçatuba/SP',
+};
+
 export default function MalhaPage() {
   const [voos, setVoos] = useState([]);
   const [upload, setUpload] = useState(null);
@@ -70,14 +136,14 @@ export default function MalhaPage() {
               <label className="form-label">Origem</label>
               <select className="form-input" value={filtros.origem} onChange={e => handleFiltro('origem', e.target.value)}>
                 <option value="">Todas</option>
-                {estacoes.origens.map(o => <option key={o} value={o}>{o}</option>)}
+                {estacoes.origens.map(o => <option key={o} value={o}>{AEROPORTOS[o] || o}</option>)}
               </select>
             </div>
             <div>
               <label className="form-label">Destino</label>
               <select className="form-input" value={filtros.destino} onChange={e => handleFiltro('destino', e.target.value)}>
                 <option value="">Todos</option>
-                {estacoes.destinos.map(d => <option key={d} value={d}>{d}</option>)}
+                {estacoes.destinos.map(d => <option key={d} value={d}>{AEROPORTOS[d] || d}</option>)}
               </select>
             </div>
             <div>
