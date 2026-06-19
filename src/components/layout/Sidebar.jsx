@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiGrid, FiUsers, FiPackage, FiDollarSign, FiTruck,
   FiHeadphones, FiHelpCircle, FiSettings, FiLogOut, FiMenu, FiX, FiUserPlus,
-  FiActivity, FiLink, FiZap
+  FiActivity, FiLink, FiZap, FiNavigation
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -24,6 +24,7 @@ const menuSections = [
       { to: '/admin/cotacoes', icon: FiDollarSign, label: 'Cotações' },
       { to: '/admin/rastreamentos', icon: FiPackage, label: 'Rastreamentos' },
       { to: '/admin/coletas', icon: FiTruck, label: 'Coletas' },
+      { to: '/admin/malha', icon: FiNavigation, label: 'Malha Aérea' },
     ]
   },
   {

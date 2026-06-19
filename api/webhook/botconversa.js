@@ -714,6 +714,38 @@ export default async function handler(req, res) {
         });
       }
 
+      case 'consultar_malha': {
+        const destino = (data?.destino || '').trim().toUpperCase();
+        const origem = (data?.origem || '').trim().toUpperCase();
+
+        let q = supabase.from('malha_aerea').select('*').eq('pode_enviar_carga', 'SIM').order('weekday').order('dept_time');
+        if (destino) q = q.ilike('arrival_station', `%${destino}%`);
+        if (origem) q = q.ilike('dept_station', `%${origem}%`);
+
+        const { data: voos } = await q.limit(100);
+
+        if (!voos || voos.length === 0) {
+          const msg = destino
+            ? `✈️ Não encontrei voos com carga disponível para *${destino}*.\n\nConsulte a malha completa em: ${APP_URL}/malha`
+            : `✈️ Não encontrei voos disponíveis.\n\nConsulte a malha completa em: ${APP_URL}/malha`;
+          return res.status(200).json({ success: false, message: msg, custom_fields: { resposta_malha: msg } });
+        }
+
+        const DIAS_PT = { Monday:'Seg',Tuesday:'Ter',Wednesday:'Qua',Thursday:'Qui',Friday:'Sex',Saturday:'Sáb',Sunday:'Dom' };
+        const porDia = {};
+        for (const v of voos) {
+          const dia = DIAS_PT[v.weekday] || v.weekday;
+          if (!porDia[dia]) porDia[dia] = [];
+          porDia[dia].push(`  ${v.airline}${v.flight_number} | ${v.dept_station} ${v.dept_time} → ${v.arrival_station} ${v.arrival_time}`);
+        }
+
+        const linhas = Object.entries(porDia).map(([dia, flights]) => `*${dia}*\n${flights.join('\n')}`).join('\n\n');
+        const titulo = destino ? `✈️ *Voos com carga para ${destino}*` : '✈️ *Voos disponíveis para carga*';
+        const msg = `${titulo}\n\n${linhas}\n\n📋 Malha completa: ${APP_URL}/malha`;
+
+        return res.status(200).json({ success: true, total: voos.length, message: msg, custom_fields: { resposta_malha: msg } });
+      }
+
       default:
         return res.status(400).json({ error: `Ação desconhecida: ${action}` });
     }

@@ -19,6 +19,8 @@ import CadastroPage from './pages/public/CadastroPage';
 import CotacaoPage from './pages/public/CotacaoPage';
 import CotacaoLinkPage from './pages/public/CotacaoLinkPage';
 import LinkRedirectPage from './pages/public/LinkRedirectPage';
+import MalhaPage from './pages/public/MalhaPage';
+import MalhaAereaPage from './pages/admin/MalhaAereaPage';
 import ColetaPage from './pages/public/ColetaPage';
 import RastreamentoPage from './pages/public/RastreamentoPage';
 import FaqPage from './pages/public/FaqPage';
@@ -36,6 +38,7 @@ export default function App() {
           <Route path="/cotacao/:clienteId?" element={<CotacaoPage />} />
           <Route path="/c/:token" element={<CotacaoLinkPage />} />
           <Route path="/l/:token" element={<LinkRedirectPage />} />
+          <Route path="/malha" element={<MalhaPage />} />
           <Route path="/coleta/:clienteId?" element={<ColetaPage />} />
           <Route path="/rastreamento" element={<RastreamentoPage />} />
           <Route path="/avaliar/:rastreamento_id" element={<AvaliacaoPage />} />
@@ -65,6 +68,7 @@ export default function App() {
             <Route path="links-rapidos" element={<LinksRapidosPage />} />
             <Route path="followup" element={<FollowUpPage />} />
             <Route path="configuracoes" element={<ConfiguracoesPage />} />
+            <Route path="malha" element={<MalhaAereaPage />} />
           </Route>
 
           {/* Default */}
