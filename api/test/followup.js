@@ -257,7 +257,7 @@ export default async function handler(req, res) {
 
   clearConfigCache();
   const config = await getConfig();
-  const baseUrl = config.app_base_url || 'https://golcargo.com.br';
+  const baseUrl = config.app_base_url || 'https://www.golcargo.com.br';
 
   const params = { nome, origem, destino, valor, servico, codigo, status, rastId, endereco, horario, volumes, enviosMes, totalEnvios, baseUrl };
 

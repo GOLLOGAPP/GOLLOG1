@@ -28,6 +28,6 @@ export default async function handler(req, res) {
 
   return res.status(200).json({
     token,
-    url: `https://golcargo.com.br/l/${token}`,
+    url: `https://www.golcargo.com.br/l/${token}`,
   });
 }

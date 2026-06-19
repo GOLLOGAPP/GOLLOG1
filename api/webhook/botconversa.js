@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const APP_URL = process.env.APP_URL || 'https://golcargo.com.br';
+const APP_URL = process.env.APP_URL || 'https://www.golcargo.com.br';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://bkljbfqvlepmmwwylfdv.supabase.co',

@@ -69,7 +69,7 @@ export default async function handler(req, res) {
   }
 
   const config = await getConfig();
-  const baseUrl = config.app_base_url || 'https://golcargo.com.br';
+  const baseUrl = config.app_base_url || 'https://www.golcargo.com.br';
   const results = { abandonados: 0, cotacoes: 0, cadastros: 0, inativos: 0, coletas: 0, relatorio: 0, aniversarios: 0 };
 
   // ─── BLOCO 0: Cadastros iniciados mas não finalizados ────────────────
