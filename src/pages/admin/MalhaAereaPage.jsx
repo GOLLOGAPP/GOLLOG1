@@ -39,9 +39,11 @@ function parseXLS(file) {
           }
         }
 
-        const headers = raw[headerIdx].map(h => String(h || '').trim().toLowerCase());
+        // normaliza espaços múltiplos para detectar "Arrv  Stn" → "arrv stn"
+        const headers = raw[headerIdx].map(h => String(h || '').trim().toLowerCase().replace(/\s+/g, ' '));
         const find = (...terms) => headers.findIndex(h => terms.some(t => h.includes(t.toLowerCase())));
 
+        console.log('[MALHA] headers detectados:', headers);
         const cols = {
           airline:          find('aln', 'airline'),
           flight_number:    find('flt', 'flight'),
@@ -59,6 +61,7 @@ function parseXLS(file) {
           pode_carga:       find('pode', 'cargo', 'carga'),
         };
 
+        console.log('[MALHA] cols mapeados:', cols);
         const rows = raw.slice(headerIdx + 1)
           .filter(r => String(r[cols.airline] || '').trim())
           .map(r => ({
