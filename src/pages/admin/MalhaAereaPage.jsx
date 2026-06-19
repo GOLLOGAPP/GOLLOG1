@@ -51,9 +51,9 @@ function parseXLS(file) {
           weekday:          find('weekday'),
           dept_station:     find('dept st', 'dept s', 'dep st', 'dep s'),
           dept_time:        find('dept tm', 'dept t', 'dep tm', 'dep t'),
-          arrival_time:     find('arrv tm', 'arrv t', 'arr tm', 'arr t'),
+          arrival_time:     find('arvi t', 'arrv tm', 'arrv t', 'arr tm', 'arr t'),
           rel_arrival:      find('rel'),
-          arrival_station:  find('arrv st', 'arrv s', 'arr st', 'arr s'),
+          arrival_station:  find('arvi s', 'arrv st', 'arrv s', 'arr st', 'arr s'),
           ac_owner:         find('a/c', 'owner'),
           equipment:        find('equip'),
           aircraft:         find('aircraft'),
@@ -146,26 +146,27 @@ export default function MalhaAereaPage() {
       setStatus('Substituindo malha anterior...');
       await supabase.from('malha_uploads').update({ ativo: false }).eq('ativo', true);
 
-      // 3. Limpa tabela
+      // 3. Cria registro de upload e obtém o id para uso como malha_id
+      const total = rows.length;
+      const { data: uploadRec, error: uploadRecErr } = await supabase
+        .from('malha_uploads')
+        .insert({ filename: file.name, storage_path: storagePath, total_voos: total, ativo: true })
+        .select('id').single();
+      if (uploadRecErr) throw new Error('Erro ao registrar upload: ' + uploadRecErr.message);
+      const malha_id = uploadRec.id;
+
+      // 4. Limpa tabela
       await supabase.from('malha_aerea').delete().neq('id', '00000000-0000-0000-0000-000000000000');
 
-      // 4. Insere em lotes de 500 (evita limite de payload)
+      // 5. Insere em lotes de 500 com malha_id
       const batchSize = 500;
-      const total = rows.length;
       for (let i = 0; i < total; i += batchSize) {
         const pct = Math.round(((i + batchSize) / total) * 100);
         setStatus(`Importando voos... ${Math.min(i + batchSize, total)}/${total} (${Math.min(pct,100)}%)`);
-        const { error } = await supabase.from('malha_aerea').insert(rows.slice(i, i + batchSize));
+        const lote = rows.slice(i, i + batchSize).map(r => ({ ...r, malha_id }));
+        const { error } = await supabase.from('malha_aerea').insert(lote);
         if (error) throw new Error('Erro ao inserir lote: ' + error.message);
       }
-
-      // 5. Registra upload
-      await supabase.from('malha_uploads').insert({
-        filename: file.name,
-        storage_path: storagePath,
-        total_voos: total,
-        ativo: true,
-      });
 
       setStatus(`✅ Malha publicada com sucesso! ${total} voos importados.`);
       setRows([]);
