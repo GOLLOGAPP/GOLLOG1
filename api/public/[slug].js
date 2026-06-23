@@ -49,13 +49,17 @@ async function handleMalha(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
   const { origem, destino, weekday, apenas_carga } = req.query;
 
-  let q = supabase.from('malha_aerea').select('*').order('dept_time', { ascending: true });
+  let q = supabase.from('malha_aerea').select('*');
   if (origem) q = q.ilike('dept_station', `%${origem}%`);
   if (destino) q = q.ilike('arrival_station', `%${destino}%`);
   if (weekday) q = q.ilike('weekday', `%${weekday}%`);
   if (apenas_carga === 'true') q = q.eq('pode_enviar_carga', 'SIM');
 
-  const { data: voos, error } = await q.order('day_date', { ascending: true }).limit(2000);
+  // Ordena: day_date primeiro (nulls primeiro para não serem cortados pelo limit), depois por horário
+  const { data: voos, error } = await q
+    .order('day_date', { ascending: true, nullsFirst: true })
+    .order('dept_time', { ascending: true })
+    .limit(5000);
 
   if (error) return res.status(500).json({ error: error.message });
 

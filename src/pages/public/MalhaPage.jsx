@@ -137,10 +137,11 @@ export default function MalhaPage() {
     setUpload(data.upload);
     setDownloadUrl(data.download_url);
 
-    // Extrai estações únicas para os selects (sem filtro ativo)
+    // Atualiza sempre as estações a partir dos dados brutos (sem filtro de data)
+    const todosVoos = data.voos || [];
     if (!filtros.origem && !filtros.destino) {
-      const origens = [...new Set((data.voos || []).map(v => v.dept_station).filter(Boolean))].sort();
-      const destinos = [...new Set((data.voos || []).map(v => v.arrival_station).filter(Boolean))].sort();
+      const origens = [...new Set(todosVoos.map(v => v.dept_station).filter(Boolean))].sort();
+      const destinos = [...new Set(todosVoos.map(v => v.arrival_station).filter(Boolean))].sort();
       setEstacoes({ origens, destinos });
     }
     setLoading(false);
@@ -176,8 +177,10 @@ export default function MalhaPage() {
     porData[key].push(v);
   });
 
-  // Ordena as datas cronologicamente
+  // Ordena as datas cronologicamente; '—' (sem data) sempre por último
   const datasOrdenadas = Object.keys(porData).sort((a, b) => {
+    if (a === '—') return 1;
+    if (b === '—') return -1;
     const ia = toIso(a), ib = toIso(b);
     if (ia && ib) return ia.localeCompare(ib);
     return a.localeCompare(b);
