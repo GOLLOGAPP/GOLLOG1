@@ -547,7 +547,7 @@ export default async function handler(req, res) {
           }
         }
 
-        // Chave Resend e email de fallback
+        // Chave Resend e email remetente
         const { data: cfgResend } = await supabase
           .from('configuracoes').select('chave, valor')
           .in('chave', ['resend_api_key', 'resend_from_email']);
@@ -556,8 +556,19 @@ export default async function handler(req, res) {
         const emailAddr = (cfgResendMap.resend_from_email || process.env.RESEND_FROM_EMAIL || 'noreply@golcargo.com.br')
           .replace(/.*<(.+)>.*/, '$1').trim();
         const FROM_EMAIL = `GOLLOG PRIORIDADE <${emailAddr}>`;
-        const FALLBACK_EMAIL = 'gollog.rossantos@voegol.com.br'; // email de teste principal
-        const CC_FIXO = 'gollogapp@gmail.com'; // cópia fixa durante testes
+        const FALLBACK_EMAIL = 'gollog.rossantos@voegol.com.br';
+        const CC_FIXO = 'gollogapp@gmail.com';
+
+        // Valida chave Resend antes de continuar
+        if (!resendKey) {
+          console.error('[PRIORIDADE] RESEND_API_KEY não configurada — verifique as variáveis de ambiente do Vercel ou a tabela configuracoes no Supabase');
+          const msgErroConfig = `❌ Erro de configuração: chave de e-mail não encontrada. Entre em contato com o suporte.`;
+          return res.status(200).json({
+            success: false,
+            message: msgErroConfig,
+            custom_fields: { resposta_prioridade: msgErroConfig, prioridade_enviada: 'nao' },
+          });
+        }
 
         const resultadosPrio = [];
 
@@ -658,6 +669,10 @@ export default async function handler(req, res) {
             let resendErro = null;
             if (!enviado) {
               try { resendErro = await resendRes.json(); } catch { resendErro = { status: resendRes.status }; }
+              console.error(`[PRIORIDADE] Erro Resend para ${codigo}:`, JSON.stringify(resendErro));
+              console.error(`[PRIORIDADE] FROM: ${FROM_EMAIL} | TO: ${emailAtual} | CC: ${ccList.join(', ')}`);
+            } else {
+              console.log(`[PRIORIDADE] ✅ Email enviado para ${emailAtual} (${codigo})`);
             }
 
             // Log atividade
@@ -680,6 +695,7 @@ export default async function handler(req, res) {
             });
 
           } catch (err) {
+            console.error(`[PRIORIDADE] Exceção para ${codigo}:`, err.message);
             resultadosPrio.push({ codigo, success: false, erro: err.message });
           }
         }
@@ -707,6 +723,11 @@ export default async function handler(req, res) {
           emails_enviados: ok.length,
           resultados: resultadosPrio,
           message: msgPrioridade,
+          _debug: {
+            from_email: FROM_EMAIL,
+            resend_key_ok: resendKey.length > 10,
+            falhas: fail.map(r => ({ codigo: r.codigo, erro: r.erro || r._resend_erro })),
+          },
           custom_fields: {
             resposta_prioridade: msgPrioridade,
             prioridade_enviada: ok.length > 0 ? 'sim' : 'nao',
