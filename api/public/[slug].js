@@ -55,7 +55,8 @@ async function handleMalha(req, res) {
   if (weekday) q = q.ilike('weekday', `%${weekday}%`);
   if (apenas_carga === 'true') q = q.eq('pode_enviar_carga', 'SIM');
 
-  const { data: voos, error } = await q.limit(500);
+  const { data: voos, error } = await q.order('day_date', { ascending: true }).limit(2000);
+
   if (error) return res.status(500).json({ error: error.message });
 
   const { data: upload } = await supabase
