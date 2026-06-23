@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { fetchCep, formatCep } from '../../lib/cep';
@@ -713,16 +713,8 @@ export default function CotacaoPage() {
 
             {/* Volumes */}
             <div style={{ background: '#F9FAFB', borderRadius: 10, padding: 14, marginBottom: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
-                  📦 Volumes ({current.volumes.length})
-                </div>
-                <button type="button" onClick={addVolume}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F37021',
-                    border: 'none', borderRadius: 6, padding: '5px 10px', color: '#fff',
-                    fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                  <FiPlus size={12} /> Adicionar volume
-                </button>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 10 }}>
+                📦 Volumes ({current.volumes.length})
               </div>
 
               {/* Cabeçalho da tabela */}
@@ -750,6 +742,16 @@ export default function CotacaoPage() {
                 </div>
               ))}
 
+              {/* Botão Adicionar Volume — abaixo da última linha, alinhado à direita */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <button type="button" onClick={addVolume}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#F37021',
+                    border: 'none', borderRadius: 6, padding: '5px 10px', color: '#fff',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  <FiPlus size={12} /> Adicionar volume
+                </button>
+              </div>
+
               {pesoAtual > 0 && (
                 <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#374151',
                   marginTop: 8, paddingTop: 8, borderTop: '1px solid #E5E7EB' }}>
@@ -764,7 +766,7 @@ export default function CotacaoPage() {
                 style={{ background: '#fff', border: '1.5px solid #F37021', color: '#F37021',
                   borderRadius: 8, padding: 12, fontSize: 13, fontWeight: 600, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                <FiPlus size={14} /> Adicionar Outra
+                <FiPlus size={14} /> Nova Cotação
               </button>
               <button type="submit" className="public-btn" disabled={loading} style={{ margin: 0 }}>
                 {loading ? 'Enviando...' : 'Enviar Cotações'}
