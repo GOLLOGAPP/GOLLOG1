@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { marcarCadastroConvertido } from '../_lib/notify.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || 'https://bkljbfqvlepmmwwylfdv.supabase.co',
@@ -39,6 +40,15 @@ export default async function handler(req, res) {
 
     const formattedPhone = toInternational(phone);
 
+    // 0. Rede de segurança: encerra o follow-up de cadastro abandonado deste
+    //    telefone, mesmo que a conversão não tenha sido marcada pelo navegador.
+    let cadastrosConvertidos = 0;
+    try {
+      cadastrosConvertidos = await marcarCadastroConvertido(phone);
+    } catch (e) {
+      console.error('Falha ao marcar cadastro convertido:', e.message);
+    }
+
     // 1. Adiciona tags sequencialmente — Botconversa rejeita chamadas simultâneas pro mesmo assinante
     const addTag = async (tag) => {
       try {
@@ -62,10 +72,17 @@ export default async function handler(req, res) {
     let menuTriggered = false;
     if (webhookUrl) {
       try {
+        // Só inclui o nome se vier preenchido — evita sobrescrever com vazio no BotConversa
+        const nomeWebhook = (nome || '').trim();
+        const webhookPayload = { phone: formattedPhone };
+        if (nomeWebhook && nomeWebhook.toLowerCase() !== 'none') {
+          webhookPayload.nome = nomeWebhook;
+        }
+
         await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: formattedPhone, nome: nome || '' }),
+          body: JSON.stringify(webhookPayload),
         });
         menuTriggered = true;
       } catch (e) {
@@ -78,6 +95,7 @@ export default async function handler(req, res) {
       phone: formattedPhone,
       tags: tagResults,
       menu_triggered: menuTriggered,
+      cadastros_convertidos: cadastrosConvertidos,
     });
 
   } catch (error) {

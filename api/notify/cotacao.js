@@ -88,15 +88,21 @@ export default async function handler(req, res) {
     if (bcWebhook) {
       try {
         const phoneClean = phone.replace(/\D/g, '');
+        const bcPayload = {
+            phone: phoneClean,
+            cotacao_resumo: resumo,
+            cotacao_status: 'enviada',
+          };
+          // Só inclui o nome se vier preenchido — evita sobrescrever com vazio no BotConversa
+          const nomeClean = (globalData?.nome || '').trim();
+          if (nomeClean && nomeClean.toLowerCase() !== 'none') {
+            bcPayload.name = nomeClean;
+          }
+
         const bcRes = await fetch(bcWebhook, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: phoneClean,
-            name: globalData?.nome || '',
-            cotacao_resumo: resumo,
-            cotacao_status: 'enviada',
-          }),
+          body: JSON.stringify(bcPayload),
         });
         bcWebhookStatus = bcRes.status;
         bcWebhookOk = bcRes.ok;
