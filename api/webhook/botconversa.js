@@ -520,11 +520,25 @@ export default async function handler(req, res) {
 
       // ─── SOLICITAR PRIORIDADE: cliente solicita embarque prioritário ───
       case 'solicitar_prioridade': {
-        // Códigos podem vir como string separada por vírgula/espaço/linha
-        const rawCodigos = data?.codigos || data?.codigo || data?.awb || '';
+        // Códigos podem vir em qualquer campo — cobre todos os mapeamentos possíveis do BotConversa
+        const rawCodigos = data?.codigos || data?.codigo || data?.awb
+          || data?.texto || data?.message || data?.input || data?.text
+          || data?.rastreio || data?.numero || '';
+
+        // Sanitiza: remove traços/espaços dentro do número (ex: 127-12345678)
+        const rawSanitizado = String(rawCodigos).replace(/(\d)[- ](\d)/g, '$1$2');
+
         const codigosPrioridade = [...new Set(
-          String(rawCodigos).split(/[,\s\n]+/).map(c => c.trim()).filter(c => /^\d{11}$/.test(c))
+          rawSanitizado.split(/[,\s\n]+/).map(c => c.trim()).filter(c => /^\d{11}$/.test(c))
         )];
+
+        // Log para debug
+        console.log('[PRIORIDADE DEBUG]', JSON.stringify({
+          rawCodigos,
+          rawSanitizado,
+          codigosPrioridade,
+          dataKeys: Object.keys(data || {}),
+        }));
 
         if (codigosPrioridade.length === 0) {
           const msgInvalido = `⚠️ Não identifiquei nenhum código de rastreio válido.\n\nPor favor, informe o número de 11 dígitos (ex: 12740370864).`;
@@ -532,6 +546,7 @@ export default async function handler(req, res) {
             success: false,
             message: msgInvalido,
             custom_fields: { resposta_prioridade: msgInvalido, prioridade_enviada: 'nao' },
+            _debug: { campos_recebidos: Object.keys(data || {}), valor_recebido: rawCodigos },
           });
         }
 
