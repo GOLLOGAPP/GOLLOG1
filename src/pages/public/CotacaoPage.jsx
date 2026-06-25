@@ -246,6 +246,7 @@ export default function CotacaoPage() {
   const [showDupDialog, setShowDupDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (phoneFromUrl) lookupPhone(phoneFromUrl);
@@ -314,6 +315,14 @@ export default function CotacaoPage() {
     volumes.reduce((s, v) => s + (parseFloat(v.peso_kg) || 0), 0);
 
   const handleAddOutra = () => {
+    // Valida antes de adicionar outra cotação
+    const errs = validateForm();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setErrors({});
     setCotacoes(prev => [...prev, { ...current }]);
     setShowDupDialog(true);
   };
@@ -337,8 +346,76 @@ export default function CotacaoPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Valida o formulário atual e retorna objeto com erros
+  const validateForm = () => {
+    const errs = {};
+
+    // WhatsApp obrigatório
+    if (!globalForm.telefone || globalForm.telefone.replace(/\D/g, '').length < 10) {
+      errs.telefone = 'Informe um WhatsApp válido';
+    }
+
+    // CEP de origem obrigatório quando com coleta
+    if (globalForm.com_coleta) {
+      if (!globalForm.cep_origem || globalForm.cep_origem.replace(/\D/g, '').length < 8) {
+        errs.cep_origem = 'Informe o CEP de origem para coleta';
+      }
+      if (globalForm.cidade_origem && !globalForm.numero_origem) {
+        errs.numero_origem = 'Informe o número do endereço de origem';
+      }
+    }
+
+    // Destino obrigatório
+    if (current.local_entrega_tipo === 'domicilio') {
+      if (!current.cep_destino || current.cep_destino.replace(/\D/g, '').length < 8) {
+        errs.cep_destino = 'Informe o CEP de destino';
+      }
+      if (current.cidade_destino && !current.numero_destino) {
+        errs.numero_destino = 'Informe o número do endereço de destino';
+      }
+    } else {
+      if (!current.aeroporto_sigla) {
+        errs.aeroporto_sigla = 'Selecione a base de destino';
+      }
+    }
+
+    // Descrição da carga
+    if (!current.descricao_carga || !current.descricao_carga.trim()) {
+      errs.descricao_carga = 'Informe a descrição da carga';
+    }
+
+    // Valor da Nota
+    if (!current.valor_nota && current.valor_nota !== 0) {
+      errs.valor_nota = 'Informe o valor da Nota Fiscal';
+    }
+
+    // Dimensões de cada volume
+    current.volumes.forEach((vol, idx) => {
+      if (!vol.comprimento_cm || parseFloat(vol.comprimento_cm) <= 0)
+        errs[`vol_${idx}_comprimento`] = `Vol. ${idx + 1}: comprimento obrigatório`;
+      if (!vol.altura_cm || parseFloat(vol.altura_cm) <= 0)
+        errs[`vol_${idx}_altura`] = `Vol. ${idx + 1}: altura obrigatória`;
+      if (!vol.largura_cm || parseFloat(vol.largura_cm) <= 0)
+        errs[`vol_${idx}_largura`] = `Vol. ${idx + 1}: largura obrigatória`;
+      if (!vol.peso_kg || parseFloat(vol.peso_kg) <= 0)
+        errs[`vol_${idx}_peso`] = `Vol. ${idx + 1}: peso obrigatório`;
+    });
+
+    return errs;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Valida antes de enviar
+    const errs = validateForm();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      // Rola para o topo para mostrar o resumo de erros
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setErrors({});
     setLoading(true);
     const all = [...cotacoes, { ...current }];
     try {
@@ -493,6 +570,23 @@ export default function CotacaoPage() {
           </div>
         )}
 
+        {/* Resumo de erros */}
+        {Object.keys(errors).length > 0 && (
+          <div style={{
+            background: '#FFF2F2', border: '1.5px solid #FCA5A5', borderRadius: 12,
+            padding: '14px 16px', marginBottom: 16,
+          }}>
+            <div style={{ fontWeight: 700, color: '#DC2626', fontSize: 13, marginBottom: 8 }}>
+              ⚠️ Corrija os campos abaixo antes de enviar:
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {Object.values(errors).map((msg, i) => (
+                <li key={i} style={{ fontSize: 12, color: '#DC2626', marginBottom: 3 }}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Dados globais — só na primeira cotação */}
         {cotacoes.length === 0 && (
           <div className="public-card" style={{ marginBottom: 16 }}>
@@ -508,12 +602,17 @@ export default function CotacaoPage() {
                   value={globalForm.telefone}
                   readOnly={!!phoneFromUrl}
                   onChange={e => setGlobalForm(p => ({ ...p, telefone: e.target.value }))}
-                  style={{ background: phoneFromUrl ? '#F9FAFB' : undefined, paddingRight: 36 }} />
+                  style={{
+                    background: phoneFromUrl ? '#F9FAFB' : undefined,
+                    paddingRight: 36,
+                    borderColor: errors.telefone ? '#EF4444' : undefined,
+                  }} />
                 <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
                   color: phoneFromUrl ? '#9CA3AF' : 'transparent' }}>
                   {telefoneLoading ? <FiLoader size={15} /> : phoneFromUrl ? <FiLock size={15} /> : null}
                 </div>
               </div>
+              {errors.telefone && <p style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>{errors.telefone}</p>}
             </div>
 
             <div className="form-group">
@@ -535,22 +634,30 @@ export default function CotacaoPage() {
                   <input className="public-input" placeholder="00000-000" maxLength={9}
                     value={globalForm.cep_origem}
                     onChange={e => handleCepOrigemChange(e.target.value)}
-                    style={{ paddingRight: cepOrigemLoading ? 36 : undefined }} />
+                    style={{
+                      paddingRight: cepOrigemLoading ? 36 : undefined,
+                      borderColor: errors.cep_origem ? '#EF4444' : undefined,
+                    }} />
                   {cepOrigemLoading && (
                     <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#F37021' }}>
                       <FiLoader size={14} />
                     </div>
                   )}
                 </div>
+                {errors.cep_origem && <p style={{ color: '#EF4444', fontSize: 11, marginTop: -4, marginBottom: 8 }}>{errors.cep_origem}</p>}
                 {globalForm.cidade_origem && (
                   <>
                     <input className="public-input" placeholder="Logradouro" style={{ marginBottom: 8, background: '#E8F5E9' }}
                       value={globalForm.logradouro_origem}
                       onChange={e => setGlobalForm(p => ({ ...p, logradouro_origem: e.target.value }))} />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                      <input className="public-input" placeholder="Número *" required
-                        value={globalForm.numero_origem}
-                        onChange={e => setGlobalForm(p => ({ ...p, numero_origem: e.target.value }))} />
+                      <div>
+                        <input className="public-input" placeholder="Número *" required
+                          value={globalForm.numero_origem}
+                          onChange={e => setGlobalForm(p => ({ ...p, numero_origem: e.target.value }))}
+                          style={{ borderColor: errors.numero_origem ? '#EF4444' : undefined }} />
+                        {errors.numero_origem && <p style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>{errors.numero_origem}</p>}
+                      </div>
                       <input className="public-input" placeholder="Complemento (opcional)"
                         value={globalForm.complemento_origem}
                         onChange={e => setGlobalForm(p => ({ ...p, complemento_origem: e.target.value }))} />
@@ -641,13 +748,17 @@ export default function CotacaoPage() {
                       <input className="public-input" placeholder="CEP destino" maxLength={9}
                         value={current.cep_destino}
                         onChange={e => handleCepDestinoChange(e.target.value)}
-                        style={{ paddingRight: cepDestinoLoading ? 36 : undefined }} />
+                        style={{
+                          paddingRight: cepDestinoLoading ? 36 : undefined,
+                          borderColor: errors.cep_destino ? '#EF4444' : undefined,
+                        }} />
                       {cepDestinoLoading && (
                         <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#F37021' }}>
                           <FiLoader size={14} />
                         </div>
                       )}
                     </div>
+                    {errors.cep_destino && <p style={{ color: '#EF4444', fontSize: 11, marginTop: -4, marginBottom: 8 }}>{errors.cep_destino}</p>}
                     {current.cidade_destino && (
                       <>
                         <input className="public-input" placeholder="Logradouro" style={{ marginBottom: 8, background: '#E8F5E9' }}
@@ -673,10 +784,13 @@ export default function CotacaoPage() {
                     )}
                   </>
                 ) : (
-                  <BaseAutocomplete
-                    value={current.aeroporto_sigla}
-                    onChange={b => setCurrent(p => ({ ...p, aeroporto_sigla: b.sigla, aeroporto_cidade: b.cidade }))}
-                  />
+                  <>
+                    <BaseAutocomplete
+                      value={current.aeroporto_sigla}
+                      onChange={b => setCurrent(p => ({ ...p, aeroporto_sigla: b.sigla, aeroporto_cidade: b.cidade }))}
+                    />
+                    {errors.aeroporto_sigla && <p style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>{errors.aeroporto_sigla}</p>}
+                  </>
                 )}
               </div>
             </div>
@@ -699,15 +813,19 @@ export default function CotacaoPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ color: '#374151' }}>Descrição da Carga *</label>
-                <input className="public-input" required placeholder="Ex: Eletrônicos, roupas..."
+                <input className="public-input" placeholder="Ex: Eletrônicos, roupas..."
                   value={current.descricao_carga}
-                  onChange={e => setCurrent(p => ({ ...p, descricao_carga: e.target.value }))} />
+                  onChange={e => setCurrent(p => ({ ...p, descricao_carga: e.target.value }))}
+                  style={{ borderColor: errors.descricao_carga ? '#EF4444' : undefined }} />
+                {errors.descricao_carga && <p style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>{errors.descricao_carga}</p>}
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label" style={{ color: '#374151' }}>Valor da Nota (R$) *</label>
-                <input className="public-input" required type="number" step="0.01" min="0" placeholder="0,00"
+                <input className="public-input" type="number" step="0.01" min="0" placeholder="0,00"
                   value={current.valor_nota}
-                  onChange={e => setCurrent(p => ({ ...p, valor_nota: e.target.value }))} />
+                  onChange={e => setCurrent(p => ({ ...p, valor_nota: e.target.value }))}
+                  style={{ borderColor: errors.valor_nota ? '#EF4444' : undefined }} />
+                {errors.valor_nota && <p style={{ color: '#EF4444', fontSize: 11, marginTop: 4 }}>{errors.valor_nota}</p>}
               </div>
             </div>
 
@@ -726,11 +844,19 @@ export default function CotacaoPage() {
 
               {current.volumes.map((vol, idx) => (
                 <div key={idx} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 28px', gap: 6, marginBottom: 6, minWidth: 0 }}>
-                  {['comprimento_cm', 'altura_cm', 'largura_cm', 'peso_kg'].map(field => (
+                  {[
+                    { field: 'comprimento_cm', errKey: `vol_${idx}_comprimento` },
+                    { field: 'altura_cm',      errKey: `vol_${idx}_altura` },
+                    { field: 'largura_cm',     errKey: `vol_${idx}_largura` },
+                    { field: 'peso_kg',        errKey: `vol_${idx}_peso` },
+                  ].map(({ field, errKey }) => (
                     <input key={field} className="public-input" type="number" step="0.1" min="0" placeholder="0"
                       value={vol[field]}
                       onChange={e => updateVolume(idx, field, e.target.value)}
-                      style={{ textAlign: 'center', padding: '8px 4px', fontSize: 13 }} />
+                      style={{
+                        textAlign: 'center', padding: '8px 4px', fontSize: 13,
+                        borderColor: errors[errKey] ? '#EF4444' : undefined,
+                      }} />
                   ))}
                   <button type="button" onClick={() => removeVolume(idx)}
                     disabled={current.volumes.length === 1}
