@@ -525,8 +525,11 @@ export default async function handler(req, res) {
           || data?.texto || data?.message || data?.input || data?.text
           || data?.rastreio || data?.numero || '';
 
-        // Sanitiza: remove traços/espaços dentro do número (ex: 127-12345678)
-        const rawSanitizado = String(rawCodigos).replace(/(\d)[- ](\d)/g, '$1$2');
+        // Sanitiza: remove formatação Markdown do WhatsApp (*negrito*, _itálico_, ~tachado~)
+        // e remove traços/espaços dentro do número (ex: 127-12345678 ou 127 12345678)
+        const rawSanitizado = String(rawCodigos)
+          .replace(/[*_~`]/g, '')               // remove * _ ~ ` do WhatsApp
+          .replace(/(\d)[- ](\d)/g, '$1$2');    // remove traços/espaços entre dígitos
 
         const codigosPrioridade = [...new Set(
           rawSanitizado.split(/[,\s\n]+/).map(c => c.trim()).filter(c => /^\d{11}$/.test(c))
