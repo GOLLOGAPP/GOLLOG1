@@ -572,7 +572,7 @@ export default async function handler(req, res) {
           .replace(/.*<(.+)>.*/, '$1').trim();
         const FROM_EMAIL = `GOLLOG PRIORIDADE <${emailAddr}>`;
         const FALLBACK_EMAIL = 'gollog.rossantos@voegol.com.br';
-        const CC_FIXO = 'gollogapp@gmail.com';
+        // CC_FIXO (gollogapp@gmail.com) removido — CC agora usa email_admin da base de origem
 
         // Valida chave Resend antes de continuar
         if (!resendKey) {
@@ -622,14 +622,19 @@ export default async function handler(req, res) {
             let nomeOrigem = siglaOrigem;
 
             const siglasParaBuscar = [...new Set([siglaAtual, siglaOrigem].filter(Boolean))];
+            let emailAdminOrigem = null;
             if (siglasParaBuscar.length > 0) {
               const { data: bases } = await supabase
-                .from('bases_email').select('sigla, nome, email').in('sigla', siglasParaBuscar);
+                .from('bases_email').select('sigla, nome, email, email_admin').in('sigla', siglasParaBuscar);
               if (bases) {
                 const bAtual = bases.find(b => b.sigla === siglaAtual);
                 const bOrigem = bases.find(b => b.sigla === siglaOrigem);
                 if (bAtual) { emailAtual = bAtual.email; nomeAtual = bAtual.nome; }
-                if (bOrigem) { emailOrigem = bOrigem.email; nomeOrigem = bOrigem.nome; }
+                if (bOrigem) {
+                  emailOrigem = bOrigem.email;
+                  nomeOrigem = bOrigem.nome;
+                  emailAdminOrigem = bOrigem.email_admin || null; // ← admin da base de origem
+                }
               }
             }
 
@@ -657,12 +662,19 @@ export default async function handler(req, res) {
   </td></tr></table>
 </body></html>`;
 
-            // CC: supervisão da base atual (QBX/QOZ) + cliente solicitante + monitoramento fixo
-            const ccSupervisao = siglaAtual === 'QBX' ? 'qbxfs@voegol.com.br'
-                               : siglaAtual === 'QOZ' ? 'qozfs@voegol.com.br'
-                               : null;
-            const ccSet = new Set([emailClientePrio, CC_FIXO, ccSupervisao].filter(Boolean));
+            // CC: admin da base de origem + cliente solicitante
+            // Regras:
+            //   - emailAdminOrigem: email_admin cadastrado na tabela bases_email para a base de origem
+            //   - emailClientePrio: email do cliente (se cadastrado na tabela clientes)
+            //   - gollogapp@gmail.com foi REMOVIDO intencionalmente
+            //   - CC de supervisão hardcoded (QBX/QOZ) foi REMOVIDO — usar email_admin da base
+            const ccSet = new Set([
+              emailAdminOrigem,
+              emailClientePrio,
+            ].filter(Boolean));
             const ccList = [...ccSet];
+
+            console.log(`[PRIORIDADE CC] codigo=${codigo} | to=${emailAtual} | cc=${ccList.join(', ')} | adminOrigem=${emailAdminOrigem} | cliente=${emailClientePrio}`);
 
             // Envia via Resend
             const resendRes = await fetch('https://api.resend.com/emails', {
