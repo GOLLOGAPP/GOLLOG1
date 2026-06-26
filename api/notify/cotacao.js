@@ -56,7 +56,7 @@ function buildResumo(globalData, cotacoes) {
     ].filter(Boolean).join(', ');
     origemStr = `📦 Origem: ${partes}`;
   }
-  const header = [`🏢 Unidade: ${unidade}`, coletaStr, origemStr].filter(Boolean).join('\n');
+  const header = [coletaStr, origemStr].filter(Boolean).join('\n');
   const corpo = cotacoes
     .map((c, idx) => formatarCotacao(c, idx, cotacoes.length))
     .join('\n\n─────────────\n\n');
