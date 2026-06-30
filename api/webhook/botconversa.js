@@ -29,12 +29,16 @@ export default async function handler(req, res) {
       .single();
     const webhookNotif = configNotif?.valor;
 
+    // Não enviamos o campo "nome" aqui de propósito: a mensagem já vem pronta e
+    // o BotConversa não precisa do nome para notificar. Reenviar "nome" fazia a
+    // automação sobrescrever o cadastro do contato com "none" quando o nome vinha
+    // vazio. Notificação não deve alterar cadastro.
     const notificar = (mensagem) => {
       if (!webhookNotif || !phone) return;
       fetch(webhookNotif, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, nome: name || '', mensagem }),
+        body: JSON.stringify({ phone, mensagem }),
       }).catch(() => {});
     };
 
