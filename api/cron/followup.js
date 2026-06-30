@@ -1,4 +1,4 @@
-import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate } from '../_lib/notify.js';
+import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, clienteJaCadastrado } from '../_lib/notify.js';
 
 function dayWindow(daysBack, windowHours = 26) {
   const end = new Date();
@@ -113,17 +113,8 @@ export default async function handler(req, res) {
       const phone = ini.metadata?.telefone;
       if (!phone) continue;
 
-      // Verifica se o cliente já finalizou o cadastro
-      const com55 = phone.startsWith('55') ? phone : `55${phone}`;
-      // Formata como armazenado no banco: (11) 99999-9999
-      const phoneFormatted = phone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
-      const { data: clienteExiste } = await supabase
-        .from('clientes')
-        .select('id')
-        .or(`telefone.eq.${phoneFormatted},telefone.eq.${phone},telefone.eq.${com55}`)
-        .maybeSingle();
-
-      if (clienteExiste) {
+      // Verifica se o cliente já finalizou o cadastro (comparação só por dígitos)
+      if (await clienteJaCadastrado(phone)) {
         await supabase
           .from('followups')
           .update({ status: 'convertido', sent_at: new Date().toISOString() })

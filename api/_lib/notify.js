@@ -7,6 +7,51 @@ export const supabase = createClient(
 
 let _config = null;
 
+// Normaliza telefone para apenas dígitos, sem o prefixo 55 (formato "sem55").
+// Tolera qualquer formatação: "(11) 98765-4321", "5511987654321", "11987654321" → "11987654321"
+export function normalizePhone(raw) {
+  const d = (raw || '').replace(/\D/g, '');
+  return d.startsWith('55') && d.length >= 12 ? d.slice(2) : d;
+}
+
+// Verifica se já existe cliente com este telefone, comparando SÓ os dígitos.
+// Busca candidatos pelos últimos 4 dígitos (contíguos em qualquer formato) e
+// confirma o match no JS — imune a diferenças de máscara/parênteses/prefixo 55.
+export async function clienteJaCadastrado(metaPhone) {
+  const local = normalizePhone(metaPhone);
+  if (!local || local.length < 8) return false;
+  const last4 = local.slice(-4);
+  const { data } = await supabase
+    .from('clientes')
+    .select('id, telefone, telefone2')
+    .or(`telefone.ilike.%${last4},telefone2.ilike.%${last4}`);
+  return (data || []).some(
+    c => normalizePhone(c.telefone) === local || normalizePhone(c.telefone2) === local
+  );
+}
+
+// Rede de segurança: marca como "convertido" qualquer cadastro_iniciado pendente
+// deste telefone, independente da sessão do navegador onde o cadastro foi feito.
+export async function marcarCadastroConvertido(metaPhone) {
+  const local = normalizePhone(metaPhone);
+  if (!local || local.length < 8) return 0;
+  const { data } = await supabase
+    .from('followups')
+    .select('id, metadata')
+    .eq('tipo', 'cadastro_iniciado')
+    .eq('status', 'pendente');
+  const ids = (data || [])
+    .filter(f => normalizePhone(f.metadata?.telefone) === local)
+    .map(f => f.id);
+  if (ids.length) {
+    await supabase
+      .from('followups')
+      .update({ status: 'convertido', sent_at: new Date().toISOString() })
+      .in('id', ids);
+  }
+  return ids.length;
+}
+
 export async function getConfig() {
   if (_config) return _config;
   const { data } = await supabase.from('configuracoes').select('chave, valor');

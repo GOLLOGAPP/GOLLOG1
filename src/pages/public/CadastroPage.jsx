@@ -40,16 +40,21 @@ export default function CadastroPage() {
       if (telefone) {
         const digits = telefone.replace(/\D/g, '');
         const sem55 = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
-        const com55 = sem55.startsWith('55') ? sem55 : `55${sem55}`;
-        const { data } = await supabase
+        const norm = (t) => {
+          const d = (t || '').replace(/\D/g, '');
+          return d.startsWith('55') && d.length >= 12 ? d.slice(2) : d;
+        };
+        // Busca por últimos 4 dígitos e confirma o match por dígitos no JS
+        const { data: candidatos } = await supabase
           .from('clientes')
-          .select('unidade_atendimento')
-          .or(`telefone.ilike.%${sem55}%,telefone.ilike.%${com55}%`)
-          .not('unidade_atendimento', 'is', null)
-          .limit(1)
-          .maybeSingle();
-        if (data?.unidade_atendimento) {
-          setForm(prev => ({ ...prev, unidade: data.unidade_atendimento }));
+          .select('telefone, telefone2, unidade_atendimento')
+          .or(`telefone.ilike.%${sem55.slice(-4)},telefone2.ilike.%${sem55.slice(-4)}`)
+          .not('unidade_atendimento', 'is', null);
+        const match = (candidatos || []).find(
+          c => norm(c.telefone) === sem55 || norm(c.telefone2) === sem55
+        );
+        if (match?.unidade_atendimento) {
+          setForm(prev => ({ ...prev, unidade: match.unidade_atendimento }));
           setUnidadeLocked(true);
         }
       }
@@ -63,15 +68,20 @@ export default function CadastroPage() {
     if (!telefone) return;
     const digits = telefone.replace(/\D/g, '');
     const sem55 = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
-    const phoneFormatted = cleanPhone(telefone);
+    const norm = (t) => {
+      const d = (t || '').replace(/\D/g, '');
+      return d.startsWith('55') && d.length >= 12 ? d.slice(2) : d;
+    };
 
-    // Não cria followup se o cliente já está cadastrado
+    // Não cria followup se o cliente já está cadastrado (comparação só por dígitos)
     supabase
       .from('clientes')
-      .select('id')
-      .or(`telefone.eq.${phoneFormatted},telefone.eq.${sem55},telefone.eq.55${sem55}`)
-      .maybeSingle()
-      .then(({ data: clienteExistente }) => {
+      .select('id, telefone, telefone2')
+      .or(`telefone.ilike.%${sem55.slice(-4)},telefone2.ilike.%${sem55.slice(-4)}`)
+      .then(({ data: candidatos }) => {
+        const clienteExistente = (candidatos || []).some(
+          c => norm(c.telefone) === sem55 || norm(c.telefone2) === sem55
+        );
         if (clienteExistente) return;
 
         // Evita duplicata: verifica se já existe um registro pendente para este telefone
