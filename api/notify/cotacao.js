@@ -1,4 +1,4 @@
-import { getConfig } from '../_lib/notify.js';
+import { getConfig, supabase, normalizePhone, buscarClientePorTelefone } from '../_lib/notify.js';
 
 function formatarCotacao(c, idx, total) {
   const volumes = c.volumes || [];
@@ -81,6 +81,25 @@ export default async function handler(req, res) {
     const cfg = await getConfig();
     const resumo = buildResumo(globalData, cotacoes);
 
+    // Rede de segurança: vincula as cotações deste telefone a um cliente
+    // (caso o lookup do frontend tenha falhado). Casa pelo telefone salvo em metadata.
+    let cotacoesVinculadas = 0;
+    try {
+      const foneSem55 = normalizePhone(phone);
+      const cliente = await buscarClientePorTelefone(phone);
+      if (cliente && foneSem55) {
+        const { data: upd } = await supabase
+          .from('cotacoes')
+          .update({ cliente_id: cliente.id })
+          .is('cliente_id', null)
+          .eq('metadata->>telefone', foneSem55)
+          .select('id');
+        cotacoesVinculadas = upd?.length || 0;
+      }
+    } catch (e) {
+      console.error('Falha ao vincular cotações ao cliente:', e.message);
+    }
+
     const bcWebhook = cfg.botconversa_cotacao_webhook_url;
     let bcWebhookOk = false;
     let bcWebhookStatus = null;
@@ -117,6 +136,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       total: cotacoes.length,
+      cotacoes_vinculadas: cotacoesVinculadas,
       bc_webhook: { ok: bcWebhookOk, status: bcWebhookStatus },
     });
 

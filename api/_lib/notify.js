@@ -30,6 +30,21 @@ export async function clienteJaCadastrado(metaPhone) {
   );
 }
 
+// Resolve o cliente pelo telefone comparando só os dígitos. Retorna { id, nome } ou null.
+export async function buscarClientePorTelefone(metaPhone) {
+  const local = normalizePhone(metaPhone);
+  if (!local || local.length < 8) return null;
+  const last4 = local.slice(-4);
+  const { data } = await supabase
+    .from('clientes')
+    .select('id, nome_razao_social, telefone, telefone2')
+    .or(`telefone.ilike.%${last4},telefone2.ilike.%${last4}`);
+  const cli = (data || []).find(
+    c => normalizePhone(c.telefone) === local || normalizePhone(c.telefone2) === local
+  );
+  return cli ? { id: cli.id, nome: cli.nome_razao_social } : null;
+}
+
 // Rede de segurança: marca como "convertido" qualquer cadastro_iniciado pendente
 // deste telefone, independente da sessão do navegador onde o cadastro foi feito.
 export async function marcarCadastroConvertido(metaPhone) {

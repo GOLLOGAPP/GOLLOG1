@@ -254,16 +254,24 @@ export default function CotacaoPage() {
 
   const lookupPhone = async (phone) => {
     setTelefoneLoading(true);
-    const clean = phone.replace(/\D/g, '');
-    const formatted = clean.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
+    const digits = phone.replace(/\D/g, '');
+    const sem55 = digits.startsWith('55') && digits.length >= 12 ? digits.slice(2) : digits;
+    const formatted = sem55.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
+    const norm = (t) => {
+      const d = (t || '').replace(/\D/g, '');
+      return d.startsWith('55') && d.length >= 12 ? d.slice(2) : d;
+    };
     try {
-      const { data: cli } = await supabase
-        .from('clientes').select('id')
-        .or(`telefone.eq.${formatted},telefone.eq.${clean},telefone.eq.55${clean}`)
-        .maybeSingle();
+      // Busca por dígitos (últimos 4) e confirma no JS — imune a formatação/parênteses
+      const { data: candidatos } = await supabase
+        .from('clientes').select('id, telefone, telefone2')
+        .or(`telefone.ilike.%${sem55.slice(-4)},telefone2.ilike.%${sem55.slice(-4)}`);
+      const cli = (candidatos || []).find(
+        c => norm(c.telefone) === sem55 || norm(c.telefone2) === sem55
+      );
       if (cli) setClienteId(cli.id);
     } catch (_) {}
-    setGlobalForm(p => ({ ...p, telefone: formatted || clean }));
+    setGlobalForm(p => ({ ...p, telefone: formatted || sem55 }));
     setTelefoneLoading(false);
   };
 
@@ -418,6 +426,10 @@ export default function CotacaoPage() {
     setErrors({});
     setLoading(true);
     const all = [...cotacoes, { ...current }];
+    const foneSem55 = (() => {
+      const d = (globalForm.telefone || '').replace(/\D/g, '');
+      return d.startsWith('55') && d.length >= 12 ? d.slice(2) : d;
+    })();
     try {
       const inserts = all.map(c => {
         const peso = totalPeso(c.volumes);
@@ -446,6 +458,7 @@ export default function CotacaoPage() {
             cep_origem: globalForm.cep_origem || null,
             cidade_origem: globalForm.cidade_origem || null,
             volumes: c.volumes,
+            telefone: foneSem55 || null,
           },
         };
       });
