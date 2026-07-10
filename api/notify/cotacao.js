@@ -81,12 +81,20 @@ export default async function handler(req, res) {
     const cfg = await getConfig();
     const resumo = buildResumo(globalData, cotacoes);
 
+    // Resolve o cliente pelo telefone (usado para vincular a cotação e para
+    // devolver o nome real ao BotConversa).
+    let cliente = null;
+    try {
+      cliente = await buscarClientePorTelefone(phone);
+    } catch (e) {
+      console.error('Falha ao buscar cliente por telefone:', e.message);
+    }
+
     // Rede de segurança: vincula as cotações deste telefone a um cliente
     // (caso o lookup do frontend tenha falhado). Casa pelo telefone salvo em metadata.
     let cotacoesVinculadas = 0;
     try {
       const foneSem55 = normalizePhone(phone);
-      const cliente = await buscarClientePorTelefone(phone);
       if (cliente && foneSem55) {
         const { data: upd } = await supabase
           .from('cotacoes')
@@ -112,10 +120,14 @@ export default async function handler(req, res) {
             cotacao_resumo: resumo,
             cotacao_status: 'enviada',
           };
-          // Só inclui o nome se vier preenchido — evita sobrescrever com vazio no BotConversa
-          const nomeClean = (globalData?.nome || '').trim();
+          // Nome autoritativo: primeiro o cadastro (clientes), senão o que veio do form.
+          // Devolve primeiro_nome/nome_completo para o BotConversa gravar o nome real —
+          // nunca envia vazio ou "none" (evita apagar/sobrescrever o cadastro).
+          const nomeClean = (cliente?.nome || globalData?.nome || '').trim();
           if (nomeClean && nomeClean.toLowerCase() !== 'none') {
-            bcPayload.name = nomeClean;
+            bcPayload.name = nomeClean;                       // compat
+            bcPayload.nome_completo = nomeClean;
+            bcPayload.primeiro_nome = nomeClean.split(/\s+/)[0];
           }
 
         const bcRes = await fetch(bcWebhook, {
