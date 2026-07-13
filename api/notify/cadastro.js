@@ -1,17 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
-import { marcarCadastroConvertido } from '../_lib/notify.js';
+import { marcarCadastroConvertido, toInternational } from '../_lib/notify.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || 'https://bkljbfqvlepmmwwylfdv.supabase.co',
   process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
 );
-
-// Strips formatting and ensures 55 + DDD + number (12-13 digits)
-const toInternational = (phone) => {
-  const d = phone.replace(/\D/g, '');
-  if (d.startsWith('55') && d.length >= 12) return d;
-  return `55${d}`;
-};
 
 // API REST oficial do BotConversa (header API-KEY)
 const BC_API = 'https://backend.botconversa.com.br/api/v1/webhook';

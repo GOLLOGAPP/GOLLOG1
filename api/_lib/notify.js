@@ -14,6 +14,14 @@ export function normalizePhone(raw) {
   return d.startsWith('55') && d.length >= 12 ? d.slice(2) : d;
 }
 
+// Formato exigido pelo BotConversa: 55 + DDD + número. Sem o 55 ele não resolve
+// o subscriber — responde 200 no webhook e não dispara nada.
+export function toInternational(raw) {
+  const d = (raw || '').replace(/\D/g, '');
+  if (!d) return '';
+  return d.startsWith('55') && d.length >= 12 ? d : `55${d}`;
+}
+
 // Verifica se já existe cliente com este telefone, comparando SÓ os dígitos.
 // Busca candidatos pelos últimos 4 dígitos (contíguos em qualquer formato) e
 // confirma o match no JS — imune a diferenças de máscara/parênteses/prefixo 55.

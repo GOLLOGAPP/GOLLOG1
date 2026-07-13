@@ -1,4 +1,4 @@
-import { getConfig, supabase, normalizePhone, buscarClientePorTelefone } from '../_lib/notify.js';
+import { getConfig, supabase, normalizePhone, toInternational, buscarClientePorTelefone } from '../_lib/notify.js';
 
 function formatarCotacao(c, idx, total) {
   const volumes = c.volumes || [];
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
 
     if (bcWebhook) {
       try {
-        const phoneClean = phone.replace(/\D/g, '');
+        const phoneClean = toInternational(phone);
         const bcPayload = {
             phone: phoneClean,
             cotacao_resumo: resumo,
