@@ -1,4 +1,17 @@
-import { getConfig, supabase, normalizePhone, toInternational, buscarClientePorTelefone } from '../_lib/notify.js';
+import { getConfig, supabase, normalizePhone, toInternational, subscriberExisteBC, buscarClientePorTelefone } from '../_lib/notify.js';
+
+// Carimba nas cotações recém-criadas se o aviso no WhatsApp saiu ou não.
+// Sem isso, uma cotação não entregue é indistinguível de uma entregue.
+async function registrarEntrega(ids, entrega) {
+  if (!ids?.length) return;
+  const { data: rows } = await supabase.from('cotacoes').select('id, metadata').in('id', ids);
+  for (const row of rows || []) {
+    await supabase
+      .from('cotacoes')
+      .update({ metadata: { ...(row.metadata || {}), notificacao: entrega } })
+      .eq('id', row.id);
+  }
+}
 
 function formatarCotacao(c, idx, total) {
   const volumes = c.volumes || [];
@@ -72,7 +85,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { phone, global: globalData, cotacoes } = req.body;
+    const { phone, global: globalData, cotacoes, cotacao_ids: cotacaoIds } = req.body;
 
     if (!phone || !cotacoes?.length) {
       return res.status(400).json({ error: 'phone e cotacoes são obrigatórios' });
@@ -108,15 +121,28 @@ export default async function handler(req, res) {
       console.error('Falha ao vincular cotações ao cliente:', e.message);
     }
 
+    // ── Aviso no WhatsApp ────────────────────────────────────────────────────
+    // "entregue" só é true quando o contato existe no BotConversa E o webhook
+    // aceitou. O 200 do webhook sozinho não prova nada: ele responde 200 para
+    // telefone desconhecido e simplesmente não dispara o fluxo.
+    const phoneBC = toInternational(phone);
     const bcWebhook = cfg.botconversa_cotacao_webhook_url;
-    let bcWebhookOk = false;
+
+    let entregue = false;
+    let motivo = null;
     let bcWebhookStatus = null;
 
-    if (bcWebhook) {
-      try {
-        const phoneClean = toInternational(phone);
-        const bcPayload = {
-            phone: phoneClean,
+    if (!bcWebhook) {
+      motivo = 'botconversa_cotacao_webhook_url não configurada';
+    } else {
+      const sub = await subscriberExisteBC(phoneBC, cfg);
+      if (!sub.existe) {
+        // Disparar aqui seria inútil: o webhook responderia 200 e não entregaria nada.
+        motivo = sub.motivo;
+      } else {
+        try {
+          const bcPayload = {
+            phone: phoneBC,
             cotacao_resumo: resumo,
             cotacao_status: 'enviada',
           };
@@ -130,26 +156,45 @@ export default async function handler(req, res) {
             bcPayload.primeiro_nome = nomeClean.split(/\s+/)[0];
           }
 
-        const bcRes = await fetch(bcWebhook, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bcPayload),
-        });
-        bcWebhookStatus = bcRes.status;
-        bcWebhookOk = bcRes.ok;
-        console.log(`[BC Webhook] → ${bcWebhookStatus} | ok=${bcWebhookOk}`);
-      } catch (err) {
-        console.error('[BC Webhook] erro:', err.message);
+          const bcRes = await fetch(bcWebhook, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bcPayload),
+          });
+          bcWebhookStatus = bcRes.status;
+          entregue = bcRes.ok;
+          if (!entregue) motivo = `webhook respondeu HTTP ${bcRes.status}`;
+        } catch (err) {
+          motivo = `erro ao chamar o webhook: ${err.message}`;
+        }
       }
-    } else {
-      console.warn('[BC Webhook] botconversa_cotacao_webhook_url não configurada');
+    }
+
+    const entrega = {
+      entregue,
+      motivo,
+      phone: phoneBC,
+      webhook_status: bcWebhookStatus,
+      at: new Date().toISOString(),
+    };
+
+    if (!entregue) {
+      // Falha ruidosa: aparece no log da Vercel e fica gravada na cotação.
+      console.error(`[BC] cotação NÃO avisada no WhatsApp | ${phoneBC} | ${motivo}`);
+    }
+
+    try {
+      await registrarEntrega(cotacaoIds, entrega);
+    } catch (e) {
+      console.error('Falha ao registrar status de entrega:', e.message);
     }
 
     return res.status(200).json({
       success: true,
+      entregue,
+      motivo,
       total: cotacoes.length,
       cotacoes_vinculadas: cotacoesVinculadas,
-      bc_webhook: { ok: bcWebhookOk, status: bcWebhookStatus },
     });
 
   } catch (error) {

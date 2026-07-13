@@ -246,6 +246,7 @@ export default function CotacaoPage() {
   const [showDupDialog, setShowDupDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [avisadoNoWhats, setAvisadoNoWhats] = useState(false);
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -463,15 +464,16 @@ export default function CotacaoPage() {
         };
       });
 
-      await supabase.from('cotacoes').insert(inserts);
+      const { data: inseridas } = await supabase.from('cotacoes').insert(inserts).select('id');
 
       const cleanPhone = globalForm.telefone.replace(/\D/g, '');
       if (cleanPhone) {
-        await fetch('/api/notify/cotacao', {
+        const resp = await fetch('/api/notify/cotacao', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             phone: cleanPhone,
+            cotacao_ids: (inseridas || []).map(c => c.id),
             global: {
               nome: nameFromUrl,
               unidade: unidadeFromUrl,
@@ -486,6 +488,10 @@ export default function CotacaoPage() {
             cotacoes: all,
           }),
         });
+        // A cotação está salva de qualquer jeito. O que pode falhar é o aviso no
+        // WhatsApp — e nesse caso a tela não pode mandar o cliente esperar por ele.
+        const json = await resp.json().catch(() => null);
+        setAvisadoNoWhats(json?.entregue === true);
       }
 
       setSubmitted(true);
@@ -510,7 +516,9 @@ export default function CotacaoPage() {
             <h2 style={{ marginBottom: 8 }}>Solicitação Enviada!</h2>
             <p className="subtitle">
               Recebemos {total} {total === 1 ? 'cotação' : 'cotações'}.<br />
-              Volte para o seu WhatsApp e confirme os dados para nossa equipe te retornar com a cotação.
+              {avisadoNoWhats
+                ? 'Volte para o seu WhatsApp e confirme os dados para nossa equipe te retornar com a cotação.'
+                : 'Nossa equipe já foi notificada e entrará em contato com você em breve.'}
             </p>
           </div>
           <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#9CA3AF' }}>© 2026 LOGPROFIT · Todos os direitos reservados</p>

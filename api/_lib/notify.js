@@ -22,6 +22,27 @@ export function toInternational(raw) {
   return d.startsWith('55') && d.length >= 12 ? d : `55${d}`;
 }
 
+// O webhook de entrada do BotConversa responde 200 mesmo quando não conhece o
+// contato — e não entrega nada. Ou seja: o status do webhook NÃO é sinal de
+// entrega. A única forma de saber é perguntar se o subscriber existe.
+export async function subscriberExisteBC(phoneInternacional, config = null) {
+  const cfg = config || await getConfig();
+  const apiKey = cfg.botconversa_api_key;
+  if (!apiKey) return { existe: false, motivo: 'botconversa_api_key não configurada' };
+  if (!phoneInternacional) return { existe: false, motivo: 'telefone vazio' };
+  try {
+    const r = await fetch(
+      `https://backend.botconversa.com.br/api/v1/webhook/subscriber/get_by_phone/${phoneInternacional}/`,
+      { headers: { 'API-KEY': apiKey } }
+    );
+    if (r.ok) return { existe: true, motivo: null };
+    if (r.status === 404) return { existe: false, motivo: 'contato não existe no BotConversa' };
+    return { existe: false, motivo: `BotConversa respondeu HTTP ${r.status}` };
+  } catch (e) {
+    return { existe: false, motivo: `erro de rede: ${e.message}` };
+  }
+}
+
 // Verifica se já existe cliente com este telefone, comparando SÓ os dígitos.
 // Busca candidatos pelos últimos 4 dígitos (contíguos em qualquer formato) e
 // confirma o match no JS — imune a diferenças de máscara/parênteses/prefixo 55.

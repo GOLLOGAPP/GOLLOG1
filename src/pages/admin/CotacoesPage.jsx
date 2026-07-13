@@ -71,7 +71,15 @@ export default function CotacoesPage() {
                       <td style={{ fontWeight:600, color:'var(--success)' }}>
                         {c.valor_cotado ? `R$ ${parseFloat(c.valor_cotado).toFixed(2)}` : '-'}
                       </td>
-                      <td><span className={`badge ${statusCls[c.status] || 'badge-neutral'}`}>{c.status}</span></td>
+                      <td>
+                        <span className={`badge ${statusCls[c.status] || 'badge-neutral'}`}>{c.status}</span>
+                        {c.metadata?.notificacao?.entregue === false && (
+                          <span className="badge badge-danger" style={{ marginLeft: 6 }}
+                            title={`O cliente não recebeu o aviso no WhatsApp: ${c.metadata.notificacao.motivo || 'motivo não registrado'}`}>
+                            ⚠ sem aviso
+                          </span>
+                        )}
+                      </td>
                       <td style={{ fontSize:12, color:'var(--text-muted)' }}>{formatDate(c.created_at)}</td>
                     </tr>
                   ))}
