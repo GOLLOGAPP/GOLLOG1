@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import { supabase } from '../../lib/supabase';
+import * as XLSX from 'xlsx';
 import {
   FiSearch, FiPlus, FiDownload, FiEye, FiEdit2, FiTrash2, FiX,
   FiUser, FiBriefcase, FiRefreshCw, FiSave, FiAlertTriangle,
@@ -21,12 +22,38 @@ const TABS = [
   { id:'rastreamentos', label:'Rastreamentos' },
 ];
 
+const formatBotConversaName = (nomeCompleto, tipo) => {
+  const nome = (nomeCompleto || '').trim();
+  if (tipo === 'PF') {
+    const partes = nome.split(/\s+/);
+    const primeiroNome = partes[0] || '';
+    const sobrenome = partes.slice(1).join(' ') || '';
+    return { primeiroNome, sobrenome };
+  } else {
+    return { primeiroNome: nome, sobrenome: '' };
+  }
+};
+
+const formatBotConversaPhone = (telefone) => {
+  let telLimpo = (telefone || '').replace(/\D/g, '');
+  if (telLimpo) {
+    if (!telLimpo.startsWith('55') && telLimpo.length >= 10) {
+      telLimpo = '55' + telLimpo;
+    }
+  }
+  return telLimpo;
+};
+
 export default function ClientesPage() {
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+
+  // Export states
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState('padrao'); // 'padrao' ou 'botconversa'
 
   // New client modal
   const [showModal, setShowModal] = useState(false);
@@ -59,6 +86,57 @@ export default function ClientesPage() {
       .order('created_at', { ascending: false });
     if (!error && data) setClientes(data);
     setLoading(false);
+  };
+
+  const handleExport = () => {
+    let exportData = [];
+
+    if (exportFormat === 'botconversa') {
+      exportData = filtered.map(c => {
+        const { primeiroNome, sobrenome } = formatBotConversaName(c.nome_razao_social, c.tipo);
+        const telefoneFormato = formatBotConversaPhone(c.telefone);
+        const etiquetas = Array.isArray(c.tags) ? c.tags.join(', ') : '';
+
+        return {
+          'Primeiro nome': primeiroNome,
+          'Sobrenome': sobrenome,
+          'Telefone': telefoneFormato,
+          'Etiquetas': etiquetas,
+        };
+      });
+    } else {
+      exportData = filtered.map(c => ({
+        'Nome / Razão Social': c.nome_razao_social || '',
+        'Tipo': c.tipo === 'PJ' ? 'Pessoa Jurídica' : 'Pessoa Física',
+        'Documento': c.cpf_cnpj || '',
+        'Telefone': c.telefone || '',
+        'E-mail': c.email || '',
+        'Unidade': c.unidade_atendimento || '',
+        'Status': c.status || '',
+        'Total de Envios': c.total_envios || 0,
+        'Valor Total Gasto': c.valor_total_gasto || 0,
+        'Data de Cadastro': c.created_at ? new Date(c.created_at).toLocaleDateString('pt-BR') : '',
+        'Etiquetas': Array.isArray(c.tags) ? c.tags.join(', ') : '',
+      }));
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, exportFormat === 'botconversa' ? 'BotConversa' : 'Clientes');
+
+    // Auto-fit columns
+    const maxProps = Object.keys(exportData[0] || {});
+    worksheet['!cols'] = maxProps.map(key => ({
+      wch: Math.max(key.length + 4, ...exportData.map(row => String(row[key] || '').length + 2))
+    }));
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const fileName = exportFormat === 'botconversa' 
+      ? `clientes_botconversa_${dateStr}.xlsx` 
+      : `clientes_sistema_${dateStr}.xlsx`;
+
+    XLSX.writeFile(workbook, fileName);
+    setShowExportModal(false);
   };
 
   useEffect(() => { fetchClientes(); }, []);
@@ -215,7 +293,7 @@ export default function ClientesPage() {
             </button>
           </div>
           <div style={{ display:'flex', gap:8 }}>
-            <button className="btn btn-secondary btn-sm"><FiDownload size={14}/> Exportar</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowExportModal(true)}><FiDownload size={14}/> Exportar</button>
             <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}><FiPlus size={14}/> Novo Cliente</button>
           </div>
         </div>
@@ -792,6 +870,170 @@ export default function ClientesPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── EXPORT MODAL ── */}
+        {showExportModal && (
+          <div className="modal-overlay" onClick={() => setShowExportModal(false)}>
+            <div className="modal" style={{ maxWidth: 640 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <div className="modal-title">
+                  <FiDownload style={{ marginRight: 8, verticalAlign: 'middle', color: 'var(--primary)' }} />
+                  Exportar Clientes ({filtered.length})
+                </div>
+                <button className="btn btn-ghost btn-icon" onClick={() => setShowExportModal(false)}><FiX /></button>
+              </div>
+              <div className="modal-body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+                
+                {/* Informações e Instruções da funcionalidade */}
+                <div style={{
+                  background: 'rgba(68,138,255,0.08)',
+                  border: '1px solid rgba(68,138,255,0.2)',
+                  borderRadius: 8,
+                  padding: '12px 16px',
+                  marginBottom: 20,
+                  fontSize: 13,
+                  lineHeight: '1.5'
+                }}>
+                  <h4 style={{ margin: '0 0 6px 0', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    ℹ️ Objetivos e Instruções
+                  </h4>
+                  <p style={{ margin: '0 0 6px 0', color: 'var(--text-secondary)' }}>
+                    Esta funcionalidade permite exportar os contatos dos clientes da busca atual (aplicando filtros como tipo, busca e status) em formato Excel.
+                  </p>
+                  <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)' }}>
+                    <li><strong>Formato Padrão:</strong> Exporta todas as colunas do cadastro do cliente para gestão e backups.</li>
+                    <li><strong>Formato BotConversa:</strong> Formata a planilha pronta para importar na plataforma. Se for Pessoa Física (PF), separa nome de sobrenome. Se for Pessoa Jurídica (PJ/CNPJ), mantém toda a Razão Social em Primeiro nome. Telefones são higienizados e formatados com o prefixo <code>55</code>.</li>
+                  </ul>
+                </div>
+
+                {/* Seleção do Formato com cards interativos */}
+                <label className="form-label" style={{ marginBottom: 8 }}>Selecione o formato de exportação:</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+                  <div 
+                    onClick={() => setExportFormat('padrao')}
+                    style={{
+                      border: exportFormat === 'padrao' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                      background: exportFormat === 'padrao' ? 'rgba(243,112,33,0.05)' : 'var(--bg-surface)',
+                      padding: 16,
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4
+                    }}
+                  >
+                    <strong style={{ color: exportFormat === 'padrao' ? 'var(--primary)' : 'var(--text-primary)', fontSize: 14 }}>
+                      📁 Formato Padrão
+                    </strong>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Planilha completa com todos os campos cadastrais e dados do sistema.
+                    </span>
+                  </div>
+                  
+                  <div 
+                    onClick={() => setExportFormat('botconversa')}
+                    style={{
+                      border: exportFormat === 'botconversa' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                      background: exportFormat === 'botconversa' ? 'rgba(243,112,33,0.05)' : 'var(--bg-surface)',
+                      padding: 16,
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 4
+                    }}
+                  >
+                    <strong style={{ color: exportFormat === 'botconversa' ? 'var(--primary)' : 'var(--text-primary)', fontSize: 14 }}>
+                      🤖 Formato BotConversa
+                    </strong>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                      Colunas otimizadas: Primeiro Nome, Sobrenome, Telefone formatado (55) e Etiquetas.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Seção de Teste Prático (Preview) */}
+                <div style={{ marginTop: 16 }}>
+                  <label className="form-label" style={{ marginBottom: 6, display: 'block' }}>
+                    🔍 Visualização Prévia (Primeiras 3 linhas do resultado):
+                  </label>
+                  <div className="table-container" style={{ maxHeight: 180, border: '1px solid var(--border)', borderRadius: 6, overflow: 'auto' }}>
+                    <table className="data-table" style={{ fontSize: 11, margin: 0 }}>
+                      <thead>
+                        <tr>
+                          {exportFormat === 'botconversa' ? (
+                            <>
+                              <th>Primeiro nome</th>
+                              <th>Sobrenome</th>
+                              <th>Telefone</th>
+                              <th>Etiquetas</th>
+                            </>
+                          ) : (
+                            <>
+                              <th>Nome / Razão Social</th>
+                              <th>Tipo</th>
+                              <th>Documento</th>
+                              <th>Telefone</th>
+                            </>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtered.slice(0, 3).map((c, idx) => {
+                          if (exportFormat === 'botconversa') {
+                            const { primeiroNome, sobrenome } = formatBotConversaName(c.nome_razao_social, c.tipo);
+                            const telefoneFormato = formatBotConversaPhone(c.telefone);
+                            const etiquetas = Array.isArray(c.tags) ? c.tags.join(', ') : '';
+                            return (
+                              <tr key={c.id || idx}>
+                                <td style={{ fontWeight: 600 }}>{primeiroNome}</td>
+                                <td>{sobrenome || '-'}</td>
+                                <td>{telefoneFormato}</td>
+                                <td>
+                                  {etiquetas ? (
+                                    <span style={{ background: 'rgba(243,112,33,0.1)', color: '#F37021', padding: '1px 5px', borderRadius: 4, fontSize: 10 }}>
+                                      {etiquetas}
+                                    </span>
+                                  ) : '-'}
+                                </td>
+                              </tr>
+                            );
+                          } else {
+                            return (
+                              <tr key={c.id || idx}>
+                                <td style={{ fontWeight: 600 }}>{c.nome_razao_social}</td>
+                                <td>{c.tipo === 'PJ' ? 'Pessoa Jurídica' : 'Pessoa Física'}</td>
+                                <td>{c.cpf_cnpj || '-'}</td>
+                                <td>{c.telefone}</td>
+                              </tr>
+                            );
+                          }
+                        })}
+                        {filtered.length === 0 && (
+                          <tr>
+                            <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                              Nenhum cliente para pré-visualização.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowExportModal(false)}>Cancelar</button>
+                <button className="btn btn-primary" onClick={handleExport} disabled={filtered.length === 0}>
+                  <FiDownload size={14} style={{ marginRight: 6 }} />
+                  Exportar Planilha (.xlsx)
+                </button>
+              </div>
             </div>
           </div>
         )}
