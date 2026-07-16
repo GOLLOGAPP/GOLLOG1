@@ -107,15 +107,69 @@ export function clearConfigCache() {
   _config = null;
 }
 
-export async function sendWhatsApp(phone, mensagem, config = null) {
+// Busca o nome ATUAL do contato no BotConversa. Usado para ecoar o nome de
+// volta em toda notificação: a automação do webhook tem mapeamento de campos
+// e sobrescreve o nome do contato com o que vier no payload — se vier vazio,
+// APAGA o nome. Ecoar o nome existente torna a sobrescrita inofensiva.
+export async function nomeSubscriberBC(phoneInternacional, config = null) {
+  const cfg = config || await getConfig();
+  const apiKey = cfg.botconversa_api_key;
+  if (!apiKey || !phoneInternacional) return '';
+  try {
+    const r = await fetch(
+      `https://backend.botconversa.com.br/api/v1/webhook/subscriber/get_by_phone/${phoneInternacional}/`,
+      { headers: { 'API-KEY': apiKey } }
+    );
+    if (!r.ok) return '';
+    const sub = await r.json().catch(() => null);
+    const nome = (
+      sub?.full_name
+      || [sub?.first_name, sub?.last_name].filter(Boolean).join(' ')
+      || sub?.name
+      || ''
+    ).trim();
+    return nome.toLowerCase() === 'none' ? '' : nome;
+  } catch {
+    return '';
+  }
+}
+
+// Filtra nomes que não podem ir pro BotConversa: vazio, "none" e o placeholder
+// "Cliente" (sobrescreveriam o nome real do contato).
+export function nomeValidoBC(nome) {
+  const n = (nome || '').trim();
+  if (!n) return '';
+  const lower = n.toLowerCase();
+  return (lower === 'none' || lower === 'cliente') ? '' : n;
+}
+
+export async function sendWhatsApp(phone, mensagem, config = null, nome = '') {
   const cfg = config || await getConfig();
   const webhook = cfg.botconversa_webhook_notificacoes;
   if (!webhook || !phone) return false;
+
+  // BotConversa exige 55 + DDD + número para resolver o subscriber.
+  const phoneBC = toInternational(phone);
+
+  // Nunca enviar payload sem nome: a automação do BotConversa sobrescreve o
+  // cadastro do contato com o campo mapeado — ausente/vazio = nome apagado.
+  // Prioridade: nome que JÁ está no BotConversa (preserva o cadastro) → nome
+  // do nosso banco (parâmetro) → omite (contato sem nome não tem o que perder).
+  const nomeFinal = await nomeSubscriberBC(phoneBC, cfg) || nomeValidoBC(nome);
+
+  const payload = { phone: phoneBC, mensagem };
+  if (nomeFinal) {
+    payload.nome = nomeFinal;
+    payload.name = nomeFinal;                          // compat com mapeamentos antigos
+    payload.nome_completo = nomeFinal;
+    payload.primeiro_nome = nomeFinal.split(/\s+/)[0];
+  }
+
   try {
     const res = await fetch(webhook, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, mensagem }),
+      body: JSON.stringify(payload),
     });
     return res.ok;
   } catch {

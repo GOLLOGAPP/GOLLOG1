@@ -45,11 +45,13 @@ async function registrarEnvio(tipo, clienteId, referenciaId, referenciaT, mensag
   }]);
 }
 
-// Envia WhatsApp + Email e retorna canais usados
-async function notificar(phone, email, wppMsg, emailSubject, emailHtml, config) {
+// Envia WhatsApp + Email e retorna canais usados.
+// `nome` é o nome real do cadastro — ecoado no payload do BotConversa para
+// não apagar o nome do contato (nunca passar o fallback 'Cliente').
+async function notificar(phone, email, wppMsg, emailSubject, emailHtml, config, nome = '') {
   let canais = [];
   if (phone) {
-    const ok = await sendWhatsApp(phone, wppMsg, config);
+    const ok = await sendWhatsApp(phone, wppMsg, config, nome);
     if (ok) canais.push('whatsapp');
   }
   if (email && emailSubject && emailHtml) {
@@ -224,7 +226,7 @@ export default async function handler(req, res) {
 
         const wppMsg = stage.wpp(cot);
         const htmlEmail = emailTemplate(stage.emailSubject, stage.emailBody(cot, nome), `${baseUrl}/cotacao`, 'Fazer nova cotação');
-        const canais = await notificar(phone, email, wppMsg, stage.emailSubject, htmlEmail, config);
+        const canais = await notificar(phone, email, wppMsg, stage.emailSubject, htmlEmail, config, cot.clientes?.nome_razao_social || '');
 
         if (canais.length > 0) {
           await registrarEnvio(stage.key, cot.cliente_id, cot.id, 'cotacao', wppMsg, canais.join('+'), { valor: cot.valor_cotado });
@@ -316,7 +318,7 @@ export default async function handler(req, res) {
         const nome = cli.nome_razao_social?.split(' ')[0] || 'Cliente';
         const wppMsg = stage.wpp(cli);
         const htmlEmail = emailTemplate(stage.emailSubject, stage.emailBody(nome), `${baseUrl}/cotacao`, 'Fazer cotação grátis');
-        const canais = await notificar(cli.telefone, cli.email, wppMsg, stage.emailSubject, htmlEmail, config);
+        const canais = await notificar(cli.telefone, cli.email, wppMsg, stage.emailSubject, htmlEmail, config, cli.nome_razao_social || '');
 
         if (canais.length > 0) {
           await registrarEnvio(stage.key, cli.id, null, null, wppMsg, canais.join('+'));
@@ -393,7 +395,7 @@ export default async function handler(req, res) {
         const nome = cli.nome_razao_social?.split(' ')[0] || 'Cliente';
         const wppMsg = seg.wpp(cli);
         const htmlEmail = emailTemplate(seg.emailSubject, seg.emailBody(nome), `${baseUrl}/cotacao`, 'Fazer cotação');
-        const canais = await notificar(cli.telefone, cli.email, wppMsg, seg.emailSubject, htmlEmail, config);
+        const canais = await notificar(cli.telefone, cli.email, wppMsg, seg.emailSubject, htmlEmail, config, cli.nome_razao_social || '');
 
         if (canais.length > 0) {
           await registrarEnvio(seg.key, cli.id, null, null, wppMsg, canais.join('+'), { dias_inativo: seg.days });
@@ -441,7 +443,7 @@ export default async function handler(req, res) {
 
       const subject = '🚚 Lembrete: sua coleta GOLLOG é hoje!';
       const htmlEmail = emailTemplate(subject, emailBody);
-      const canais = await notificar(phone, email, wppMsg, subject, htmlEmail, config);
+      const canais = await notificar(phone, email, wppMsg, subject, htmlEmail, config, col.clientes?.nome_razao_social || '');
 
       if (canais.length > 0) {
         await supabase.from('coletas').update({ alerta_enviado: true }).eq('id', col.id);
@@ -505,7 +507,7 @@ export default async function handler(req, res) {
            <p>Obrigado pela confiança! Esperamos continuar fazendo parte do seu negócio. 🚀</p>`;
 
         const htmlEmail = emailTemplate(subject, emailBody, `${baseUrl}/cotacao`, 'Nova cotação');
-        const canais = await notificar(cli.telefone, cli.email, wppMsg, subject, htmlEmail, config);
+        const canais = await notificar(cli.telefone, cli.email, wppMsg, subject, htmlEmail, config, cli.nome_razao_social || '');
         if (canais.length > 0) results.relatorio++;
       }
     }
@@ -549,7 +551,7 @@ export default async function handler(req, res) {
       const nome = cli.nome_razao_social?.split(' ')[0] || 'Cliente';
       const wppMsg = msgTemplate.replace(/\{nome\}/g, nome);
 
-      const ok = await sendWhatsApp(cli.telefone, wppMsg, config);
+      const ok = await sendWhatsApp(cli.telefone, wppMsg, config, cli.nome_razao_social || '');
       if (ok) {
         await supabase.from('followups').insert([{
           tipo: 'aniversario',

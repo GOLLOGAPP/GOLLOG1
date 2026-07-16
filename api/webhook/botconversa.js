@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { sendWhatsApp } from '../_lib/notify.js';
 
 const APP_URL = process.env.APP_URL || 'https://www.golcargo.com.br';
 
@@ -29,16 +30,28 @@ export default async function handler(req, res) {
       .single();
     const webhookNotif = configNotif?.valor;
 
-    // Não enviamos o campo "nome" aqui de propósito: a mensagem já vem pronta e
-    // o BotConversa não precisa do nome para notificar. Reenviar "nome" fazia a
-    // automação sobrescrever o cadastro do contato com "none" quando o nome vinha
-    // vazio. Notificação não deve alterar cadastro.
+    // A automação do webhook de notificações tem mapeamento de campos e
+    // sobrescreve o nome do contato com o que vier no payload — payload SEM
+    // nome apaga o nome do cadastro. Por isso ecoamos de volta o nome que o
+    // próprio BotConversa enviou nesta requisição (é o nome atual do contato),
+    // filtrando "none"/vazio. Assim a sobrescrita é sempre com o nome correto.
+    const nomeEco = (() => {
+      const n = (name || '').trim();
+      return (!n || n.toLowerCase() === 'none') ? '' : n;
+    })();
     const notificar = (mensagem) => {
       if (!webhookNotif || !phone) return;
+      const body = { phone, mensagem };
+      if (nomeEco) {
+        body.nome = nomeEco;
+        body.name = nomeEco;
+        body.nome_completo = nomeEco;
+        body.primeiro_nome = nomeEco.split(/\s+/)[0];
+      }
       fetch(webhookNotif, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, mensagem }),
+        body: JSON.stringify(body),
       }).catch(() => {});
     };
 
@@ -82,14 +95,12 @@ export default async function handler(req, res) {
             .single();
           const numeroSuporte = configSuporte?.valor;
           if (webhookNotif && numeroSuporte) {
-            fetch(webhookNotif, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                phone: numeroSuporte,
-                mensagem: `🔔 *Atendimento solicitado*\n\nCliente: ${name || phone}\nMensagem: "${textoLivre.slice(0, 200)}"\n\nNenhum código de rastreio identificado. Cliente aguarda atendimento.`,
-              }),
-            }).catch(() => {});
+            // sendWhatsApp ecoa o nome atual do contato de suporte — evita que
+            // esta notificação apague o nome dele no BotConversa.
+            sendWhatsApp(
+              numeroSuporte,
+              `🔔 *Atendimento solicitado*\n\nCliente: ${name || phone}\nMensagem: "${textoLivre.slice(0, 200)}"\n\nNenhum código de rastreio identificado. Cliente aguarda atendimento.`
+            ).catch(() => {});
           }
 
           return res.status(200).json({

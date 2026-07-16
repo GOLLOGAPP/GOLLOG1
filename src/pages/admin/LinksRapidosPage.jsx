@@ -228,7 +228,9 @@ ${svgData}
     if (!webhookUrl) return setError('Configure o Webhook Notificações em Configurações.');
 
     setSending(true);
-    const nome = modo === 'cadastrado' ? selectedCliente?.nome_razao_social : 'Cliente';
+    // Só envia nome real de cadastro — nunca 'Cliente', que sobrescreveria o
+    // nome do contato no BotConversa. O backend ecoa o nome atual do contato.
+    const nome = modo === 'cadastrado' ? (selectedCliente?.nome_razao_social || '') : '';
 
     const unidade = selectedCliente?.unidade_atendimento || '';
     const linksTexto = selectedLinks
@@ -243,11 +245,16 @@ ${svgData}
     const mensagem = `Ola! Segue os links para seus servicos LOGPROFIT:\n\n${linksTexto}`;
 
     try {
-      await fetch(webhookUrl, {
+      // Envio via backend (/api/notify/mensagem) em vez do webhook direto:
+      // o backend ecoa o nome atual do contato no BotConversa, evitando que a
+      // automação apague o nome do cadastro.
+      const resp = await fetch('/api/notify/mensagem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, nome, mensagem }),
       });
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok || !result.success) throw new Error('envio falhou');
 
       await supabase.from('atividades_log').insert([{
         cliente_id: modo === 'cadastrado' ? selectedCliente?.id : null,

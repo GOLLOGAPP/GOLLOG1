@@ -87,7 +87,9 @@ export default async function handler(req, res) {
       }
 
       if (phone) {
-        const sent = await sendWhatsApp(phone, msgWpp, config);
+        // Passa o nome real do cadastro (nunca o fallback 'Cliente') para o
+        // sendWhatsApp ecoar no payload e não apagar o nome no BotConversa.
+        const sent = await sendWhatsApp(phone, msgWpp, config, rast.clientes?.nome_razao_social || '');
         if (sent) notified++;
       }
 
