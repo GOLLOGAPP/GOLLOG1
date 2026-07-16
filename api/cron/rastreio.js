@@ -1,4 +1,4 @@
-import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate } from '../_lib/notify.js';
+import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, nomeBotConversa } from '../_lib/notify.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
 
   const { data: rastreamentos } = await supabase
     .from('rastreamentos')
-    .select('*, clientes(nome_razao_social, telefone, email)')
+    .select('*, clientes(tipo, nome_razao_social, nome_contato, telefone, email)')
     .gte('created_at', cutoff.toISOString())
     .eq('notificado_entregue', false)
     .eq('notificar_atualizacoes', true)
@@ -87,9 +87,9 @@ export default async function handler(req, res) {
       }
 
       if (phone) {
-        // Passa o nome real do cadastro (nunca o fallback 'Cliente') para o
-        // sendWhatsApp ecoar no payload e não apagar o nome no BotConversa.
-        const sent = await sendWhatsApp(phone, msgWpp, config, rast.clientes?.nome_razao_social || '');
+        // Passa o nome no padrão BotConversa (PJ = "Responsável - Empresa")
+        // para o sendWhatsApp incluir no payload e manter o cadastro correto.
+        const sent = await sendWhatsApp(phone, msgWpp, config, nomeBotConversa(rast.clientes));
         if (sent) notified++;
       }
 

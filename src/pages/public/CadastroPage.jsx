@@ -118,10 +118,10 @@ export default function CadastroPage() {
 
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
+  // Padrão de nome no BotConversa: PJ = "Responsável - Empresa", PF = nome completo
   const buildBotNome = () => {
-    if (tipo === 'PJ' && form.contato) {
-      const primeiro = form.contato.trim().split(/\s+/)[0];
-      return `${primeiro} | ${form.nome}`;
+    if (tipo === 'PJ' && form.contato?.trim()) {
+      return `${form.contato.trim()} - ${form.nome}`;
     }
     return form.nome;
   };

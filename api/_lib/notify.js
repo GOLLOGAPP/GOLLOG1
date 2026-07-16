@@ -59,19 +59,30 @@ export async function clienteJaCadastrado(metaPhone) {
   );
 }
 
+// Padrão de nome do contato no BotConversa:
+//   PF → nome completo
+//   PJ → "Nome do Responsável - Nome da Empresa" (quando há responsável)
+export function nomeBotConversa(cliente) {
+  const razao = (cliente?.nome_razao_social || '').trim();
+  const contato = (cliente?.nome_contato || '').trim();
+  if (cliente?.tipo === 'PJ' && contato && razao) return `${contato} - ${razao}`;
+  return razao;
+}
+
 // Resolve o cliente pelo telefone comparando só os dígitos. Retorna { id, nome } ou null.
+// `nome` já vem no padrão BotConversa (PJ = "Responsável - Empresa").
 export async function buscarClientePorTelefone(metaPhone) {
   const local = normalizePhone(metaPhone);
   if (!local || local.length < 8) return null;
   const last4 = local.slice(-4);
   const { data } = await supabase
     .from('clientes')
-    .select('id, nome_razao_social, telefone, telefone2')
+    .select('id, tipo, nome_razao_social, nome_contato, telefone, telefone2')
     .or(`telefone.ilike.%${last4},telefone2.ilike.%${last4}`);
   const cli = (data || []).find(
     c => normalizePhone(c.telefone) === local || normalizePhone(c.telefone2) === local
   );
-  return cli ? { id: cli.id, nome: cli.nome_razao_social } : null;
+  return cli ? { id: cli.id, nome: nomeBotConversa(cli) } : null;
 }
 
 // Rede de segurança: marca como "convertido" qualquer cadastro_iniciado pendente
@@ -153,9 +164,10 @@ export async function sendWhatsApp(phone, mensagem, config = null, nome = '') {
 
   // Nunca enviar payload sem nome: a automação do BotConversa sobrescreve o
   // cadastro do contato com o campo mapeado — ausente/vazio = nome apagado.
-  // Prioridade: nome que JÁ está no BotConversa (preserva o cadastro) → nome
-  // do nosso banco (parâmetro) → omite (contato sem nome não tem o que perder).
-  const nomeFinal = await nomeSubscriberBC(phoneBC, cfg) || nomeValidoBC(nome);
+  // Prioridade: nome do nosso banco (parâmetro, já no padrão "Responsável -
+  // Empresa" para PJ — atualiza ativamente o BotConversa) → nome que JÁ está
+  // no BotConversa (preserva quando não conhecemos o cliente) → omite.
+  const nomeFinal = nomeValidoBC(nome) || await nomeSubscriberBC(phoneBC, cfg);
 
   const payload = { phone: phoneBC, mensagem };
   if (nomeFinal) {

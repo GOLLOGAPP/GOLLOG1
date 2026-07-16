@@ -22,16 +22,17 @@ const TABS = [
   { id:'rastreamentos', label:'Rastreamentos' },
 ];
 
-const formatBotConversaName = (nomeCompleto, tipo) => {
-  const nome = (nomeCompleto || '').trim();
-  if (tipo === 'PF') {
+const formatBotConversaName = (cliente) => {
+  const nome = (cliente?.nome_razao_social || '').trim();
+  if (cliente?.tipo === 'PF') {
     const partes = nome.split(/\s+/);
     const primeiroNome = partes[0] || '';
     const sobrenome = partes.slice(1).join(' ') || '';
     return { primeiroNome, sobrenome };
-  } else {
-    return { primeiroNome: nome, sobrenome: '' };
   }
+  // PJ: padrão "Responsável - Empresa" (quando há responsável cadastrado)
+  const contato = (cliente?.nome_contato || '').trim();
+  return { primeiroNome: contato ? `${contato} - ${nome}` : nome, sobrenome: '' };
 };
 
 const formatBotConversaPhone = (telefone) => {
@@ -93,7 +94,7 @@ export default function ClientesPage() {
 
     if (exportFormat === 'botconversa') {
       exportData = filtered.map(c => {
-        const { primeiroNome, sobrenome } = formatBotConversaName(c.nome_razao_social, c.tipo);
+        const { primeiroNome, sobrenome } = formatBotConversaName(c);
         const telefoneFormato = formatBotConversaPhone(c.telefone);
         const etiquetas = Array.isArray(c.tags) ? c.tags.join(', ') : '';
 
@@ -905,7 +906,7 @@ export default function ClientesPage() {
                   </p>
                   <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-secondary)' }}>
                     <li><strong>Formato Padrão:</strong> Exporta todas as colunas do cadastro do cliente para gestão e backups.</li>
-                    <li><strong>Formato BotConversa:</strong> Formata a planilha pronta para importar na plataforma. Se for Pessoa Física (PF), separa nome de sobrenome. Se for Pessoa Jurídica (PJ/CNPJ), mantém toda a Razão Social em Primeiro nome. Telefones são higienizados e formatados com o prefixo <code>55</code>.</li>
+                    <li><strong>Formato BotConversa:</strong> Formata a planilha pronta para importar na plataforma. Se for Pessoa Física (PF), separa nome de sobrenome. Se for Pessoa Jurídica (PJ/CNPJ), usa o padrão <code>Responsável - Empresa</code> em Primeiro nome. Telefones são higienizados e formatados com o prefixo <code>55</code>.</li>
                   </ul>
                 </div>
 
@@ -986,7 +987,7 @@ export default function ClientesPage() {
                       <tbody>
                         {filtered.slice(0, 3).map((c, idx) => {
                           if (exportFormat === 'botconversa') {
-                            const { primeiroNome, sobrenome } = formatBotConversaName(c.nome_razao_social, c.tipo);
+                            const { primeiroNome, sobrenome } = formatBotConversaName(c);
                             const telefoneFormato = formatBotConversaPhone(c.telefone);
                             const etiquetas = Array.isArray(c.tags) ? c.tags.join(', ') : '';
                             return (

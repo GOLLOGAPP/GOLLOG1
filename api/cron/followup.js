@@ -1,4 +1,4 @@
-import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, clienteJaCadastrado } from '../_lib/notify.js';
+import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, clienteJaCadastrado, nomeBotConversa } from '../_lib/notify.js';
 
 function dayWindow(daysBack, windowHours = 26) {
   const end = new Date();
@@ -211,7 +211,7 @@ export default async function handler(req, res) {
       const w = dayWindow(stage.days);
       const { data: cotacoes } = await supabase
         .from('cotacoes')
-        .select('*, clientes(id, telefone, email, nome_razao_social)')
+        .select('*, clientes(id, tipo, telefone, email, nome_razao_social, nome_contato)')
         .eq('status', 'enviada')
         .gte('created_at', w.gte)
         .lte('created_at', w.lte)
@@ -226,7 +226,7 @@ export default async function handler(req, res) {
 
         const wppMsg = stage.wpp(cot);
         const htmlEmail = emailTemplate(stage.emailSubject, stage.emailBody(cot, nome), `${baseUrl}/cotacao`, 'Fazer nova cotação');
-        const canais = await notificar(phone, email, wppMsg, stage.emailSubject, htmlEmail, config, cot.clientes?.nome_razao_social || '');
+        const canais = await notificar(phone, email, wppMsg, stage.emailSubject, htmlEmail, config, nomeBotConversa(cot.clientes));
 
         if (canais.length > 0) {
           await registrarEnvio(stage.key, cot.cliente_id, cot.id, 'cotacao', wppMsg, canais.join('+'), { valor: cot.valor_cotado });
@@ -302,7 +302,7 @@ export default async function handler(req, res) {
       const w = dayWindow(stage.days);
       const { data: clientes } = await supabase
         .from('clientes')
-        .select('id, nome_razao_social, telefone, email')
+        .select('id, tipo, nome_razao_social, nome_contato, telefone, email')
         .gte('created_at', w.gte)
         .lte('created_at', w.lte);
 
@@ -318,7 +318,7 @@ export default async function handler(req, res) {
         const nome = cli.nome_razao_social?.split(' ')[0] || 'Cliente';
         const wppMsg = stage.wpp(cli);
         const htmlEmail = emailTemplate(stage.emailSubject, stage.emailBody(nome), `${baseUrl}/cotacao`, 'Fazer cotação grátis');
-        const canais = await notificar(cli.telefone, cli.email, wppMsg, stage.emailSubject, htmlEmail, config, cli.nome_razao_social || '');
+        const canais = await notificar(cli.telefone, cli.email, wppMsg, stage.emailSubject, htmlEmail, config, nomeBotConversa(cli));
 
         if (canais.length > 0) {
           await registrarEnvio(stage.key, cli.id, null, null, wppMsg, canais.join('+'));
@@ -383,7 +383,7 @@ export default async function handler(req, res) {
       const w = dayWindow(seg.days, 12);
       const { data: clientes } = await supabase
         .from('clientes')
-        .select('id, nome_razao_social, telefone, email')
+        .select('id, tipo, nome_razao_social, nome_contato, telefone, email')
         .gte('ultimo_contato', w.gte)
         .lte('ultimo_contato', w.lte)
         .eq('status', 'ativo');
@@ -395,7 +395,7 @@ export default async function handler(req, res) {
         const nome = cli.nome_razao_social?.split(' ')[0] || 'Cliente';
         const wppMsg = seg.wpp(cli);
         const htmlEmail = emailTemplate(seg.emailSubject, seg.emailBody(nome), `${baseUrl}/cotacao`, 'Fazer cotação');
-        const canais = await notificar(cli.telefone, cli.email, wppMsg, seg.emailSubject, htmlEmail, config, cli.nome_razao_social || '');
+        const canais = await notificar(cli.telefone, cli.email, wppMsg, seg.emailSubject, htmlEmail, config, nomeBotConversa(cli));
 
         if (canais.length > 0) {
           await registrarEnvio(seg.key, cli.id, null, null, wppMsg, canais.join('+'), { dias_inativo: seg.days });
@@ -410,7 +410,7 @@ export default async function handler(req, res) {
     const hoje = new Date().toISOString().split('T')[0];
     const { data: coletas } = await supabase
       .from('coletas')
-      .select('*, clientes(telefone, email, nome_razao_social)')
+      .select('*, clientes(tipo, telefone, email, nome_razao_social, nome_contato)')
       .eq('data_solicitada', hoje)
       .in('status', ['solicitada', 'agendada'])
       .eq('alerta_enviado', false);
@@ -443,7 +443,7 @@ export default async function handler(req, res) {
 
       const subject = '🚚 Lembrete: sua coleta GOLLOG é hoje!';
       const htmlEmail = emailTemplate(subject, emailBody);
-      const canais = await notificar(phone, email, wppMsg, subject, htmlEmail, config, col.clientes?.nome_razao_social || '');
+      const canais = await notificar(phone, email, wppMsg, subject, htmlEmail, config, nomeBotConversa(col.clientes));
 
       if (canais.length > 0) {
         await supabase.from('coletas').update({ alerta_enviado: true }).eq('id', col.id);
@@ -462,7 +462,7 @@ export default async function handler(req, res) {
 
       const { data: clientes } = await supabase
         .from('clientes')
-        .select('id, nome_razao_social, telefone, email, total_envios, valor_total_gasto')
+        .select('id, tipo, nome_razao_social, nome_contato, telefone, email, total_envios, valor_total_gasto')
         .eq('status', 'ativo')
         .gt('total_envios', 0);
 
@@ -507,7 +507,7 @@ export default async function handler(req, res) {
            <p>Obrigado pela confiança! Esperamos continuar fazendo parte do seu negócio. 🚀</p>`;
 
         const htmlEmail = emailTemplate(subject, emailBody, `${baseUrl}/cotacao`, 'Nova cotação');
-        const canais = await notificar(cli.telefone, cli.email, wppMsg, subject, htmlEmail, config, cli.nome_razao_social || '');
+        const canais = await notificar(cli.telefone, cli.email, wppMsg, subject, htmlEmail, config, nomeBotConversa(cli));
         if (canais.length > 0) results.relatorio++;
       }
     }

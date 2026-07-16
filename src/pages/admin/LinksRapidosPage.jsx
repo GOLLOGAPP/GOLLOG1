@@ -192,10 +192,17 @@ ${svgData}
   const buscarClientes = async () => {
     const { data } = await supabase
       .from('clientes')
-      .select('id, nome_razao_social, telefone, unidade_atendimento')
+      .select('id, tipo, nome_razao_social, nome_contato, telefone, unidade_atendimento')
       .or(`nome_razao_social.ilike.%${search}%,telefone.ilike.%${search}%`)
       .limit(8);
     setSugestoes(data || []);
+  };
+
+  // Padrão de nome no BotConversa: PJ = "Responsável - Empresa", PF = nome completo
+  const nomeBotConversa = (c) => {
+    const razao = (c?.nome_razao_social || '').trim();
+    const contato = (c?.nome_contato || '').trim();
+    return (c?.tipo === 'PJ' && contato && razao) ? `${contato} - ${razao}` : razao;
   };
 
   const selecionarCliente = (c) => {
@@ -229,8 +236,8 @@ ${svgData}
 
     setSending(true);
     // Só envia nome real de cadastro — nunca 'Cliente', que sobrescreveria o
-    // nome do contato no BotConversa. O backend ecoa o nome atual do contato.
-    const nome = modo === 'cadastrado' ? (selectedCliente?.nome_razao_social || '') : '';
+    // nome do contato no BotConversa. PJ vai como "Responsável - Empresa".
+    const nome = modo === 'cadastrado' ? nomeBotConversa(selectedCliente) : '';
 
     const unidade = selectedCliente?.unidade_atendimento || '';
     const linksTexto = selectedLinks
