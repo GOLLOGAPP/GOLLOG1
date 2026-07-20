@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { FiUser, FiBriefcase, FiCheck, FiLoader, FiMapPin, FiLock } from 'react-icons/fi';
 import { supabase } from '../../lib/supabase';
 import { fetchCep, formatCep } from '../../lib/cep';
+import { nomeBotConversa } from '../../../shared/nomeBotConversa';
 
 const cleanPhone = (raw) => {
   if (!raw) return '';
@@ -119,12 +120,9 @@ export default function CadastroPage() {
   const handleChange = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
 
   // Padrão de nome no BotConversa: PJ = "Responsável - Empresa", PF = nome completo
-  const buildBotNome = () => {
-    if (tipo === 'PJ' && form.contato?.trim()) {
-      return `${form.contato.trim()} - ${form.nome}`;
-    }
-    return form.nome;
-  };
+  // Padrão de nome do BotConversa — regra em shared/nomeBotConversa.js.
+  const buildBotNome = () =>
+    nomeBotConversa({ tipo, nome_razao_social: form.nome, nome_contato: form.contato });
 
   const handleCep = async (value) => {
     const formatted = formatCep(value);

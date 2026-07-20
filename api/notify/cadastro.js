@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { marcarCadastroConvertido, toInternational } from '../_lib/notify.js';
+import { marcarCadastroConvertido, toInternational, syncNomeBotConversa } from '../_lib/notify.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || 'https://bkljbfqvlepmmwwylfdv.supabase.co',
@@ -101,6 +101,17 @@ export default async function handler(req, res) {
       }
     }
 
+    // 1b. Grava o nome pela automação NOMES — caminho dedicado, sem mensagem.
+    //     Enquanto a ação de nome ainda estiver ativa na automação de menu isto
+    //     é redundante; quando ela for removida de lá, passa a ser o único.
+    let nomeSync = null;
+    try {
+      nomeSync = await syncNomeBotConversa(phone, nome);
+    } catch (e) {
+      console.error('Sync de nome falhou:', e.message);
+      nomeSync = { ok: false, motivo: e.message };
+    }
+
     // 2. Aplica etiquetas "Cliente" e "Novo" (best-effort, não bloqueia o menu)
     let tagResults = [];
     try {
@@ -115,6 +126,7 @@ export default async function handler(req, res) {
       phone: formattedPhone,
       tags: tagResults,
       menu_triggered: menuTriggered,
+      nome_sync: nomeSync,
       cadastros_convertidos: cadastrosConvertidos,
     });
 

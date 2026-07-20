@@ -59,15 +59,9 @@ export async function clienteJaCadastrado(metaPhone) {
   );
 }
 
-// Padrão de nome do contato no BotConversa:
-//   PF → nome completo
-//   PJ → "Nome do Responsável - Nome da Empresa" (quando há responsável)
-export function nomeBotConversa(cliente) {
-  const razao = (cliente?.nome_razao_social || '').trim();
-  const contato = (cliente?.nome_contato || '').trim();
-  if (cliente?.tipo === 'PJ' && contato && razao) return `${contato} - ${razao}`;
-  return razao;
-}
+// Padrão de nome do contato no BotConversa — regra em shared/nomeBotConversa.js.
+// Reexportado aqui para não quebrar quem já importa deste módulo.
+export { nomeBotConversa } from '../../shared/nomeBotConversa.js';
 
 // Resolve o cliente pelo telefone comparando só os dígitos. Retorna { id, nome } ou null.
 // `nome` já vem no padrão BotConversa (PJ = "Responsável - Empresa").
@@ -152,6 +146,36 @@ export function nomeValidoBC(nome) {
   if (!n) return '';
   const lower = n.toLowerCase();
   return (lower === 'none' || lower === 'cliente') ? '' : n;
+}
+
+// Automação "NOMES" do BotConversa: ação única "Criar/Atualizar Nome do Contato",
+// sem bloco de mensagem. É o ÚNICO caminho que deve escrever nome de contato —
+// a API REST do BotConversa é somente-leitura para subscribers (POST /subscriber/
+// é "get or create" e ignora os campos de nome).
+//
+// Nunca dispara sem nome válido: campo vazio faz a automação gravar o literal
+// "none" por cima do cadastro. Melhor não sincronizar do que apagar.
+export async function syncNomeBotConversa(phone, nome, config = null) {
+  const cfg = config || await getConfig();
+  const webhook = process.env.BOTCONVERSA_WEBHOOK_NOMES || cfg.botconversa_webhook_nomes;
+  if (!webhook) return { ok: false, motivo: 'webhook de nomes não configurado' };
+
+  const phoneBC = toInternational(phone);
+  if (!phoneBC) return { ok: false, motivo: 'telefone vazio' };
+
+  const nomeFinal = nomeValidoBC(nome);
+  if (!nomeFinal) return { ok: false, motivo: 'nome vazio ou inválido — sync abortado' };
+
+  try {
+    const res = await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phoneBC, nome: nomeFinal }),
+    });
+    return { ok: res.ok, motivo: res.ok ? null : `HTTP ${res.status}`, nome: nomeFinal };
+  } catch (e) {
+    return { ok: false, motivo: `erro de rede: ${e.message}` };
+  }
 }
 
 export async function sendWhatsApp(phone, mensagem, config = null, nome = '') {

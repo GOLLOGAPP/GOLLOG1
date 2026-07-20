@@ -3,6 +3,7 @@ import Header from '../../components/layout/Header';
 import { supabase } from '../../lib/supabase';
 import { FiSearch, FiSend, FiUser, FiPhone, FiClock, FiX, FiCheck, FiLink, FiPrinter, FiExternalLink, FiSave, FiCopy } from 'react-icons/fi';
 import { QRCodeSVG } from 'qrcode.react';
+import { nomeBotConversa } from '../../../shared/nomeBotConversa';
 
 const APP_URL = window.location.origin;
 
@@ -199,12 +200,6 @@ ${svgData}
   };
 
   // Padrão de nome no BotConversa: PJ = "Responsável - Empresa", PF = nome completo
-  const nomeBotConversa = (c) => {
-    const razao = (c?.nome_razao_social || '').trim();
-    const contato = (c?.nome_contato || '').trim();
-    return (c?.tipo === 'PJ' && contato && razao) ? `${contato} - ${razao}` : razao;
-  };
-
   const selecionarCliente = (c) => {
     setSelectedCliente(c);
     setSearch(c.nome_razao_social);

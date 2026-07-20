@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Header from '../../components/layout/Header';
 import { supabase } from '../../lib/supabase';
 import * as XLSX from 'xlsx';
+import { nomeBotConversa, nomeBotConversaPartes } from '../../../shared/nomeBotConversa';
 import {
   FiSearch, FiPlus, FiDownload, FiEye, FiEdit2, FiTrash2, FiX,
   FiUser, FiBriefcase, FiRefreshCw, FiSave, FiAlertTriangle,
@@ -22,18 +23,8 @@ const TABS = [
   { id:'rastreamentos', label:'Rastreamentos' },
 ];
 
-const formatBotConversaName = (cliente) => {
-  const nome = (cliente?.nome_razao_social || '').trim();
-  if (cliente?.tipo === 'PF') {
-    const partes = nome.split(/\s+/);
-    const primeiroNome = partes[0] || '';
-    const sobrenome = partes.slice(1).join(' ') || '';
-    return { primeiroNome, sobrenome };
-  }
-  // PJ: padrão "Responsável - Empresa" (quando há responsável cadastrado)
-  const contato = (cliente?.nome_contato || '').trim();
-  return { primeiroNome: contato ? `${contato} - ${nome}` : nome, sobrenome: '' };
-};
+// Padrão de nome do BotConversa — regra em shared/nomeBotConversa.js.
+const formatBotConversaName = nomeBotConversaPartes;
 
 const formatBotConversaPhone = (telefone) => {
   let telLimpo = (telefone || '').replace(/\D/g, '');
@@ -184,6 +175,22 @@ export default function ClientesPage() {
     });
   };
 
+  // Propaga o nome para o BotConversa pela automação NOMES (não envia mensagem).
+  // Fire-and-forget: o cadastro já foi salvo, uma falha aqui não deve travar a tela.
+  const syncNome = (form) => {
+    const nome = nomeBotConversa({
+      tipo: form.tipo,
+      nome_razao_social: form.nome,
+      nome_contato: form.nome_contato,
+    });
+    if (!form.telefone || !nome) return;
+    fetch('/api/notify/sync-nome', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: form.telefone, nome }),
+    }).catch(() => {});
+  };
+
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     setEditSaving(true);
@@ -203,6 +210,7 @@ export default function ClientesPage() {
     }).eq('id', editCliente.id);
     setEditSaving(false);
     if (!error) {
+      syncNome(editForm);
       setEditCliente(null);
       fetchClientes();
     } else {
@@ -244,6 +252,7 @@ export default function ClientesPage() {
     }]);
     setSaving(false);
     if (!error) {
+      syncNome(newForm);
       setShowModal(false);
       setNewForm({ tipo:'PF', nome:'', cpf_cnpj:'', nome_contato:'', telefone:'', email:'', endereco:'', cep:'', cidade:'', estado:'', unidade:'Osasco', status:'ativo' });
       fetchClientes();
