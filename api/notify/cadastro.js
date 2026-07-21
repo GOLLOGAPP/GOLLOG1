@@ -111,11 +111,12 @@ export default async function handler(req, res) {
     }
 
     // 1b. Grava o nome pela automação NOMES — caminho dedicado, sem mensagem.
-    //     Enquanto a ação de nome ainda estiver ativa na automação de menu isto
-    //     é redundante; quando ela for removida de lá, passa a ser o único.
+    //     Usa o nome JÁ RESOLVIDO (CRM → BotConversa), não o `nome` cru: quando
+    //     a ação de nome for removida da automação de menu, esta é a única que
+    //     escreve o nome, então não pode abortar por receber um nome vazio.
     let nomeSync = null;
     try {
-      nomeSync = await syncNomeBotConversa(phone, nome);
+      nomeSync = await syncNomeBotConversa(phone, nomeMenu);
     } catch (e) {
       console.error('Sync de nome falhou:', e.message);
       nomeSync = { ok: false, motivo: e.message };
