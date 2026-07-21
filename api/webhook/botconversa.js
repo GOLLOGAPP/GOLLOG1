@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { sendWhatsApp } from '../_lib/notify.js';
+import { sendWhatsApp, buscarClienteRowPorTelefone } from '../_lib/notify.js';
 
 const APP_URL = process.env.APP_URL || 'https://www.golcargo.com.br';
 
@@ -74,11 +74,7 @@ export default async function handler(req, res) {
         // Buscar cliente pelo telefone (uma vez só)
         let clienteId = null;
         if (phone) {
-          const { data: cliente } = await supabase
-            .from('clientes')
-            .select('id')
-            .eq('telefone', phone)
-            .single();
+          const cliente = await buscarClienteRowPorTelefone(phone);
           if (cliente) clienteId = cliente.id;
         }
 
@@ -226,11 +222,7 @@ export default async function handler(req, res) {
       case 'cotacao': {
         let clienteId = null;
         if (phone) {
-          const { data: cliente } = await supabase
-            .from('clientes')
-            .select('id, nome_razao_social')
-            .eq('telefone', phone)
-            .single();
+          const cliente = await buscarClienteRowPorTelefone(phone);
           if (cliente) clienteId = cliente.id;
         }
 
@@ -298,11 +290,7 @@ export default async function handler(req, res) {
       case 'coleta': {
         let clienteId = null;
         if (phone) {
-          const { data: cliente } = await supabase
-            .from('clientes')
-            .select('id')
-            .eq('telefone', phone)
-            .single();
+          const cliente = await buscarClienteRowPorTelefone(phone);
           if (cliente) clienteId = cliente.id;
         }
 
@@ -341,11 +329,7 @@ export default async function handler(req, res) {
       // ─── CADASTRO COMPLETO: notificação após cadastro ───
       case 'cadastro_completo': {
         if (phone) {
-          const { data: cliente } = await supabase
-            .from('clientes')
-            .select('id, nome_razao_social')
-            .eq('telefone', phone)
-            .single();
+          const cliente = await buscarClienteRowPorTelefone(phone);
 
           if (cliente) {
             await supabase.from('clientes')
@@ -360,11 +344,7 @@ export default async function handler(req, res) {
       case 'suporte': {
         let clienteId = null;
         if (phone) {
-          const { data: cliente } = await supabase
-            .from('clientes')
-            .select('id')
-            .eq('telefone', phone)
-            .single();
+          const cliente = await buscarClienteRowPorTelefone(phone);
           if (cliente) clienteId = cliente.id;
         }
 
@@ -401,11 +381,7 @@ export default async function handler(req, res) {
       // ─── CONTATO: registra interação ───
       case 'contato': {
         if (phone) {
-          const { data: cliente } = await supabase
-            .from('clientes')
-            .select('id')
-            .eq('telefone', phone)
-            .single();
+          const cliente = await buscarClienteRowPorTelefone(phone);
 
           if (cliente) {
             await supabase.from('clientes')
@@ -434,11 +410,7 @@ export default async function handler(req, res) {
 
         let clienteId = null;
         if (phone) {
-          const { data: cliente } = await supabase
-            .from('clientes')
-            .select('id')
-            .eq('telefone', phone)
-            .single();
+          const cliente = await buscarClienteRowPorTelefone(phone);
           if (cliente) {
             clienteId = cliente.id;
             await supabase.from('clientes')
@@ -487,11 +459,7 @@ export default async function handler(req, res) {
         // Fallback: busca pelo cliente_id associado ao telefone
         let listaRastreios = rastreamentosRecentes || [];
         if (listaRastreios.length === 0) {
-          const { data: cliente } = await supabase
-            .from('clientes')
-            .select('id')
-            .eq('telefone', phone)
-            .single();
+          const cliente = await buscarClienteRowPorTelefone(phone);
 
           if (cliente) {
             const { data: rastPorCliente } = await supabase
@@ -572,8 +540,7 @@ export default async function handler(req, res) {
         let clienteIdPrio = null;
         let emailClientePrio = null;
         if (phone) {
-          const { data: clientePrio } = await supabase
-            .from('clientes').select('id, email').eq('telefone', phone).single();
+          const clientePrio = await buscarClienteRowPorTelefone(phone);
           if (clientePrio) {
             clienteIdPrio = clientePrio.id;
             emailClientePrio = clientePrio.email || null;

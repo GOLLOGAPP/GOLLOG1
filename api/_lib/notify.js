@@ -81,6 +81,24 @@ export async function buscarClientePorTelefone(metaPhone) {
   return cli ? { id: cli.id, nome: nomeBotConversa(cli) } : null;
 }
 
+// Igual buscarClientePorTelefone, mas devolve a LINHA inteira do cliente.
+// Use quando precisar de campos além de id/nome (email, razão social...).
+// Existe porque comparar telefone com .eq() nunca casa: o banco guarda
+// "(11) 93057-7497" e o BotConversa manda "5511930577497" — era a causa de
+// rastreamentos/cotações ficarem com cliente_id NULL.
+export async function buscarClienteRowPorTelefone(metaPhone) {
+  const local = normalizePhone(metaPhone);
+  if (!local || local.length < 8) return null;
+  const last4 = local.slice(-4);
+  const { data } = await supabase
+    .from('clientes')
+    .select('*')
+    .or(`telefone.ilike.%${last4},telefone2.ilike.%${last4}`);
+  return (data || []).find(
+    c => normalizePhone(c.telefone) === local || normalizePhone(c.telefone2) === local
+  ) || null;
+}
+
 // Rede de segurança: marca como "convertido" qualquer cadastro_iniciado pendente
 // deste telefone, independente da sessão do navegador onde o cadastro foi feito.
 export async function marcarCadastroConvertido(metaPhone) {
@@ -189,11 +207,19 @@ export async function sendWhatsApp(phone, mensagem, config = null, nome = '') {
   const phoneBC = toInternational(phone);
 
   // Nunca enviar payload sem nome: a automação do BotConversa sobrescreve o
-  // cadastro do contato com o campo mapeado — ausente/vazio = nome apagado.
-  // Prioridade: nome do nosso banco (parâmetro, já no padrão "Responsável -
-  // Empresa" para PJ — atualiza ativamente o BotConversa) → nome que JÁ está
-  // no BotConversa (preserva quando não conhecemos o cliente) → omite.
-  const nomeFinal = nomeValidoBC(nome) || await nomeSubscriberBC(phoneBC, cfg);
+  // cadastro do contato com o campo mapeado — ausente/vazio = nome apagado
+  // (grava " " ou "None"). Prioridade:
+  //   1. nome recebido (já no padrão "Responsável - Empresa" para PJ)
+  //   2. nome do CRM pelo telefone — corrige ativamente, e cobre os casos em
+  //      que o chamador não tem o cliente vinculado (ex.: rastreamento com
+  //      cliente_id NULL, que antes caía direto no eco)
+  //   3. nome que JÁ está no BotConversa (preserva quando não conhecemos)
+  // Sem o passo 2, um contato já apagado nunca se recupera: o eco lê " ",
+  // devolve vazio, e a automação regrava vazio a cada notificação.
+  const nomeFinal =
+    nomeValidoBC(nome)
+    || (await buscarClientePorTelefone(phone))?.nome
+    || await nomeSubscriberBC(phoneBC, cfg);
 
   const payload = { phone: phoneBC, mensagem };
   if (nomeFinal) {
