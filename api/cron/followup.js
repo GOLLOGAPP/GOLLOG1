@@ -1,4 +1,18 @@
-import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, clienteJaCadastrado, nomeBotConversa } from '../_lib/notify.js';
+import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, clienteJaCadastrado, nomeBotConversa, dispararFluxoBC } from '../_lib/notify.js';
+
+// Após um follow-up de intenção comercial (cadastro abandonado, cotação perdida,
+// cadastro sem cotação), dispara o fluxo de atendimento no BotConversa para que
+// um atendente assuma. Só age se botconversa_fluxo_atendimento_id estiver
+// configurado; nunca derruba o cron se falhar.
+async function atribuirAtendimento(phone, config, results) {
+  if (!config.botconversa_fluxo_atendimento_id || !phone) return;
+  try {
+    const r = await dispararFluxoBC(phone, config.botconversa_fluxo_atendimento_id, config);
+    if (r.ok) results.atendimentos++;
+  } catch (e) {
+    console.error('Falha ao atribuir atendimento:', e.message);
+  }
+}
 
 function dayWindow(daysBack, windowHours = 26) {
   const end = new Date();
@@ -72,7 +86,7 @@ export default async function handler(req, res) {
 
   const config = await getConfig();
   const baseUrl = config.app_base_url || 'https://www.golcargo.com.br';
-  const results = { abandonados: 0, cotacoes: 0, cadastros: 0, inativos: 0, coletas: 0, relatorio: 0, aniversarios: 0 };
+  const results = { abandonados: 0, cotacoes: 0, cadastros: 0, inativos: 0, coletas: 0, relatorio: 0, aniversarios: 0, atendimentos: 0 };
 
   // ─── BLOCO 0: Cadastros iniciados mas não finalizados ────────────────
   if (config.followup_cadastro_abandonado_ativo === 'true') {
@@ -151,6 +165,7 @@ export default async function handler(req, res) {
             metadata: { telefone: phone, iniciado_id: ini.id },
           }]);
           results.abandonados++;
+          await atribuirAtendimento(phone, config, results);
         }
       }
     }
@@ -231,6 +246,7 @@ export default async function handler(req, res) {
         if (canais.length > 0) {
           await registrarEnvio(stage.key, cot.cliente_id, cot.id, 'cotacao', wppMsg, canais.join('+'), { valor: cot.valor_cotado });
           results.cotacoes++;
+          await atribuirAtendimento(phone, config, results);
         }
       }
     }
@@ -323,6 +339,7 @@ export default async function handler(req, res) {
         if (canais.length > 0) {
           await registrarEnvio(stage.key, cli.id, null, null, wppMsg, canais.join('+'));
           results.cadastros++;
+          await atribuirAtendimento(cli.telefone, config, results);
         }
       }
     }

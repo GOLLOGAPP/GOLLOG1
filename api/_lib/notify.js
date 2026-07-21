@@ -215,6 +215,41 @@ export async function sendWhatsApp(phone, mensagem, config = null, nome = '') {
   }
 }
 
+// Dispara um fluxo do BotConversa para um contato (send_flow). Usado para
+// atribuir atendimento após follow-ups de intenção comercial. O fluxo alvo faz
+// a ação "Atribuir e abrir atendimento". Payload confirmado: { flow: <id> }.
+// Não faz nada se o fluxo não estiver configurado — assim o código pode subir
+// antes de o fluxo existir no painel.
+export async function dispararFluxoBC(phone, flowId, config = null) {
+  const cfg = config || await getConfig();
+  const apiKey = cfg.botconversa_api_key;
+  const fid = flowId || cfg.botconversa_fluxo_atendimento_id;
+  if (!apiKey) return { ok: false, motivo: 'botconversa_api_key não configurada' };
+  if (!fid) return { ok: false, motivo: 'fluxo de atendimento não configurado' };
+  if (!phone) return { ok: false, motivo: 'telefone vazio' };
+  const phoneBC = toInternational(phone);
+  try {
+    const subRes = await fetch(
+      `https://backend.botconversa.com.br/api/v1/webhook/subscriber/get_by_phone/${phoneBC}/`,
+      { headers: { 'API-KEY': apiKey } }
+    );
+    if (!subRes.ok) return { ok: false, motivo: `subscriber não encontrado (HTTP ${subRes.status})` };
+    const subId = (await subRes.json())?.id;
+    if (!subId) return { ok: false, motivo: 'subscriber sem id' };
+    const r = await fetch(
+      `https://backend.botconversa.com.br/api/v1/webhook/subscriber/${subId}/send_flow/`,
+      {
+        method: 'POST',
+        headers: { 'API-KEY': apiKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ flow: Number(fid) }),
+      }
+    );
+    return { ok: r.ok, motivo: r.ok ? null : `send_flow HTTP ${r.status}` };
+  } catch (e) {
+    return { ok: false, motivo: `erro de rede: ${e.message}` };
+  }
+}
+
 export async function sendEmail(to, subject, html, config = null) {
   const cfg = config || await getConfig();
   const apiKey = cfg.resend_api_key;
