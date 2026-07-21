@@ -1,4 +1,5 @@
 import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, clienteJaCadastrado, nomeBotConversa, dispararFluxoBC } from '../_lib/notify.js';
+import { executarSyncNomes } from './sync-nomes.js';
 
 // Após um follow-up de intenção comercial (cadastro abandonado, cotação perdida,
 // cadastro sem cotação), dispara o fluxo de atendimento no BotConversa para que
@@ -583,6 +584,14 @@ export default async function handler(req, res) {
         results.aniversarios++;
       }
     }
+  }
+
+  // Re-sincroniza nomes de contatos sem nome (roda de carona — o plano Vercel
+  // só permite 2 crons). Nunca sobrescreve quem já tem nome.
+  try {
+    results.sync_nomes = await executarSyncNomes(config);
+  } catch (e) {
+    console.error('Falha no sync de nomes:', e.message);
   }
 
   return res.status(200).json({ success: true, results });

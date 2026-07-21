@@ -4,18 +4,14 @@ import { supabase, getConfig, normalizePhone, nomeBotConversa, syncNomeBotConver
 // " " ou "None") mas TÊM cadastro no sistema. Nunca toca em quem já tem nome —
 // preserva o nome de perfil do WhatsApp e as edições manuais dos atendentes.
 // Rede de segurança para o caso de uma notificação escapar e apagar um nome.
-export default async function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-  const secret = req.headers['x-cron-secret'] || req.query.secret;
-  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const config = await getConfig();
-  const apiKey = config.botconversa_api_key;
-  if (!apiKey) return res.status(200).json({ ok: false, motivo: 'botconversa_api_key não configurada' });
+//
+// Exportado como função porque o plano Vercel só permite 2 cron jobs: em vez de
+// um cron próprio, roda "de carona" no fim do cron de follow-up. O handler HTTP
+// abaixo permite disparo manual a qualquer momento.
+export async function executarSyncNomes(config = null) {
+  const cfg = config || await getConfig();
+  const apiKey = cfg.botconversa_api_key;
+  if (!apiKey) return { ok: false, motivo: 'botconversa_api_key não configurada' };
 
   // 1. Lista todos os subscribers do BotConversa (paginado)
   const subs = [];
@@ -29,7 +25,7 @@ export default async function handler(req, res) {
       url = j.next;
     }
   } catch (e) {
-    return res.status(200).json({ ok: false, motivo: `falha ao listar subscribers: ${e.message}` });
+    return { ok: false, motivo: `falha ao listar subscribers: ${e.message}` };
   }
 
   // 2. Indexa clientes por telefone normalizado (só dígitos, sem DDI)
@@ -55,16 +51,22 @@ export default async function handler(req, res) {
     if (!match) { semCadastro++; continue; }
     const nomes = [...new Set(match.map(nomeBotConversa).filter(Boolean))];
     if (nomes.length !== 1) { ambiguos++; continue; }
-    const r = await syncNomeBotConversa(s.phone, nomes[0], config);
+    const r = await syncNomeBotConversa(s.phone, nomes[0], cfg);
     if (r.ok) corrigidos++;
   }
 
-  return res.status(200).json({
-    ok: true,
-    subscribers: subs.length,
-    sem_nome: semNome.length,
-    corrigidos,
-    sem_cadastro: semCadastro,
-    ambiguos,
-  });
+  return { ok: true, subscribers: subs.length, sem_nome: semNome.length, corrigidos, sem_cadastro: semCadastro, ambiguos };
+}
+
+// Handler HTTP — disparo manual. Guardado por CRON_SECRET quando definido.
+export default async function handler(req, res) {
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const resultado = await executarSyncNomes();
+  return res.status(200).json(resultado);
 }
