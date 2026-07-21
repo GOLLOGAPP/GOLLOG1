@@ -60,8 +60,10 @@ export async function clienteJaCadastrado(metaPhone) {
 }
 
 // Padrão de nome do contato no BotConversa — regra em shared/nomeBotConversa.js.
-// Reexportado aqui para não quebrar quem já importa deste módulo.
-export { nomeBotConversa } from '../../shared/nomeBotConversa.js';
+// Import + re-export: `export { x } from` reexportaria para fora mas NÃO criaria
+// a binding local, e buscarClientePorTelefone() usa nomeBotConversa internamente.
+import { nomeBotConversa } from '../../shared/nomeBotConversa.js';
+export { nomeBotConversa };
 
 // Resolve o cliente pelo telefone comparando só os dígitos. Retorna { id, nome } ou null.
 // `nome` já vem no padrão BotConversa (PJ = "Responsável - Empresa").

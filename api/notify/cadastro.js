@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
-import { marcarCadastroConvertido, toInternational, syncNomeBotConversa } from '../_lib/notify.js';
+import {
+  marcarCadastroConvertido, toInternational, syncNomeBotConversa,
+  nomeValidoBC, nomeSubscriberBC, buscarClientePorTelefone,
+} from '../_lib/notify.js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || 'https://bkljbfqvlepmmwwylfdv.supabase.co',
@@ -78,17 +81,23 @@ export default async function handler(req, res) {
       console.error('Falha ao marcar cadastro convertido:', e.message);
     }
 
+    // A automação de menu tem a ação "Criar/Atualizar Nome do Contato" ativa:
+    // se o payload chegar SEM o campo `nome`, ela grava "None" por cima do
+    // cadastro. Por isso o menu NUNCA pode disparar sem um nome válido.
+    // Prioridade (igual sendWhatsApp): nome recebido → nome do CRM pelo
+    // telefone → nome que o BotConversa já tem. Só omite se as três falharem.
+    const nomeMenu =
+      nomeValidoBC(nome)
+      || (await buscarClientePorTelefone(phone))?.nome
+      || await nomeSubscriberBC(formattedPhone);
+
     // 1. Dispara fluxo do menu via webhook PRIMEIRO — é o passo crítico
     //    (retorno ao WhatsApp). Mesmo se as etiquetas falharem, o menu vai.
     let menuTriggered = false;
     if (webhookUrl) {
       try {
-        // Só inclui o nome se vier preenchido — evita sobrescrever com vazio no BotConversa
-        const nomeWebhook = (nome || '').trim();
         const webhookPayload = { phone: formattedPhone };
-        if (nomeWebhook && nomeWebhook.toLowerCase() !== 'none') {
-          webhookPayload.nome = nomeWebhook;
-        }
+        if (nomeMenu) webhookPayload.nome = nomeMenu;
 
         await fetch(webhookUrl, {
           method: 'POST',
