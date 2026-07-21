@@ -1,5 +1,4 @@
-import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, clienteJaCadastrado, nomeBotConversa, dispararFluxoBC } from '../_lib/notify.js';
-import { executarSyncNomes } from './sync-nomes.js';
+import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, clienteJaCadastrado, nomeBotConversa, dispararFluxoBC, executarSyncNomes } from '../_lib/notify.js';
 
 // Após um follow-up de intenção comercial (cadastro abandonado, cotação perdida,
 // cadastro sem cotação), dispara o fluxo de atendimento no BotConversa para que

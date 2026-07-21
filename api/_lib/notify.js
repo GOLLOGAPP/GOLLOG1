@@ -300,6 +300,59 @@ export async function sendEmail(to, subject, html, config = null) {
   }
 }
 
+// Re-sincroniza nomes de contatos do BotConversa que estão SEM nome (vazio,
+// " " ou "None") mas TÊM cadastro no sistema. Nunca toca em quem já tem nome —
+// preserva o nome de perfil do WhatsApp e as edições manuais dos atendentes.
+// Fica aqui (e não em api/cron/) porque o Vercel não expõe como rota um arquivo
+// que é importado por outra função; assim o endpoint manual e o cron de
+// follow-up podem reusar a mesma lógica.
+export async function executarSyncNomes(config = null) {
+  const cfg = config || await getConfig();
+  const apiKey = cfg.botconversa_api_key;
+  if (!apiKey) return { ok: false, motivo: 'botconversa_api_key não configurada' };
+
+  const subs = [];
+  let url = 'https://backend.botconversa.com.br/api/v1/webhook/subscribers/';
+  try {
+    while (url) {
+      const r = await fetch(url, { headers: { 'API-KEY': apiKey } });
+      if (!r.ok) break;
+      const j = await r.json();
+      subs.push(...(j.results || []));
+      url = j.next;
+    }
+  } catch (e) {
+    return { ok: false, motivo: `falha ao listar subscribers: ${e.message}` };
+  }
+
+  const { data: clientes } = await supabase
+    .from('clientes')
+    .select('tipo, nome_razao_social, nome_contato, telefone, telefone2');
+  const idx = {};
+  for (const c of clientes || []) {
+    for (const t of [normalizePhone(c.telefone), normalizePhone(c.telefone2)]) {
+      if (t && t.length >= 8) (idx[t] ||= []).push(c);
+    }
+  }
+
+  const semNome = subs.filter(s => {
+    const n = (s.full_name || '').trim().toLowerCase();
+    return !n || n === 'none' || /\bnone\b/.test(n);
+  });
+
+  let corrigidos = 0, semCadastro = 0, ambiguos = 0;
+  for (const s of semNome) {
+    const match = idx[normalizePhone(s.phone)];
+    if (!match) { semCadastro++; continue; }
+    const nomes = [...new Set(match.map(nomeBotConversa).filter(Boolean))];
+    if (nomes.length !== 1) { ambiguos++; continue; }
+    const r = await syncNomeBotConversa(s.phone, nomes[0], cfg);
+    if (r.ok) corrigidos++;
+  }
+
+  return { ok: true, subscribers: subs.length, sem_nome: semNome.length, corrigidos, sem_cadastro: semCadastro, ambiguos };
+}
+
 export function emailTemplate(titulo, corpo, ctaUrl = '', ctaLabel = '') {
   return `<!DOCTYPE html>
 <html>
