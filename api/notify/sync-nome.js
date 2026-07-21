@@ -1,10 +1,14 @@
-import { syncNomeBotConversa, buscarClientePorTelefone } from '../_lib/notify.js';
+import { syncNomeBotConversa, buscarClientePorTelefone, executarSyncNomes } from '../_lib/notify.js';
 
 // Sincroniza o nome de um contato no BotConversa, sem enviar mensagem nenhuma.
 //
-// Entrada: { phone, nome? }
+// Entrada: { phone, nome? }               → sincroniza UM contato
 //   - com `nome`  → usa o valor recebido (já no padrão de shared/nomeBotConversa.js)
 //   - sem `nome`  → resolve pelo telefone no banco
+// Entrada: { sync_all: true }             → varre todos os contatos SEM nome que
+//   tenham cadastro e preenche (disparo manual; também roda no cron de follow-up).
+//   Fica aqui porque o plano Vercel só permite 12 funções — um endpoint próprio
+//   estouraria o limite.
 //
 // Se nenhum nome válido for encontrado, NÃO dispara: a automação sobrescreve o
 // cadastro com o que chegar, e campo vazio vira o literal "none".
@@ -17,8 +21,9 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { phone, nome } = req.body || {};
-    if (!phone) return res.status(400).json({ error: 'phone é obrigatório' });
+    const { phone, nome, sync_all } = req.body || {};
+    if (sync_all) return res.status(200).json(await executarSyncNomes());
+    if (!phone) return res.status(400).json({ error: 'phone é obrigatório (ou use sync_all: true)' });
 
     let nomeFinal = (nome || '').trim();
     let origem = 'payload';
