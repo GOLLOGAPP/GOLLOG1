@@ -4,11 +4,27 @@ import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, clienteJaC
 // cadastro sem cotação), dispara o fluxo de atendimento no BotConversa para que
 // um atendente assuma. Só age se botconversa_fluxo_atendimento_id estiver
 // configurado; nunca derruba o cron se falhar.
-async function atribuirAtendimento(phone, config, results) {
+async function atribuirAtendimento(phone, config, results, origem = '', clienteId = null) {
   if (!config.botconversa_fluxo_atendimento_id || !phone) return;
   try {
     const r = await dispararFluxoBC(phone, config.botconversa_fluxo_atendimento_id, config);
-    if (r.ok) results.atendimentos++;
+    if (!r.ok) return;
+    results.atendimentos++;
+
+    // Registra no histórico do cliente: é a auditoria de quem foi encaminhado e
+    // por quê. Preferimos isto a uma etiqueta no BotConversa — etiqueta é
+    // permanente e não reflete estado, e a ação "Atribuir e abrir atendimento"
+    // não aplica nenhuma. `tipo` é limitado por CHECK a
+    // cadastro/cotacao/rastreamento/coleta/suporte/contato, daí 'contato'.
+    if (clienteId) {
+      await supabase.from('atividades_log').insert([{
+        cliente_id: clienteId,
+        tipo: 'contato',
+        descricao: `Atendimento atribuído automaticamente após follow-up${origem ? ` (${origem})` : ''}`,
+        canal: 'sistema',
+        metadata: { origem: 'followup', followup: origem, telefone: phone },
+      }]);
+    }
   } catch (e) {
     console.error('Falha ao atribuir atendimento:', e.message);
   }
@@ -165,7 +181,9 @@ export default async function handler(req, res) {
             metadata: { telefone: phone, iniciado_id: ini.id },
           }]);
           results.abandonados++;
-          await atribuirAtendimento(phone, config, results);
+          // Sem cliente_id: quem abandonou o cadastro ainda não é cliente.
+          // O registro do envio já fica na tabela followups.
+          await atribuirAtendimento(phone, config, results, stage.key);
         }
       }
     }
@@ -246,7 +264,7 @@ export default async function handler(req, res) {
         if (canais.length > 0) {
           await registrarEnvio(stage.key, cot.cliente_id, cot.id, 'cotacao', wppMsg, canais.join('+'), { valor: cot.valor_cotado });
           results.cotacoes++;
-          await atribuirAtendimento(phone, config, results);
+          await atribuirAtendimento(phone, config, results, stage.key, cot.cliente_id);
         }
       }
     }
@@ -339,7 +357,7 @@ export default async function handler(req, res) {
         if (canais.length > 0) {
           await registrarEnvio(stage.key, cli.id, null, null, wppMsg, canais.join('+'));
           results.cadastros++;
-          await atribuirAtendimento(cli.telefone, config, results);
+          await atribuirAtendimento(cli.telefone, config, results, stage.key, cli.id);
         }
       }
     }
