@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/admin/DashboardPage';
 import ClientesPage from './pages/admin/ClientesPage';
 import CotacoesPage from './pages/admin/CotacoesPage';
+import CotacaoAvancadaPage from './pages/admin/CotacaoAvancadaPage';
 import RastreamentosPage from './pages/admin/RastreamentosPage';
 import ColetasPage from './pages/admin/ColetasPage';
 import SuportePage from './pages/admin/SuportePage';
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="clientes" element={<ClientesPage />} />
             <Route path="cotacoes" element={<CotacoesPage />} />
+            <Route path="cotacao-avancada" element={<CotacaoAvancadaPage />} />
             <Route path="rastreamentos" element={<RastreamentosPage />} />
             <Route path="coletas" element={<ColetasPage />} />
             <Route path="suporte" element={<SuportePage />} />

@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiGrid, FiUsers, FiPackage, FiDollarSign, FiTruck,
   FiHeadphones, FiHelpCircle, FiSettings, FiLogOut, FiMenu, FiX, FiUserPlus,
-  FiActivity, FiLink, FiZap, FiNavigation
+  FiActivity, FiLink, FiZap, FiNavigation, FiFileText
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -22,6 +22,7 @@ const menuSections = [
     title: 'Operações',
     items: [
       { to: '/admin/cotacoes', icon: FiDollarSign, label: 'Cotações' },
+      { to: '/admin/cotacao-avancada', icon: FiFileText, label: 'Cotação Avançada', badge: 'NEXLOG' },
       { to: '/admin/rastreamentos', icon: FiPackage, label: 'Rastreamentos' },
       { to: '/admin/coletas', icon: FiTruck, label: 'Coletas' },
       { to: '/admin/malha', icon: FiNavigation, label: 'Malha Aérea' },
