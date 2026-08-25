@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   FiDollarSign, FiSearch, FiPackage, FiTruck, FiCheckCircle, FiAlertCircle,
-  FiArrowRight, FiCopy, FiInfo, FiRefreshCw, FiPlus, FiTrash2, FiFileText, FiUser, FiMapPin, FiShield
+  FiArrowRight, FiCopy, FiInfo, FiRefreshCw, FiPlus, FiTrash2, FiFileText, FiUser, FiMapPin, FiShield, FiZap
 } from 'react-icons/fi';
 
 export default function CotacaoAvancadaPage() {
