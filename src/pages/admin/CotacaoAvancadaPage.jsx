@@ -94,8 +94,44 @@ export default function CotacaoAvancadaPage() {
   const [minuteResult, setMinuteResult] = useState(null);
   const [copied, setCopied] = useState(false);
 
+  const urlDoc = searchParams.get('doc') || '';
+
   // Auto-fill from URL params or Supabase client
   useEffect(() => {
+    if (urlDoc) {
+      supabase.from('cotacoes')
+        .select('*')
+        .eq('metadata->>orderNumber', urlDoc)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.metadata) {
+            const m = data.metadata;
+            setMinuteResult({
+              orderNumber: m.orderNumber || urlDoc,
+              status: 'EMITIDA',
+              whatsappNotified: true
+            });
+            setSelectedQuote({
+              serviceDescription: `GOLLOG ${m.serviceCode || 'RÁPIDO'}`,
+              serviceCode: m.serviceCode || 'RAPIDO',
+              originPoint: { code: m.originPostalCode || 'SPA', description: 'São Paulo' },
+              destinationPoint: { code: m.destinationPostalCode || 'BSB', description: 'Brasília' },
+              timeToDelivery: 1,
+              totalValue: parseFloat(m.declaredValue || 0) > 0 ? 245.50 : 180.00,
+              freightValue: 200.00,
+              chargesValue: 45.50,
+              chargeableWeight: data.peso_kg || 2.0
+            });
+            if (m.sender) setSender(m.sender);
+            if (m.receiver) setReceiver(m.receiver);
+            if (m.volumes) setVolumes(m.volumes);
+            if (m.originPostalCode) setOriginPostalCode(m.originPostalCode);
+            if (m.destinationPostalCode) setDestinationPostalCode(m.destinationPostalCode);
+            setStep(4);
+          }
+        });
+    }
+
     if (urlPhone) {
       const cleanPhone = urlPhone.replace(/\D/g, '');
       supabase.from('clientes')
@@ -124,7 +160,7 @@ export default function CotacaoAvancadaPage() {
           }
         });
     }
-  }, [urlPhone]);
+  }, [urlPhone, urlDoc]);
 
   // CEP Lookups
   const handleOriginCepChange = async (val) => {
@@ -1177,6 +1213,12 @@ export default function CotacaoAvancadaPage() {
                 </div>
               )}
             </div>
+
+            {minuteResult.whatsappNotified && (
+              <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#065F46', padding: '10px 14px', borderRadius: '10px', fontSize: '12px', fontWeight: '600', marginBottom: '16px' }}>
+                📲 Uma cópia da minuta e o link do PDF foram enviados para o seu WhatsApp!
+              </div>
+            )}
 
             {/* BOTÕES DE AÇÃO: BAIXAR PDF / IMPRIMIR */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>

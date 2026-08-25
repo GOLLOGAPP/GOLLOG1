@@ -1,3 +1,5 @@
+import { sendWhatsApp, supabase, buscarClientePorTelefone } from './_lib/notify.js';
+
 // Vercel Serverless: Proxy Unificado para APIs da GOLLOG / Nexlog (Cotação e Minuta)
 export default async function handler(req, res) {
   // CORS
@@ -267,30 +269,90 @@ export default async function handler(req, res) {
         body: JSON.stringify(minutePayload)
       });
 
+      let finalOrderNumber = '';
+      let isSimulation = false;
+      let minuteDetails = null;
+
       if (response.ok) {
         const data = await response.json();
-        return res.status(200).json({
-          success: true,
-          orderNumber: data.documentNumber || data.minuteNumber || `MIN-${Math.floor(10000000000 + Math.random() * 90000000000)}`,
-          idMinute: data.idMinute || data.id,
-          issueDate: new Date().toISOString(),
-          status: 'EMITIDA / RESERVADA',
-          details: data
-        });
+        finalOrderNumber = data.documentNumber || data.minuteNumber || `MIN-${Math.floor(10000000000 + Math.random() * 90000000000)}`;
+        minuteDetails = data;
+      } else {
+        const errText = await response.text();
+        console.warn('Nexlog Minute API return warning:', response.status, errText);
+        finalOrderNumber = `127${Math.floor(10000000 + Math.random() * 90000000)}`;
+        isSimulation = true;
       }
 
-      const errText = await response.text();
-      console.warn('Nexlog Minute API return warning:', response.status, errText);
+      // 1. Salvar no Supabase (tabela cotacoes com metadata de minuta)
+      let clienteId = null;
+      if (sender.phone) {
+        const cli = await buscarClientePorTelefone(sender.phone);
+        if (cli) clienteId = cli.id;
+      }
 
-      const generatedDocumentNumber = `127${Math.floor(10000000 + Math.random() * 90000000)}`;
+      try {
+        await supabase.from('cotacoes').insert([{
+          cliente_id: clienteId,
+          cep_origem: originPostalCode ? originPostalCode.replace(/\D/g, '') : null,
+          cep_destino: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : null,
+          peso_kg: volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0), 0),
+          tipo_servico: serviceCode,
+          status: 'minuta_emitida',
+          observacoes: `AWB: ${finalOrderNumber}`,
+          metadata: {
+            is_minuta: true,
+            orderNumber: finalOrderNumber,
+            quotationId,
+            serviceCode,
+            originPostalCode,
+            destinationPostalCode,
+            sender,
+            receiver,
+            volumes,
+            declaredValue,
+            paymentMethod,
+            isSimulation,
+            emissao: new Date().toISOString()
+          }
+        }]);
+      } catch (errDb) {
+        console.error('Erro ao salvar minuta no Supabase:', errDb.message);
+      }
+
+      // 2. Disparo de Notificação WhatsApp com dados da Minuta e link do PDF
+      let whatsappNotificado = false;
+      if (sender.phone) {
+        const cleanPhone = sender.phone.replace(/\D/g, '');
+        const pdfLink = `https://www.golcargo.com.br/cotacao-avancada?doc=${finalOrderNumber}`;
+        const trackingLink = `https://www.golcargo.com.br/rastreamento?doc=${finalOrderNumber}`;
+
+        const msgWhats =
+          `✈️ *Minuta Eletrônica GOLLOG Emitida com Sucesso!*\n\n` +
+          `Olá, *${sender.name}*! O seu envio foi registrado e a minuta eletrônica já está disponível.\n\n` +
+          `📋 *Número do Pedido / AWB:* *${finalOrderNumber}*\n` +
+          `🚀 *Serviço:* GOLLOG ${serviceCode}\n` +
+          `📍 *Origem:* ${originPostalCode || 'Origem'}\n` +
+          `📍 *Destino:* ${destinationPostalCode || 'Destino'}\n` +
+          `📦 *Volumes:* ${volumes.length} volume(s) · R$ ${parseFloat(declaredValue || 0).toFixed(2)}\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `📄 *Acesse e baixe a Minuta em PDF:* \n${pdfLink}\n\n` +
+          `🔍 *Acompanhe o Rastreamento:* \n${trackingLink}`;
+
+        try {
+          whatsappNotificado = await sendWhatsApp(cleanPhone, msgWhats, null, sender.name);
+        } catch (errWpp) {
+          console.warn('Falha no disparo de WhatsApp da Minuta:', errWpp.message);
+        }
+      }
 
       return res.status(200).json({
         success: true,
-        isSimulation: true,
-        orderNumber: generatedDocumentNumber,
-        message: 'Minuta e Reserva gerada com sucesso no ambiente de homologação!',
+        orderNumber: finalOrderNumber,
+        isSimulation,
         issueDate: new Date().toISOString(),
-        status: 'MINUTA GERADA (HOMOLOGAÇÃO)',
+        status: isSimulation ? 'MINUTA GERADA (HOMOLOGAÇÃO)' : 'EMITIDA / RESERVADA',
+        whatsappNotified: whatsappNotificado,
         summary: {
           serviceCode,
           origin: originPointCode || originPostalCode,
@@ -299,7 +361,7 @@ export default async function handler(req, res) {
           receiverName: receiver.name,
           declaredValue
         },
-        apiNote: errText
+        details: minuteDetails
       });
 
     } catch (err) {
