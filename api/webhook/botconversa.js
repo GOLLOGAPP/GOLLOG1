@@ -218,6 +218,182 @@ export default async function handler(req, res) {
         });
       }
 
+      // ─── COTAÇÃO AVANÇADA NEXLOG: consulta oficial com CNPJ/contrato e minutas ───
+      case 'cotacao_avancada': {
+        let clienteId = null;
+        if (phone) {
+          const cliente = await buscarClienteRowPorTelefone(phone);
+          if (cliente) clienteId = cliente.id;
+        }
+
+        const rawDoc = data?.cnpj_cpf || data?.cnpj || data?.cpf || data?.documento || '';
+        const cleanDoc = rawDoc ? String(rawDoc).replace(/\D/g, '') : null;
+        const cepOrigem = (data?.cep_origem || data?.origem || '01001000').replace(/\D/g, '');
+        const cepDestino = (data?.cep_destino || data?.destino || '70040010').replace(/\D/g, '');
+        const pesoKg = parseFloat(data?.peso_kg || data?.peso || 1);
+        const alturaCm = parseFloat(data?.altura_cm || data?.altura || 15);
+        const larguraCm = parseFloat(data?.largura_cm || data?.largura || 20);
+        const comprimentoCm = parseFloat(data?.comprimento_cm || data?.comprimento || 30);
+        const valorDeclarado = parseFloat(data?.valor_declarado || data?.valor || 500);
+
+        const volumes = [{
+          weight: pesoKg,
+          height: alturaCm,
+          width: larguraCm,
+          lenght: comprimentoCm,
+          pieces: 1
+        }];
+
+        const headers = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Content-Type': 'application/json',
+          'CompanyKey': process.env.GOLLOG_COMPANY_KEY || 'G3',
+          'language': 'pt-BR',
+          'Token': process.env.NEXLOG_TOKEN || 'acd1916a-3190-44ec-aed2-26c2c1836fe1',
+          'UserId': process.env.NEXLOG_USER_ID || '21835',
+          'Accept': 'application/json',
+        };
+
+        const buildPayload = (includeCustomer = true) => {
+          const p = {
+            originPostalCode: cepOrigem,
+            destinationPostalCode: cepDestino,
+            declaredValue: valorDeclarado,
+            volumes,
+            products: ['URGENTE', 'RAPIDO', 'ECONOMICO', 'CHEGOL']
+          };
+          if (includeCustomer && cleanDoc) {
+            p.customerDocument = cleanDoc;
+            if (process.env.NEXLOG_CUSTOMER_TOKEN) {
+              p.customerToken = process.env.NEXLOG_CUSTOMER_TOKEN;
+            }
+          }
+          return p;
+        };
+
+        let quotes = [];
+        let hasContractAgreement = false;
+        let notice = '';
+
+        try {
+          let response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/quotation', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(buildPayload(true))
+          });
+
+          if (!response.ok && cleanDoc) {
+            const errText = await response.text();
+            if (errText.includes('não encontrado') || errText.includes('bloqueado')) {
+              notice = '(Tarifário Padrão GOLLOG)';
+              response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/quotation', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(buildPayload(false))
+              });
+            }
+          }
+
+          if (response.ok) {
+            const dataNexlog = await response.json();
+            if (Array.isArray(dataNexlog)) {
+              quotes = dataNexlog.map(q => {
+                const isAgreed = Boolean(q.agreementInfo && q.agreementInfo.trim() !== '');
+                if (isAgreed) hasContractAgreement = true;
+                return {
+                  serviceCode: q.serviceCode,
+                  serviceDescription: q.serviceDescription || q.serviceCode,
+                  timeToDelivery: q.timeToDelivery || 1,
+                  totalValue: q.totalValue,
+                  isAgreed,
+                  origin: `${q.originPointCode} - ${q.originPointDescription || ''}`,
+                  destination: `${q.destinationPointCode} - ${q.destinationPointDescription || ''}`
+                };
+              });
+            }
+          }
+        } catch (err) {
+          console.error('[BOTCONVERSA COTACAO AVANCADA]', err);
+        }
+
+        if (quotes.length === 0) {
+          const msgErro = `⚠️ Não foi possível calcular a cotação oficial para os CEPs informados (${cepOrigem} → ${cepDestino}). Verifique os dados e tente novamente.`;
+          notificar(msgErro);
+          return res.status(200).json({
+            success: false,
+            message: msgErro,
+            custom_fields: { resposta_cotacao: msgErro, sucesso_cotacao: 'nao' }
+          });
+        }
+
+        quotes.sort((a, b) => a.totalValue - b.totalValue);
+
+        const opcoesTexto = quotes.slice(0, 4).map(q =>
+          `🚀 *${q.serviceDescription}*\n` +
+          `💰 Valor Total: *R$ ${q.totalValue.toFixed(2)}* ${q.isAgreed ? '🏷️ _(Tarifa Acordo Comercial)_' : ''}\n` +
+          `⏱ Previsão: *${q.timeToDelivery} dia(s) útil(eis)*`
+        ).join('\n\n');
+
+        const headerAcordo = hasContractAgreement
+          ? `🏢 Cliente: *${rawDoc}* ✅ *Acordo Comercial Aplicado*\n`
+          : rawDoc ? `🏢 Cliente: *${rawDoc}* ${notice}\n` : '';
+
+        const msgCotacao =
+          `✈️ *Cotação Oficial GOLLOG*\n\n` +
+          headerAcordo +
+          `📍 *Origem:* ${cepOrigem}\n` +
+          `📍 *Destino:* ${cepDestino}\n` +
+          `📦 *Carga:* ${pesoKg}kg (${comprimentoCm}x${larguraCm}x${alturaCm}cm) · R$ ${valorDeclarado.toFixed(2)}\n\n` +
+          `📋 *Opções de Frete Disponíveis:*\n\n` +
+          `${opcoesTexto}\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `👉 *Para emitir a Minuta e gerar o Pedido/AWB:* Acesse nosso portal ou confirme com um atendente.`;
+
+        // Salvar no Supabase
+        await supabase.from('cotacoes').insert([{
+          cliente_id: clienteId,
+          cep_origem: cepOrigem,
+          cep_destino: cepDestino,
+          peso_kg: pesoKg,
+          altura_cm: alturaCm,
+          largura_cm: larguraCm,
+          comprimento_cm: comprimentoCm,
+          valor_cotado: quotes[0]?.totalValue || 0,
+          tipo_servico: quotes[0]?.serviceDescription || 'Oficial Nexlog',
+          status: 'enviada',
+          observacoes: hasContractAgreement ? 'Tarifa com acordo comercial' : 'Tarifa padrão'
+        }]);
+
+        if (clienteId) {
+          await supabase.from('atividades_log').insert([{
+            cliente_id: clienteId,
+            tipo: 'cotacao',
+            descricao: `Cotação Nexlog Bot: ${cepOrigem} → ${cepDestino} | R$ ${quotes[0]?.totalValue?.toFixed(2)} (${quotes.length} opções)`,
+            canal: 'whatsapp',
+          }]);
+        }
+
+        notificar(msgCotacao);
+
+        const customFields = {
+          resposta_cotacao: msgCotacao,
+          sucesso_cotacao: 'sim',
+          possui_acordo: hasContractAgreement ? 'sim' : 'nao',
+          menor_valor: quotes[0]?.totalValue ? `R$ ${quotes[0].totalValue.toFixed(2)}` : '',
+          servico_menor_valor: quotes[0]?.serviceDescription || '',
+          prazo_menor_valor: quotes[0]?.timeToDelivery ? `${quotes[0].timeToDelivery} dias` : ''
+        };
+
+        return res.status(200).json({
+          success: true,
+          quotesCount: quotes.length,
+          hasContractAgreement,
+          quotes,
+          message: msgCotacao,
+          custom_fields: customFields
+        });
+      }
+
       // ─── COTAÇÃO: coleta dados pelo WhatsApp e retorna valor ───
       case 'cotacao': {
         let clienteId = null;
