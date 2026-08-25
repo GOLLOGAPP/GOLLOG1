@@ -99,6 +99,26 @@ export default function CotacaoAvancadaPage() {
   // Auto-fill from URL params or Supabase client
   useEffect(() => {
     if (urlDoc) {
+      // 1. Abre imediatamente o Passo 4 com a Minuta
+      setStep(4);
+      setMinuteResult({
+        orderNumber: urlDoc,
+        status: 'EMITIDA / RESERVADA',
+        whatsappNotified: true
+      });
+      setSelectedQuote({
+        serviceDescription: 'GOLLOG RÁPIDO',
+        serviceCode: 'RAPIDO',
+        originPoint: { code: 'SPA', description: 'São Paulo' },
+        destinationPoint: { code: 'BSB', description: 'Brasília' },
+        timeToDelivery: 1,
+        totalValue: 245.50,
+        freightValue: 200.00,
+        chargesValue: 45.50,
+        chargeableWeight: 2.0
+      });
+
+      // 2. Busca os dados exatos salvos no Supabase
       supabase.from('cotacoes')
         .select('*')
         .eq('metadata->>orderNumber', urlDoc)
@@ -106,28 +126,24 @@ export default function CotacaoAvancadaPage() {
         .then(({ data }) => {
           if (data?.metadata) {
             const m = data.metadata;
-            setMinuteResult({
-              orderNumber: m.orderNumber || urlDoc,
-              status: 'EMITIDA',
-              whatsappNotified: true
-            });
-            setSelectedQuote({
-              serviceDescription: `GOLLOG ${m.serviceCode || 'RÁPIDO'}`,
-              serviceCode: m.serviceCode || 'RAPIDO',
-              originPoint: { code: m.originPostalCode || 'SPA', description: 'São Paulo' },
-              destinationPoint: { code: m.destinationPostalCode || 'BSB', description: 'Brasília' },
-              timeToDelivery: 1,
-              totalValue: parseFloat(m.declaredValue || 0) > 0 ? 245.50 : 180.00,
-              freightValue: 200.00,
-              chargesValue: 45.50,
-              chargeableWeight: data.peso_kg || 2.0
-            });
             if (m.sender) setSender(m.sender);
             if (m.receiver) setReceiver(m.receiver);
             if (m.volumes) setVolumes(m.volumes);
-            if (m.originPostalCode) setOriginPostalCode(m.originPostalCode);
-            if (m.destinationPostalCode) setDestinationPostalCode(m.destinationPostalCode);
-            setStep(4);
+            if (m.originPostalCode) {
+              setOriginPostalCode(m.originPostalCode);
+              setOriginCity(m.sender?.city ? `${m.sender.city} / ${m.sender.state || 'SP'}` : 'São Paulo / SP');
+            }
+            if (m.destinationPostalCode) {
+              setDestinationPostalCode(m.destinationPostalCode);
+              setDestinationCity(m.receiver?.city ? `${m.receiver.city} / ${m.receiver.state || 'DF'}` : 'Brasília / DF');
+            }
+            if (data.valor_cotado) {
+              setSelectedQuote(prev => ({
+                ...prev,
+                serviceDescription: data.tipo_servico || prev.serviceDescription,
+                totalValue: parseFloat(data.valor_cotado) || prev.totalValue
+              }));
+            }
           }
         });
     }

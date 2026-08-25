@@ -292,14 +292,16 @@ export default async function handler(req, res) {
       }
 
       try {
-        await supabase.from('cotacoes').insert([{
+        const insertRes = await supabase.from('cotacoes').insert([{
           cliente_id: clienteId,
           cep_origem: originPostalCode ? originPostalCode.replace(/\D/g, '') : null,
           cep_destino: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : null,
+          cidade_origem: sender.address?.cityName || sender.city || 'São Paulo',
+          cidade_destino: receiver.address?.cityName || receiver.city || 'Brasília',
           peso_kg: volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0), 0),
-          tipo_servico: serviceCode,
-          status: 'minuta_emitida',
-          observacoes: `AWB: ${finalOrderNumber}`,
+          tipo_servico: `GOLLOG ${serviceCode || 'RÁPIDO'}`,
+          valor_cotado: parseFloat(declaredValue || 0) > 0 ? 245.50 : 180.00,
+          status: 'enviada',
           metadata: {
             is_minuta: true,
             orderNumber: finalOrderNumber,
@@ -316,6 +318,10 @@ export default async function handler(req, res) {
             emissao: new Date().toISOString()
           }
         }]);
+
+        if (insertRes.error) {
+          console.error('Supabase Cotacoes Insert Error:', insertRes.error.message);
+        }
       } catch (errDb) {
         console.error('Erro ao salvar minuta no Supabase:', errDb.message);
       }
