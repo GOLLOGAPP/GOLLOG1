@@ -19,6 +19,7 @@ import FollowUpPage from './pages/admin/FollowUpPage';
 import CadastroPage from './pages/public/CadastroPage';
 import CotacaoPage from './pages/public/CotacaoPage';
 import CotacaoLinkPage from './pages/public/CotacaoLinkPage';
+import CotacaoAvancadaLinkPage from './pages/public/CotacaoAvancadaLinkPage';
 import LinkRedirectPage from './pages/public/LinkRedirectPage';
 import MalhaPage from './pages/public/MalhaPage';
 import MalhaAereaPage from './pages/admin/MalhaAereaPage';
@@ -37,7 +38,9 @@ export default function App() {
           {/* Public Pages (links sent via WhatsApp) */}
           <Route path="/cadastro/:telefone?" element={<CadastroPage />} />
           <Route path="/cotacao/:clienteId?" element={<CotacaoPage />} />
+          <Route path="/cotacao-avancada" element={<CotacaoAvancadaPage />} />
           <Route path="/c/:token" element={<CotacaoLinkPage />} />
+          <Route path="/ca/:token" element={<CotacaoAvancadaLinkPage />} />
           <Route path="/l/:token" element={<LinkRedirectPage />} />
           <Route path="/malha" element={<MalhaPage />} />
           <Route path="/coleta/:clienteId?" element={<ColetaPage />} />

@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 import {
   FiDollarSign, FiSearch, FiPackage, FiTruck, FiCheckCircle, FiAlertCircle,
   FiArrowRight, FiCopy, FiInfo, FiRefreshCw, FiPlus, FiTrash2, FiFileText, FiUser, FiMapPin, FiShield, FiZap
 } from 'react-icons/fi';
 
 export default function CotacaoAvancadaPage() {
+  const [searchParams] = useSearchParams();
+  const urlPhone = searchParams.get('phone') || '';
+  const urlName = searchParams.get('name') || '';
+
   // Step state: 1 = Cotação & Contrato, 2 = Seleção de Serviços, 3 = Minuta & Pedido, 4 = Sucesso
   const [step, setStep] = useState(1);
 
@@ -31,11 +37,11 @@ export default function CotacaoAvancadaPage() {
   // Form Step 3: Minuta
   const [paymentMethod, setPaymentMethod] = useState('1'); // 1 = Pago Origem, 2 = Frap
   const [sender, setSender] = useState({
-    name: 'LogProfit Distribuidora LTDA',
+    name: urlName || 'LogProfit Distribuidora LTDA',
     documentNumber: '47.944.243/0001-41',
     stateRegistration: 'ISENTO',
     email: 'atendimento@logprofit.com.br',
-    phone: '(11) 98888-7777',
+    phone: urlPhone || '(11) 98888-7777',
     zipCode: '01001-000',
     street: 'Praça da Sé',
     number: '100',
@@ -44,6 +50,33 @@ export default function CotacaoAvancadaPage() {
     city: 'São Paulo',
     state: 'SP'
   });
+
+  useEffect(() => {
+    if (urlPhone) {
+      const cleanPhone = urlPhone.replace(/\D/g, '');
+      supabase.from('clientes')
+        .select('*')
+        .or(`telefone.eq.${cleanPhone},telefone.eq.${urlPhone}`)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            if (data.cpf_cnpj) setCustomerDocument(data.cpf_cnpj);
+            setSender(prev => ({
+              ...prev,
+              name: data.nome || prev.name,
+              documentNumber: data.cpf_cnpj || prev.documentNumber,
+              email: data.email || prev.email,
+              phone: data.telefone || prev.phone,
+              zipCode: data.cep || prev.zipCode,
+              street: data.endereco || prev.street,
+              city: data.cidade || prev.city,
+              state: data.estado || prev.state
+            }));
+            if (data.cep) setOriginPostalCode(data.cep.replace(/\D/g, ''));
+          }
+        });
+    }
+  }, [urlPhone]);
 
   const [receiver, setReceiver] = useState({
     name: 'Destinatário Comercial Brasilia EIRELI',

@@ -76,6 +76,25 @@ async function handleMalha(req, res) {
   return res.status(200).json({ voos: voos || [], upload, download_url });
 }
 
+// ─── cotacao-avancada-token ──────────────────────────────────────────────────
+async function handleCotacaoAvancadaToken(req, res) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  const { phone = '', name = '', unidade = 'Osasco' } = req.body || {};
+  if (!phone) return res.status(400).json({ error: 'phone é obrigatório' });
+
+  let token;
+  for (let i = 0; i < 10; i++) {
+    token = generateToken();
+    const { data } = await supabase.from('cotacao_tokens').select('token').eq('token', token).maybeSingle();
+    if (!data) break;
+  }
+
+  const { error } = await supabase.from('cotacao_tokens').insert({ token, phone, name, unidade });
+  if (error) return res.status(500).json({ error: 'Erro ao salvar token', details: error.message });
+
+  return res.status(200).json({ token, url: `https://www.golcargo.com.br/ca/${token}` });
+}
+
 // ─── Router ──────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -86,9 +105,11 @@ export default async function handler(req, res) {
   const slug = req.query.slug;
 
   try {
-    if (slug === 'cotacao-token') return await handleCotacaoToken(req, res);
-    if (slug === 'link-token')    return await handleLinkToken(req, res);
-    if (slug === 'malha')         return await handleMalha(req, res);
+    if (slug === 'cotacao-token')          return await handleCotacaoToken(req, res);
+    if (slug === 'cotacao-avancada-token') return await handleCotacaoAvancadaToken(req, res);
+    if (slug === 'ca-token')               return await handleCotacaoAvancadaToken(req, res);
+    if (slug === 'link-token')             return await handleLinkToken(req, res);
+    if (slug === 'malha')                  return await handleMalha(req, res);
     return res.status(404).json({ error: `Rota não encontrada: /api/public/${slug}` });
   } catch (err) {
     return res.status(500).json({ error: 'Erro interno', details: err.message });
