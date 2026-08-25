@@ -311,5 +311,41 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(400).json({ error: 'Ação desconhecida. Use action=cotacao ou action=minuta.' });
+  // ACTION 3: DOWNLOAD DO DACTE (PDF)
+  if (action === 'dacte') {
+    const { documentNumber } = req.body || req.query || {};
+    if (!documentNumber) {
+      return res.status(400).json({ error: 'O número do documento (AWB/Minuta) é obrigatório.' });
+    }
+
+    try {
+      const response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/dacte', {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Accept': 'application/pdf, application/json'
+        },
+        body: JSON.stringify({ documentNumber })
+      });
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type') || 'application/pdf';
+        const buffer = await response.arrayBuffer();
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Disposition', `attachment; filename="Minuta_${documentNumber}.pdf"`);
+        return res.send(Buffer.from(buffer));
+      }
+
+      const errText = await response.text();
+      return res.status(response.status).json({
+        error: 'api_error',
+        message: errText || 'Documento não encontrado na base de DACTE da GOLLOG.'
+      });
+    } catch (err) {
+      console.error('Nexlog DACTE Error:', err);
+      return res.status(500).json({ error: 'internal_error', message: 'Erro ao consultar DACTE.' });
+    }
+  }
+
+  return res.status(400).json({ error: 'Ação desconhecida. Use action=cotacao, action=minuta ou action=dacte.' });
 }

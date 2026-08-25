@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from '../../lib/supabase';
 import { fetchCep, formatCep } from '../../lib/cep';
 import {
   FiDollarSign, FiSearch, FiPackage, FiTruck, FiCheckCircle, FiAlertCircle,
   FiArrowRight, FiCopy, FiInfo, FiRefreshCw, FiPlus, FiTrash2, FiFileText,
-  FiUser, FiMapPin, FiShield, FiZap, FiChevronDown, FiChevronUp, FiArrowDown
+  FiUser, FiMapPin, FiShield, FiZap, FiChevronDown, FiChevronUp, FiArrowDown,
+  FiDownload, FiPrinter, FiX
 } from 'react-icons/fi';
 
 // Presets de volumes comuns para agilizar no celular
@@ -26,6 +28,8 @@ export default function CotacaoAvancadaPage() {
   const [step, setStep] = useState(1);
   const [showInfo, setShowInfo] = useState(false);
   const [selectedPreset, setSelectedPreset] = useState('pequena');
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Form Step 1: Cotação
   const [customerDocument, setCustomerDocument] = useState('');
@@ -311,11 +315,44 @@ export default function CotacaoAvancadaPage() {
     setExpandedCharges(prev => ({ ...prev, [code]: !prev[code] }));
   };
 
+  // Download / Print PDF Handler
+  const handleDownloadPdf = async () => {
+    if (!minuteResult?.orderNumber) return;
+    setDownloadingPdf(true);
+
+    try {
+      // Tenta baixar DACTE direto da API Nexlog
+      const res = await fetch(`/api/nexlog?action=dacte&documentNumber=${minuteResult.orderNumber}`);
+      if (res.ok && res.headers.get('content-type')?.includes('pdf')) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Minuta_GOLLOG_${minuteResult.orderNumber}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        setDownloadingPdf(false);
+        return;
+      }
+    } catch (e) {
+      console.warn('DACTE API download fallback to printable voucher', e);
+    }
+
+    setDownloadingPdf(false);
+    setShowPdfModal(true);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
     <div className="public-page" style={{ background: '#F8FAFC', minHeight: '100vh', color: '#0F172A', paddingBottom: '40px' }}>
       
       {/* HEADER ELEGANTE MOBILE */}
-      <header style={{
+      <header className="no-print" style={{
         background: '#FFFFFF',
         borderBottom: '1px solid #E2E8F0',
         padding: '14px 20px',
@@ -331,7 +368,7 @@ export default function CotacaoAvancadaPage() {
           <img src="/logo.png" alt="GOLLOG" style={{ height: '30px', objectFit: 'contain' }} />
           <div>
             <div style={{ fontSize: '15px', fontWeight: '800', color: '#1E293B', lineHeight: '1.2' }}>GOLLOG</div>
-            <div style={{ fontSize: '11px', color: '#F37021', fontWeight: '600' }}>Cotação Oficial em Tempo Real</div>
+            <div style={{ fontSize: '11px', color: '#F37021', fontWeight: '600' }}>Cotação Oficial & Minuta</div>
           </div>
         </div>
 
@@ -363,7 +400,7 @@ export default function CotacaoAvancadaPage() {
       <main style={{ maxWidth: '640px', margin: '0 auto', padding: '16px' }}>
 
         {/* CARD INFORMATIVO DISCRETO (EXPANSÍVEL) */}
-        <div style={{
+        <div className="no-print" style={{
           background: '#EFF6FF',
           border: '1px solid #BFDBFE',
           borderRadius: '12px',
@@ -375,7 +412,7 @@ export default function CotacaoAvancadaPage() {
             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', color: '#1E40AF' }}>
-              <FiInfo size={16} /> Como funciona a cotação oficial?
+              <FiInfo size={16} /> Como funciona a cotação oficial e minuta?
             </div>
             <span style={{ color: '#1E40AF', fontSize: '12px', fontWeight: '600' }}>
               {showInfo ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
@@ -385,10 +422,10 @@ export default function CotacaoAvancadaPage() {
           {showInfo && (
             <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #DBEAFE', fontSize: '12px', color: '#1E3A8A', lineHeight: '1.5' }}>
               <p style={{ margin: '0 0 6px 0' }}>
-                🎯 <strong>Objetivo:</strong> Fornecer preços e prazos exatos e oficiais da malha aérea GOLLOG com aplicação automática de tarifas negociadas de contrato por CNPJ/CPF.
+                🎯 <strong>Objetivo:</strong> Fornecer preços e prazos oficiais da malha aérea GOLLOG com aplicação de tarifas negociadas de contrato por CNPJ/CPF e emissão de Minuta Eletrônica de Carga (CTe/AWB) com download em PDF.
               </p>
               <p style={{ margin: '0 0 6px 0' }}>
-                📋 <strong>Instruções:</strong> Digite seu documento (se tiver contrato), informe CEPs e peso. Escolha a melhor opção de frete e emita sua Minuta Eletrônica/AWB na hora.
+                📋 <strong>Instruções:</strong> Digite seu documento (se tiver contrato), informe CEPs e peso. Escolha a melhor opção de frete, preencha os dados e gere o PDF da sua Minuta na hora.
               </p>
               <p style={{ margin: 0 }}>
                 🧪 <strong>Teste Fácil:</strong> Clique no botão <em>"Teste Rápido"</em> no topo para carregar uma simulação completa de envio entre São Paulo e Brasília.
@@ -398,7 +435,7 @@ export default function CotacaoAvancadaPage() {
         </div>
 
         {/* STEPPER PROGRESS BAR */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           {[
             { n: 1, label: 'Carga' },
             { n: 2, label: 'Opções' },
@@ -439,7 +476,7 @@ export default function CotacaoAvancadaPage() {
 
         {/* MENSAGEM DE ERRO */}
         {(quoteError || minuteError) && (
-          <div style={{
+          <div className="no-print" style={{
             background: '#FEF2F2',
             border: '1px solid #FECACA',
             color: '#B91C1C',
@@ -698,7 +735,7 @@ export default function CotacaoAvancadaPage() {
                   style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1' }}
                 />
                 <span style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', display: 'block' }}>
-                  Utilizado para o cálculo automático do seguro obrigatório da carga.
+                  Utilizado para o cálculo automático do seguro da carga.
                 </span>
               </div>
 
@@ -1103,7 +1140,7 @@ export default function CotacaoAvancadaPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════
-            PASSO 4: RESULTADO & NÚMERO DO PEDIDO AWB
+            PASSO 4: RESULTADO & NÚMERO DO PEDIDO AWB + PDF DOWNLOAD
         ══════════════════════════════════════════════════════ */}
         {step === 4 && minuteResult && (
           <div style={{ background: '#FFFFFF', borderRadius: '20px', padding: '28px 20px', textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
@@ -1112,15 +1149,16 @@ export default function CotacaoAvancadaPage() {
             </div>
 
             <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#0F172A', marginBottom: '6px' }}>
-              Minuta Eletrônica Gerada!
+              Minuta Eletrônica Gerada com Sucesso!
             </h2>
             <p style={{ color: '#64748B', fontSize: '13px', margin: '0 0 20px 0' }}>
               Sua encomenda foi registrada na base oficial GOLLOG.
             </p>
 
+            {/* Box AWB */}
             <div style={{ background: '#F8FAFC', padding: '18px', borderRadius: '14px', border: '1.5px dashed #CBD5E1', marginBottom: '20px' }}>
               <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
-                Número da Minuta / AWB
+                Número da Minuta / AWB Oficial
               </div>
               <div style={{ fontSize: '26px', fontWeight: '900', color: '#F37021', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                 {minuteResult.orderNumber}
@@ -1140,6 +1178,55 @@ export default function CotacaoAvancadaPage() {
               )}
             </div>
 
+            {/* BOTÕES DE AÇÃO: BAIXAR PDF / IMPRIMIR */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                style={{
+                  padding: '14px',
+                  background: '#0284C7',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 8px rgba(2, 132, 199, 0.3)'
+                }}
+              >
+                {downloadingPdf ? <FiRefreshCw className="spin" /> : <FiDownload />}
+                Baixar Minuta em PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowPdfModal(true)}
+                style={{
+                  padding: '14px',
+                  background: '#334155',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <FiPrinter /> Visualizar / Imprimir
+              </button>
+            </div>
+
+            {/* Resumo da Minuta */}
             <div style={{ background: '#F8FAFC', borderRadius: '12px', padding: '14px', fontSize: '12px', color: '#334155', textAlign: 'left', marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #E2E8F0' }}>
                 <span>Serviço:</span>
@@ -1163,6 +1250,7 @@ export default function CotacaoAvancadaPage() {
               </div>
             </div>
 
+            {/* Rastreamento & Nova Cotação */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <a
                 href={`/rastreamento?doc=${minuteResult.orderNumber}`}
@@ -1210,6 +1298,255 @@ export default function CotacaoAvancadaPage() {
         )}
 
       </main>
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL DE VISUALIZAÇÃO & IMPRESSÃO DA MINUTA ELETRÔNICA (PDF A4)
+      ══════════════════════════════════════════════════════ */}
+      {showPdfModal && minuteResult && selectedQuote && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.7)',
+          zIndex: 999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+          overflowY: 'auto'
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            maxWidth: '680px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            position: 'relative',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+          }}>
+            
+            {/* Header da Janela Modal */}
+            <div className="no-print" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 20px',
+              borderBottom: '1px solid #E2E8F0',
+              position: 'sticky',
+              top: 0,
+              background: '#FFFFFF',
+              zIndex: 10
+            }}>
+              <div style={{ fontWeight: '800', fontSize: '16px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FiFileText color="#F37021" /> Minuta Eletrônica de Transporte
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  style={{
+                    background: '#F37021',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <FiPrinter /> Imprimir / Salvar PDF
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPdfModal(false)}
+                  style={{
+                    background: '#F1F5F9',
+                    border: 'none',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#64748B'
+                  }}
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* FOLHA OFICIAL DA MINUTA ELETRÔNICA (ESTILO DACTE A4) */}
+            <div id="minuta-impressao" style={{ padding: '24px', fontFamily: 'Arial, sans-serif', color: '#111827', fontSize: '12px' }}>
+              
+              {/* TOPO DA MINUTA */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #F37021', paddingBottom: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <img src="/logo.png" alt="GOLLOG" style={{ height: '36px' }} />
+                  <div>
+                    <h1 style={{ fontSize: '15px', fontWeight: 'bold', margin: 0, color: '#F37021', textTransform: 'uppercase' }}>
+                      GOLLOG Linhas Aéreas S.A.
+                    </h1>
+                    <div style={{ fontSize: '11px', color: '#4B5563' }}>
+                      Minuta Eletrônica de Carga / Despacho Aéreo
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '10px', color: '#6B7280', textTransform: 'uppercase' }}>Nº DO CONHECIMENTO / AWB</div>
+                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', letterSpacing: '1px' }}>
+                    {minuteResult.orderNumber}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#059669', fontWeight: 'bold' }}>
+                    STATUS: EMITIDA / CONFIRMADA
+                  </div>
+                </div>
+              </div>
+
+              {/* QR CODE & DADOS DO DESPACHO */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '16px', background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                <div style={{ background: '#FFFFFF', padding: '6px', borderRadius: '6px', border: '1px solid #E5E7EB' }}>
+                  <QRCodeSVG value={`https://www.golcargo.com.br/rastreamento?doc=${minuteResult.orderNumber}`} size={85} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px' }}>
+                  <div><strong>Serviço Contratado:</strong> {selectedQuote.serviceDescription} ({selectedQuote.serviceCode})</div>
+                  <div><strong>Data de Emissão:</strong> {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
+                  <div><strong>Origem Operacional:</strong> {selectedQuote.originPoint.code} - {selectedQuote.originPoint.description}</div>
+                  <div><strong>Destino Operacional:</strong> {selectedQuote.destinationPoint.code} - {selectedQuote.destinationPoint.description}</div>
+                  <div><strong>Prazo Previsto de Entrega:</strong> {selectedQuote.timeToDelivery} dia(s) útil(eis)</div>
+                  <div><strong>Condição de Pagamento:</strong> {paymentMethod === '1' ? 'Pago na Origem' : 'FRAP (Pago no Destino)'}</div>
+                </div>
+              </div>
+
+              {/* REMETENTE E DESTINATÁRIO */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                {/* Remetente */}
+                <div style={{ border: '1px solid #E5E7EB', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#F37021', borderBottom: '1px solid #F3F4F6', paddingBottom: '4px', marginBottom: '6px' }}>
+                    EXPEDIDOR / REMETENTE
+                  </div>
+                  <div><strong>Razão Social:</strong> {sender.name}</div>
+                  <div><strong>CNPJ/CPF:</strong> {sender.documentNumber}</div>
+                  <div><strong>Telefone:</strong> {sender.phone}</div>
+                  <div><strong>E-mail:</strong> {sender.email || 'N/A'}</div>
+                  <div><strong>Endereço:</strong> {sender.street}, {sender.number} - {sender.neighborhood}, {sender.city}/{sender.state} (CEP: {originPostalCode})</div>
+                </div>
+
+                {/* Destinatário */}
+                <div style={{ border: '1px solid #E5E7EB', borderRadius: '8px', padding: '10px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#F37021', borderBottom: '1px solid #F3F4F6', paddingBottom: '4px', marginBottom: '6px' }}>
+                    DESTINATÁRIO / RECEBEDOR
+                  </div>
+                  <div><strong>Razão Social:</strong> {receiver.name}</div>
+                  <div><strong>CNPJ/CPF:</strong> {receiver.documentNumber}</div>
+                  <div><strong>Telefone:</strong> {receiver.phone}</div>
+                  <div><strong>E-mail:</strong> {receiver.email || 'N/A'}</div>
+                  <div><strong>Endereço:</strong> {receiver.street}, {receiver.number} - {receiver.neighborhood}, {receiver.city}/{receiver.state} (CEP: {destinationPostalCode})</div>
+                </div>
+              </div>
+
+              {/* TABELA DE VOLUMES */}
+              <div style={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
+                <div style={{ background: '#F3F4F6', padding: '6px 10px', fontWeight: 'bold', fontSize: '11px' }}>
+                  CARACTERÍSTICAS DA CARGA E VOLUMES
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA' }}>
+                      <th style={{ padding: '6px 10px' }}>Vol</th>
+                      <th style={{ padding: '6px 10px' }}>Peças</th>
+                      <th style={{ padding: '6px 10px' }}>Dimensões (CxLxA cm)</th>
+                      <th style={{ padding: '6px 10px' }}>Peso Real (kg)</th>
+                      <th style={{ padding: '6px 10px' }}>Valor Declarado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {volumes.map((v, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                        <td style={{ padding: '6px 10px' }}>#{i + 1}</td>
+                        <td style={{ padding: '6px 10px' }}>{v.pieces || 1}</td>
+                        <td style={{ padding: '6px 10px' }}>{v.lenght} x {v.width} x {v.height} cm</td>
+                        <td style={{ padding: '6px 10px' }}>{v.weight} kg</td>
+                        <td style={{ padding: '6px 10px' }}>R$ {parseFloat(declaredValue || 0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* COMPOSIÇÃO DOS VALORES E TOTAIS */}
+              <div style={{ background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#9A3412', marginBottom: '6px' }}>
+                  COMPOSIÇÃO DO VALOR DO FRETE
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', fontSize: '11px' }}>
+                  <div>
+                    <span style={{ color: '#6B7280', display: 'block' }}>Frete Peso:</span>
+                    <strong>R$ {selectedQuote.freightValue.toFixed(2)}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#6B7280', display: 'block' }}>Taxas / Seguro:</span>
+                    <strong>R$ {selectedQuote.chargesValue.toFixed(2)}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#6B7280', display: 'block' }}>Peso Tarifado:</span>
+                    <strong>{selectedQuote.chargeableWeight} kg</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#6B7280', display: 'block' }}>VALOR TOTAL:</span>
+                    <strong style={{ color: '#F37021', fontSize: '14px' }}>R$ {selectedQuote.totalValue.toFixed(2)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* CANHOTO DE ASSINATURA E TERMO */}
+              <div style={{ borderTop: '1px dashed #CBD5E1', paddingTop: '12px', marginTop: '16px', fontSize: '9px', color: '#64748B', lineHeight: '1.4' }}>
+                <p style={{ margin: '0 0 16px 0' }}>
+                  Declaro que as mercadorias informadas nesta minuta não contêm artigos perigosos, materiais proibidos pelo DAC/ANAC ou valores não declarados. O transporte aéreo será regido pelas Condições Gerais de Transporte da GOLLOG.
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', textAlign: 'center', paddingTop: '10px' }}>
+                  <div>
+                    <div style={{ borderBottom: '1px solid #94A3B8', height: '24px', marginBottom: '4px' }} />
+                    <div>Assinatura do Expedidor / Remetente</div>
+                  </div>
+                  <div>
+                    <div style={{ borderBottom: '1px solid #94A3B8', height: '24px', marginBottom: '4px' }} />
+                    <div>Agente GOLLOG Responsável</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ESTILOS DE IMPRESSÃO CSS */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #minuta-impressao, #minuta-impressao * { visibility: visible; }
+          #minuta-impressao {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 0;
+            background: white !important;
+          }
+          .no-print { display: none !important; }
+        }
+      `}</style>
+
     </div>
   );
 }
