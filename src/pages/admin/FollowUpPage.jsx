@@ -234,7 +234,7 @@ export default function FollowUpPage() {
   const runTest = async (tipo) => {
     setTestLoading(tipo);
     try {
-      const res = await fetch('/api/test/followup', {
+      const res = await fetch('/api/notify/mensagem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

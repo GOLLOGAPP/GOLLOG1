@@ -105,7 +105,7 @@ export default function CotacaoAvancadaPage() {
     setSelectedQuote(null);
 
     try {
-      const res = await fetch('/api/nexlog/cotacao-avancada', {
+      const res = await fetch('/api/nexlog?action=cotacao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,7 +147,7 @@ export default function CotacaoAvancadaPage() {
     setMinuteError(null);
 
     try {
-      const res = await fetch('/api/nexlog/minuta', {
+      const res = await fetch('/api/nexlog?action=minuta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
