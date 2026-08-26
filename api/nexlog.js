@@ -1,5 +1,7 @@
 import { sendWhatsApp, supabase, buscarClientePorTelefone } from './_lib/notify.js';
 
+const NEXLOG_API_BASE = process.env.NEXLOG_API_URL || 'https://api-golcargo.nexlog.com';
+
 // Vercel Serverless: Proxy Unificado para APIs da GOLLOG / Nexlog (Cotação e Minuta)
 export default async function handler(req, res) {
   // CORS
@@ -78,7 +80,7 @@ export default async function handler(req, res) {
     };
 
     try {
-      let response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/quotation', {
+      let response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/quotation`, {
         method: 'POST',
         headers,
         body: JSON.stringify(buildPayload(true))
@@ -91,7 +93,7 @@ export default async function handler(req, res) {
         const errText = await response.text();
         if (errText.includes('não encontrado') || errText.includes('bloqueado')) {
           notice = 'CNPJ/CPF não possui acordo comercial específico cadastrado. Exibindo tarifário padrão GOLLOG.';
-          response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/quotation', {
+          response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/quotation`, {
             method: 'POST',
             headers,
             body: JSON.stringify(buildPayload(false))
@@ -112,54 +114,48 @@ export default async function handler(req, res) {
         });
       }
 
-      const data = await response.json();
+      const rawData = await response.json();
+      const rawList = Array.isArray(rawData) ? rawData : (rawData.quotations || []);
 
-      if (!Array.isArray(data) || data.length === 0) {
-        return res.status(404).json({
-          error: 'not_found',
-          message: 'Nenhuma opção de rota/transporte encontrada para os CEPs informados.'
-        });
-      }
-
-      const quotes = data.map(q => {
+      const quotes = rawList.map(q => {
         const isAgreed = Boolean(q.agreementInfo && q.agreementInfo.trim() !== '');
         if (isAgreed) hasContractAgreement = true;
 
         return {
-          idQuotation: q.idQuotation,
-          originPoint: {
-            code: q.originPointCode,
-            description: q.originPointDescription,
-            postalCode: q.originPostalCode
-          },
-          destinationPoint: {
-            code: q.destinationPointCode,
-            description: q.destinationPointDescription,
-            postalCode: q.destinationPostalCode
-          },
           serviceCode: q.serviceCode,
           serviceDescription: q.serviceDescription || q.serviceCode,
+          originPointCode: q.originPointCode,
+          originPointDescription: q.originPointDescription,
+          destinationPointCode: q.destinationPointCode,
+          destinationPointDescription: q.destinationPointDescription,
+          deliveryTypeDescription: q.deliveryTypeDescription,
+          collectTypeDescription: q.collectTypeDescription,
           timeToDelivery: q.timeToDelivery || 1,
-          declaredValue: q.declaredValue,
+          timeToDeliveryHour: q.timeToDeliveryHour,
+          timeToDeliveryUnit: q.timeToDeliveryUnit || 'DIAS ÚTEIS',
+          totalValue: q.totalValue || 0,
+          originalTotalValue: q.totalValue || 0,
+          grossWeight: q.grossWeight,
+          cubedWeight: q.cubedWeight,
+          chargeableWeight: q.chargeableWeight,
           agreementInfo: q.agreementInfo || null,
           isAgreed,
-          freightValue: q.freightValue,
-          chargesValue: q.chargesValue,
-          charges: q.charges || [],
-          totalValue: q.totalValue,
-          chargeableWeight: q.totalChargeableWeight,
-          volumes: q.volumes || []
+          composition: q.composition || [],
+          taxes: q.taxes || [],
+          discounts: q.discounts || [],
+          exceptionDetail: q.exceptionDetail || null
         };
       });
 
+      // Ordena por preço crescente
       quotes.sort((a, b) => a.totalValue - b.totalValue);
 
       return res.status(200).json({
         success: true,
+        customerDocument: cleanDoc,
         hasContractAgreement,
         notice,
-        customerDocument: cleanDoc,
-        quotesCount: quotes.length,
+        totalOptions: quotes.length,
         quotes
       });
 
@@ -172,81 +168,66 @@ export default async function handler(req, res) {
     }
   }
 
-  // ACTION 2: EMISSÃO DE MINUTA / PEDIDO
+  // ACTION 2: EMISSÃO / RESERVA DE MINUTA
   if (action === 'minuta') {
     const {
-      serviceCode,
-      originPointCode,
+      quotationId,
+      customerDocument,
       originPostalCode,
-      destinationPointCode,
       destinationPostalCode,
-      declaredValue,
-      toCollect = false,
-      toDelivery = false,
+      originPointCode,
+      destinationPointCode,
+      serviceCode = 'RAPIDO',
+      declaredValue = 0,
+      paymentMethod = 'FATURADO',
       volumes = [],
       sender = {},
       receiver = {},
-      paymentMethod = 1,
-      idThirdPartyCompanyOrder
     } = req.body || {};
 
-    if (!serviceCode) {
-      return res.status(400).json({ error: 'O código do serviço selecionado é obrigatório.' });
+    if (!sender.name || !sender.document || !receiver.name || !receiver.document) {
+      return res.status(400).json({
+        error: 'Dados obrigatórios do remetente e destinatário (nome e documento) estão incompletos.'
+      });
     }
-
-    if (!sender.documentNumber || !sender.name) {
-      return res.status(400).json({ error: 'Nome e CPF/CNPJ do Remetente são obrigatórios.' });
-    }
-
-    if (!receiver.documentNumber || !receiver.name) {
-      return res.status(400).json({ error: 'Nome e CPF/CNPJ do Destinatário são obrigatórios.' });
-    }
-
-    const cleanDoc = (doc) => (doc ? doc.replace(/\D/g, '') : '');
 
     const minutePayload = {
-      idThirdPartyCompanyOrder: idThirdPartyCompanyOrder || `PED-${Date.now()}`,
-      originPointCode: originPointCode || undefined,
+      serviceCode,
       originPostalCode: originPostalCode ? originPostalCode.replace(/\D/g, '') : undefined,
-      destinationPointCode: destinationPointCode || undefined,
       destinationPostalCode: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : undefined,
-      serviceCode: serviceCode,
-      toCollect: Boolean(toCollect),
-      toDelivery: Boolean(toDelivery),
-      paymentMethod: Number(paymentMethod || 1),
+      originPointCode: originPointCode || undefined,
+      destinationPointCode: destinationPointCode || undefined,
       declaredValue: parseFloat(declaredValue || 0),
-      minuteGeneratingType: 12,
-      generateDocumentNumber: true,
-      generateIssuance: true,
+      paymentMethod,
       sender: {
+        document: sender.document ? sender.document.replace(/\D/g, '') : '',
         name: sender.name,
-        documentNumber: cleanDoc(sender.documentNumber),
-        stateRegistration: sender.stateRegistration || 'ISENTO',
         email: sender.email || '',
-        phoneNumber: sender.phone ? sender.phone.replace(/\D/g, '') : '',
+        phone: sender.phone ? sender.phone.replace(/\D/g, '') : '',
+        stateInscription: sender.stateInscription || 'ISENTO',
         address: {
-          zipCode: sender.address?.zipCode ? sender.address.zipCode.replace(/\D/g, '') : (originPostalCode || '').replace(/\D/g, ''),
-          street: sender.address?.street || 'Rua Principal',
-          number: sender.address?.number || 'S/N',
+          postalCode: sender.address?.postalCode ? sender.address.postalCode.replace(/\D/g, '') : '',
+          street: sender.address?.street || sender.street || '',
+          number: sender.address?.number || sender.number || 'S/N',
           complement: sender.address?.complement || '',
-          neighborhood: sender.address?.neighborhood || 'Centro',
-          cityName: sender.address?.city || 'São Paulo',
+          neighborhood: sender.address?.neighborhood || sender.neighborhood || '',
+          cityName: sender.address?.cityName || sender.city || 'São Paulo',
           stateCode: sender.address?.state || 'SP'
         }
       },
       receiver: {
+        document: receiver.document ? receiver.document.replace(/\D/g, '') : '',
         name: receiver.name,
-        documentNumber: cleanDoc(receiver.documentNumber),
-        stateRegistration: receiver.stateRegistration || 'ISENTO',
         email: receiver.email || '',
-        phoneNumber: receiver.phone ? receiver.phone.replace(/\D/g, '') : '',
+        phone: receiver.phone ? receiver.phone.replace(/\D/g, '') : '',
+        stateInscription: receiver.stateInscription || 'ISENTO',
         address: {
-          zipCode: receiver.address?.zipCode ? receiver.address.zipCode.replace(/\D/g, '') : (destinationPostalCode || '').replace(/\D/g, ''),
-          street: receiver.address?.street || 'Av. Principal',
-          number: receiver.address?.number || 'S/N',
+          postalCode: receiver.address?.postalCode ? receiver.address.postalCode.replace(/\D/g, '') : '',
+          street: receiver.address?.street || receiver.street || '',
+          number: receiver.address?.number || receiver.number || 'S/N',
           complement: receiver.address?.complement || '',
-          neighborhood: receiver.address?.neighborhood || 'Centro',
-          cityName: receiver.address?.city || 'Brasília',
+          neighborhood: receiver.address?.neighborhood || receiver.neighborhood || '',
+          cityName: receiver.address?.cityName || receiver.city || 'Brasília',
           stateCode: receiver.address?.state || 'DF'
         }
       },
@@ -263,7 +244,7 @@ export default async function handler(req, res) {
     };
 
     try {
-      const response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/minute', {
+      const response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/minute`, {
         method: 'POST',
         headers,
         body: JSON.stringify(minutePayload)
@@ -387,7 +368,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      const response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/dacte', {
+      const response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/dacte`, {
         method: 'POST',
         headers: {
           ...headers,

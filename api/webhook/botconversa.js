@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { sendWhatsApp, buscarClienteRowPorTelefone } from '../_lib/notify.js';
 
 const APP_URL = process.env.APP_URL || 'https://www.golcargo.com.br';
+const NEXLOG_API_BASE = process.env.NEXLOG_API_URL || 'https://api-golcargo.nexlog.com';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'https://bkljbfqvlepmmwwylfdv.supabase.co',
@@ -116,7 +117,7 @@ export default async function handler(req, res) {
           let mensagemRastreio = '';
 
           try {
-            const gollogRes = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/tracking', {
+            const gollogRes = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/tracking`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -276,7 +277,7 @@ export default async function handler(req, res) {
         let notice = '';
 
         try {
-          let response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/quotation', {
+          let response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/quotation`, {
             method: 'POST',
             headers,
             body: JSON.stringify(buildPayload(true))
@@ -286,7 +287,7 @@ export default async function handler(req, res) {
             const errText = await response.text();
             if (errText.includes('não encontrado') || errText.includes('bloqueado')) {
               notice = '(Tarifário Padrão GOLLOG)';
-              response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/quotation', {
+              response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/quotation`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(buildPayload(false))
@@ -751,7 +752,7 @@ export default async function handler(req, res) {
         for (const codigo of codigosPrioridade) {
           try {
             // Consulta API GOLLOG
-            const gRes = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/tracking', {
+            const gRes = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/tracking`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

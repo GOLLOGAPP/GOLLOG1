@@ -1,3 +1,5 @@
+const NEXLOG_API_BASE = process.env.NEXLOG_API_URL || 'https://api-golcargo.nexlog.com';
+
 // Vercel Serverless: Proxy para API de rastreamento GOLLOG
 export default async function handler(req, res) {
   // CORS
@@ -14,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const response = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/tracking', {
+    const response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/tracking`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

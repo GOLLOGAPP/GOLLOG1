@@ -1,5 +1,7 @@
 import { supabase, getConfig, sendWhatsApp, sendEmail, emailTemplate, nomeBotConversa } from '../_lib/notify.js';
 
+const NEXLOG_API_BASE = process.env.NEXLOG_API_URL || 'https://api-golcargo.nexlog.com';
+
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -38,7 +40,7 @@ export default async function handler(req, res) {
 
   for (const rast of rastreamentos) {
     try {
-      const gollogRes = await fetch('https://api-golcargo.gollog.com.br/api/sales/transportorder/tracking', {
+      const gollogRes = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/tracking`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
