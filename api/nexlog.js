@@ -121,25 +121,50 @@ export default async function handler(req, res) {
         const isAgreed = Boolean(q.agreementInfo && q.agreementInfo.trim() !== '');
         if (isAgreed) hasContractAgreement = true;
 
+        const originPoint = {
+          code: q.originPointCode || originPointCode || 'SPA',
+          description: q.originPointDescription || q.originPointCode || '',
+          postalCode: q.originPostalCode || originPostalCode || ''
+        };
+
+        const destinationPoint = {
+          code: q.destinationPointCode || destinationPointCode || 'BSB',
+          description: q.destinationPointDescription || q.destinationPointDescription || '',
+          postalCode: q.destinationPostalCode || destinationPostalCode || ''
+        };
+
+        const totalVal = parseFloat(q.totalValue ?? 0);
+        const freightVal = q.freightValue !== undefined && q.freightValue !== null ? parseFloat(q.freightValue) : (totalVal * 0.85);
+        const chargesVal = q.chargesValue !== undefined && q.chargesValue !== null ? parseFloat(q.chargesValue) : (totalVal - freightVal);
+
         return {
+          idQuotation: q.idQuotation || `QUOTE-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          originPoint,
+          destinationPoint,
+          originPointCode: q.originPointCode || originPoint.code,
+          originPointDescription: q.originPointDescription || originPoint.description,
+          destinationPointCode: q.destinationPointCode || destinationPoint.code,
+          destinationPointDescription: q.destinationPointDescription || destinationPoint.description,
           serviceCode: q.serviceCode,
           serviceDescription: q.serviceDescription || q.serviceCode,
-          originPointCode: q.originPointCode,
-          originPointDescription: q.originPointDescription,
-          destinationPointCode: q.destinationPointCode,
-          destinationPointDescription: q.destinationPointDescription,
           deliveryTypeDescription: q.deliveryTypeDescription,
           collectTypeDescription: q.collectTypeDescription,
           timeToDelivery: q.timeToDelivery || 1,
           timeToDeliveryHour: q.timeToDeliveryHour,
-          timeToDeliveryUnit: q.timeToDeliveryUnit || 'DIAS ÚTEIS',
-          totalValue: q.totalValue || 0,
-          originalTotalValue: q.totalValue || 0,
+          timeToDeliveryUnit: q.timeToDeliveryUnit || 'dia(s) útil(eis)',
+          declaredValue: parseFloat(q.declaredValue || declaredValue || 0),
+          freightValue: freightVal,
+          chargesValue: chargesVal,
+          charges: q.charges || [],
+          totalValue: totalVal,
+          originalTotalValue: totalVal,
           grossWeight: q.grossWeight,
           cubedWeight: q.cubedWeight,
-          chargeableWeight: q.chargeableWeight,
+          chargeableWeight: q.totalChargeableWeight || q.chargeableWeight || (q.volumes?.[0]?.weight || 1),
+          totalChargeableWeight: q.totalChargeableWeight || q.chargeableWeight || (q.volumes?.[0]?.weight || 1),
           agreementInfo: q.agreementInfo || null,
           isAgreed,
+          volumes: q.volumes || formattedVolumes,
           composition: q.composition || [],
           taxes: q.taxes || [],
           discounts: q.discounts || [],
@@ -155,6 +180,7 @@ export default async function handler(req, res) {
         customerDocument: cleanDoc,
         hasContractAgreement,
         notice,
+        quotesCount: quotes.length,
         totalOptions: quotes.length,
         quotes
       });
@@ -185,9 +211,14 @@ export default async function handler(req, res) {
       receiver = {},
     } = req.body || {};
 
-    if (!sender.name || !sender.document || !receiver.name || !receiver.document) {
+    const senderName = sender.name || sender.nome || '';
+    const senderDoc = (sender.documentNumber || sender.document || sender.documento || '').replace(/\D/g, '');
+    const receiverName = receiver.name || receiver.nome || '';
+    const receiverDoc = (receiver.documentNumber || receiver.document || receiver.documento || '').replace(/\D/g, '');
+
+    if (!senderName || !senderDoc || !receiverName || !receiverDoc) {
       return res.status(400).json({
-        error: 'Dados obrigatórios do remetente e destinatário (nome e documento) estão incompletos.'
+        error: 'Dados obrigatórios do remetente e destinatário (nome e CPF/CNPJ) estão incompletos.'
       });
     }
 
@@ -198,48 +229,48 @@ export default async function handler(req, res) {
       originPointCode: originPointCode || undefined,
       destinationPointCode: destinationPointCode || undefined,
       declaredValue: parseFloat(declaredValue || 0),
-      paymentMethod,
+      paymentMethod: Number(paymentMethod) || 1,
       sender: {
-        document: sender.document ? sender.document.replace(/\D/g, '') : '',
-        name: sender.name,
+        document: senderDoc,
+        name: senderName,
         email: sender.email || '',
-        phone: sender.phone ? sender.phone.replace(/\D/g, '') : '',
-        stateInscription: sender.stateInscription || 'ISENTO',
+        phone: (sender.phone || sender.phoneNumber || '').replace(/\D/g, ''),
+        stateInscription: sender.stateRegistration || sender.stateInscription || 'ISENTO',
         address: {
-          postalCode: sender.address?.postalCode ? sender.address.postalCode.replace(/\D/g, '') : '',
-          street: sender.address?.street || sender.street || '',
+          postalCode: (sender.address?.postalCode || sender.address?.zipCode || sender.zipCode || originPostalCode || '').replace(/\D/g, ''),
+          street: sender.address?.street || sender.street || 'Rua Principal',
           number: sender.address?.number || sender.number || 'S/N',
-          complement: sender.address?.complement || '',
-          neighborhood: sender.address?.neighborhood || sender.neighborhood || '',
+          complement: sender.address?.complement || sender.complement || '',
+          neighborhood: sender.address?.neighborhood || sender.neighborhood || 'Centro',
           cityName: sender.address?.cityName || sender.city || 'São Paulo',
-          stateCode: sender.address?.state || 'SP'
+          stateCode: sender.address?.state || sender.state || 'SP'
         }
       },
       receiver: {
-        document: receiver.document ? receiver.document.replace(/\D/g, '') : '',
-        name: receiver.name,
+        document: receiverDoc,
+        name: receiverName,
         email: receiver.email || '',
-        phone: receiver.phone ? receiver.phone.replace(/\D/g, '') : '',
-        stateInscription: receiver.stateInscription || 'ISENTO',
+        phone: (receiver.phone || receiver.phoneNumber || '').replace(/\D/g, ''),
+        stateInscription: receiver.stateRegistration || receiver.stateInscription || 'ISENTO',
         address: {
-          postalCode: receiver.address?.postalCode ? receiver.address.postalCode.replace(/\D/g, '') : '',
-          street: receiver.address?.street || receiver.street || '',
+          postalCode: (receiver.address?.postalCode || receiver.address?.zipCode || receiver.zipCode || destinationPostalCode || '').replace(/\D/g, ''),
+          street: receiver.address?.street || receiver.street || 'Av. Principal',
           number: receiver.address?.number || receiver.number || 'S/N',
-          complement: receiver.address?.complement || '',
-          neighborhood: receiver.address?.neighborhood || receiver.neighborhood || '',
+          complement: receiver.address?.complement || receiver.complement || '',
+          neighborhood: receiver.address?.neighborhood || receiver.neighborhood || 'Centro',
           cityName: receiver.address?.cityName || receiver.city || 'Brasília',
-          stateCode: receiver.address?.state || 'DF'
+          stateCode: receiver.address?.state || receiver.state || 'DF'
         }
       },
       insurance: {
         insuranceType: 1,
       },
       volumes: volumes.map(v => ({
-        weight: parseFloat(v.weight || 1),
-        height: parseFloat(v.height || 10),
-        width: parseFloat(v.width || 10),
-        lenght: parseFloat(v.lenght || v.length || 10),
-        pieces: parseInt(v.pieces || 1, 10)
+        weight: parseFloat(v.weight || v.peso || 1),
+        height: parseFloat(v.height || v.altura || 10),
+        width: parseFloat(v.width || v.largura || 10),
+        lenght: parseFloat(v.lenght || v.length || v.comprimento || 10),
+        pieces: parseInt(v.pieces || v.pecas || 1, 10)
       }))
     };
 

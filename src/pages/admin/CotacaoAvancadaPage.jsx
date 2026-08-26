@@ -327,11 +327,11 @@ export default function CotacaoAvancadaPage() {
         body: JSON.stringify({
           quotationId: selectedQuote.idQuotation,
           serviceCode: selectedQuote.serviceCode,
-          originPointCode: selectedQuote.originPoint.code,
+          originPointCode: selectedQuote.originPoint?.code || selectedQuote.originPointCode || 'SPA',
           originPostalCode: originPostalCode.replace(/\D/g, ''),
-          destinationPointCode: selectedQuote.destinationPoint.code,
+          destinationPointCode: selectedQuote.destinationPoint?.code || selectedQuote.destinationPointCode || 'BSB',
           destinationPostalCode: destinationPostalCode.replace(/\D/g, ''),
-          declaredValue: selectedQuote.declaredValue,
+          declaredValue: selectedQuote.declaredValue || parseFloat(declaredValue || 0),
           toCollect,
           toDelivery,
           volumes,
@@ -931,7 +931,7 @@ export default function CotacaoAvancadaPage() {
 
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: '22px', fontWeight: '900', color: '#F37021' }}>
-                          R$ {q.totalValue.toFixed(2)}
+                          R$ {q.totalValue?.toFixed(2) ?? '0.00'}
                         </div>
                         <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '600' }}>TOTAL COM TAXAS</div>
                       </div>
@@ -940,12 +940,12 @@ export default function CotacaoAvancadaPage() {
                     {/* Resumo de frete peso e taxas */}
                     <div style={{ background: '#F8FAFC', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', color: '#475569', marginBottom: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                        <span>Frete Peso ({q.chargeableWeight} kg):</span>
-                        <span>R$ {q.freightValue.toFixed(2)}</span>
+                        <span>Frete Peso ({q.chargeableWeight || q.totalChargeableWeight || 1} kg):</span>
+                        <span>R$ {q.freightValue?.toFixed(2) ?? '0.00'}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Taxas Operacionais:</span>
-                        <span>R$ {q.chargesValue.toFixed(2)}</span>
+                        <span>R$ {q.chargesValue?.toFixed(2) ?? '0.00'}</span>
                       </div>
                     </div>
 
@@ -965,7 +965,7 @@ export default function CotacaoAvancadaPage() {
                             {q.charges.map((c, i) => (
                               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
                                 <span>{c.description}:</span>
-                                <strong>R$ {c.value?.toFixed(2)}</strong>
+                                <strong>R$ {c.value?.toFixed(2) ?? '0.00'}</strong>
                               </div>
                             ))}
                           </div>
