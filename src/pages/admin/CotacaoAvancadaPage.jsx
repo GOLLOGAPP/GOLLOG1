@@ -1528,50 +1528,14 @@ export default function CotacaoAvancadaPage() {
                       </div>
 
                       {/* Preço em Destaque */}
-                      <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#FFFFFF' }}>
+                      <div style={{ textAlign: 'center', margin: '20px 0 24px 0' }}>
+                        <div style={{ fontSize: '32px', fontWeight: '900', color: '#FFFFFF', letterSpacing: '-0.5px' }}>
                           R$ {q.totalValue?.toFixed(2).replace('.', ',') ?? '0,00'}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
-                          Prazo a partir de <strong>{q.timeToDelivery} dias úteis*</strong>
+                        <div style={{ fontSize: '13px', color: '#94A3B8', marginTop: '6px' }}>
+                          Prazo a partir de <strong style={{ color: '#F1F5F9' }}>{q.timeToDelivery} dias úteis*</strong>
                         </div>
                       </div>
-
-                      {/* Resumo de frete peso e taxas */}
-                      <div style={{ background: '#0F172A', padding: '10px 14px', borderRadius: '10px', fontSize: '11px', color: '#94A3B8', margin: '14px 0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                          <span>Frete Peso ({q.chargeableWeight || q.totalChargeableWeight || 1} kg):</span>
-                          <span style={{ color: '#F1F5F9' }}>R$ {q.freightValue?.toFixed(2).replace('.', ',') ?? '0,00'}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span>Taxas Operacionais:</span>
-                          <span style={{ color: '#F1F5F9' }}>R$ {q.chargesValue?.toFixed(2).replace('.', ',') ?? '0,00'}</span>
-                        </div>
-                      </div>
-
-                      {/* Detalhamento das Taxas (Expansível) */}
-                      {q.charges && q.charges.length > 0 && (
-                        <div style={{ marginBottom: '14px' }}>
-                          <button
-                            type="button"
-                            onClick={() => toggleCharges(q.serviceCode)}
-                            style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '11px', fontWeight: '600', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '4px', width: '100%', justifyContent: 'center' }}
-                          >
-                            {expandedCharges[q.serviceCode] ? '▲ Ocultar taxas' : '▼ Ver detalhamento das taxas'}
-                          </button>
-
-                          {expandedCharges[q.serviceCode] && (
-                            <div style={{ background: '#0F172A', borderRadius: '8px', padding: '8px 10px', marginTop: '6px', fontSize: '11px', color: '#94A3B8' }}>
-                              {q.charges.map((c, i) => (
-                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                                  <span>{c.description}:</span>
-                                  <strong style={{ color: '#F1F5F9' }}>R$ {c.value?.toFixed(2).replace('.', ',') ?? '0,00'}</strong>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </div>
 
                     {/* Botão Escolher */}
