@@ -1460,11 +1460,8 @@ export default function CotacaoAvancadaPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
               {quotationData.quotes.map((q, idx) => {
                 const isRecommended = idx === 0 || q.badge?.includes('RECOMENDADO');
-                const isUrgente = q.serviceType === 'URGENTE' || q.serviceCode?.includes('URG') || q.serviceDescription?.includes('URGENTE');
-                const isRapido = q.serviceType === 'RAPIDO' || q.serviceCode?.includes('RAP') || q.serviceDescription?.includes('RÁPIDO');
-                const isChegol = q.serviceType === 'CHEGOL' || q.serviceCode?.includes('CHEG') || q.serviceDescription?.includes('CHEGOL');
-
-                const productName = isChegol ? 'CHEGOL' : isUrgente ? 'URGENTE' : isRapido ? 'RÁPIDO' : q.serviceDescription;
+                const productName = q.productName || (q.serviceDescription || '').replace(/^GOLLOG\s*/i, '').replace(/^TARIFARIO\s*/i, '') || 'PADRÃO';
+                const tagColor = q.color || (productName.includes('URGENTE') ? '#F87171' : productName.includes('RAPID') || productName.includes('RÁPID') ? '#FBBF24' : productName.includes('ECON') ? '#34D399' : '#FFFFFF');
 
                 return (
                   <div
@@ -1521,13 +1518,13 @@ export default function CotacaoAvancadaPage() {
                           GOLLOG
                         </div>
                         <div style={{
-                          fontSize: '22px',
+                          fontSize: '18px',
                           fontWeight: '900',
-                          letterSpacing: '1px',
-                          color: isChegol ? '#FFFFFF' : isUrgente ? '#F87171' : '#FBBF24',
+                          letterSpacing: '0.5px',
+                          color: tagColor,
                           border: '1.5px solid #475569',
                           borderRadius: '8px',
-                          padding: '4px 12px',
+                          padding: '5px 12px',
                           display: 'inline-block',
                           marginTop: '4px',
                           background: 'rgba(255,255,255,0.03)'
