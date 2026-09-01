@@ -206,14 +206,13 @@ function BaseAutocomplete({ value, onChange, placeholder = "🔍 Digite cidade o
   );
 }
 
-// Presets de volumes comuns para agilizar no celular
-const PRESETS = [
-  { id: 'envelope', label: '✉️ Documento', desc: 'Até 0.5 kg', weight: '0.5', height: '2', width: '22', lenght: '32', pieces: '1' },
-  { id: 'pequena', label: '📦 Caixa P', desc: 'Até 2 kg (20x20x15cm)', weight: '2.0', height: '15', width: '20', lenght: '20', pieces: '1' },
-  { id: 'media', label: '📦 Caixa M', desc: 'Até 5 kg (30x25x20cm)', weight: '5.0', height: '20', width: '25', lenght: '30', pieces: '1' },
-  { id: 'grande', label: '📦 Caixa G', desc: 'Até 10 kg (40x35x30cm)', weight: '10.0', height: '30', width: '35', lenght: '40', pieces: '1' },
-  { id: 'custom', label: '⚙️ Personalizado', desc: 'Digitar medidas', weight: '', height: '', width: '', lenght: '', pieces: '1' }
-];
+function formatCurrencyBRL(value) {
+  if (!value && value !== 0) return '';
+  const clean = String(value).replace(/\D/g, '');
+  if (!clean) return '';
+  const num = parseInt(clean, 10) / 100;
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 export default function CotacaoAvancadaPage() {
   const [searchParams] = useSearchParams();
@@ -1220,17 +1219,29 @@ export default function CotacaoAvancadaPage() {
                   <label style={{ fontSize: '12px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
                     Valor da Nota (R$) *
                   </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    className="public-input"
-                    placeholder="0,00"
-                    value={declaredValue}
-                    onChange={(e) => setDeclaredValue(e.target.value)}
-                    style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '10px', fontSize: '14px', fontWeight: '700', color: '#64748B' }}>
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      required
+                      className="public-input"
+                      placeholder="0,00"
+                      value={formatCurrencyBRL(declaredValue)}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '');
+                        if (!raw) {
+                          setDeclaredValue('');
+                          return;
+                        }
+                        const num = (parseInt(raw, 10) / 100).toFixed(2);
+                        setDeclaredValue(num);
+                      }}
+                      style={{ width: '100%', fontSize: '14px', padding: '10px 12px 10px 38px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
