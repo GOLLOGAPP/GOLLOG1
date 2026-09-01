@@ -276,6 +276,15 @@ export default function CotacaoAvancadaPage() {
     state: 'SP'
   });
 
+  const isCnpjTomador = (customerDocument || '').replace(/\D/g, '').length === 14;
+
+  // Ajusta forma de pagamento caso Conta GOL esteja selecionado mas o documento nao seja CNPJ
+  useEffect(() => {
+    if (!isCnpjTomador && paymentForm === 'Conta GOL') {
+      setPaymentForm('Pix');
+    }
+  }, [customerDocument, isCnpjTomador, paymentForm]);
+
   const [receiver, setReceiver] = useState({
     name: 'Empresa Destinatária S/A',
     documentNumber: '12.345.678/0001-90',
@@ -808,7 +817,7 @@ export default function CotacaoAvancadaPage() {
                   <option value="Dinheiro">Dinheiro</option>
                   <option value="Pix">Pix</option>
                   <option value="Cartão">Cartão</option>
-                  <option value="Conta GOL">Conta GOL</option>
+                  {isCnpjTomador && <option value="Conta GOL">Conta GOL (Faturado)</option>}
                 </select>
               </div>
 
@@ -1485,7 +1494,7 @@ export default function CotacaoAvancadaPage() {
                   <option value="Dinheiro">Dinheiro</option>
                   <option value="Pix">Pix</option>
                   <option value="Cartão">Cartão</option>
-                  <option value="Conta GOL">Conta GOL</option>
+                  {isCnpjTomador && <option value="Conta GOL">Conta GOL (Faturado)</option>}
                 </select>
               </div>
             </div>
