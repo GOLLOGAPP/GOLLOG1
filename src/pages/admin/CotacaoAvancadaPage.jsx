@@ -1368,7 +1368,7 @@ export default function CotacaoAvancadaPage() {
                   transition: 'all 0.2s ease'
                 }}
               >
-                <FiPlus size={16} /> + Adicionar Volume
+                <FiPlus size={16} /> Adicionar Volume
               </button>
             </div>
 
@@ -1400,7 +1400,7 @@ export default function CotacaoAvancadaPage() {
                 </>
               ) : (
                 <>
-                  Ver Opções de Frete GOLLOG <FiArrowRight />
+                  Realizar Cotação <FiArrowRight />
                 </>
               )}
             </button>
