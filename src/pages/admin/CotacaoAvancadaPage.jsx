@@ -532,7 +532,12 @@ export default function CotacaoAvancadaPage() {
         })
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        throw new Error(`Erro no servidor (${res.status}). Verifique a conexão com a API.`);
+      }
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || data.error || 'Erro ao consultar cotação.');
@@ -578,12 +583,17 @@ export default function CotacaoAvancadaPage() {
           volumes,
           sender,
           receiver,
-          paymentMethod,
+          paymentMethod: Number(paymentMethod) || 1,
           paymentForm
         })
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        throw new Error(`Erro no servidor (${res.status}). Verifique os dados da minuta.`);
+      }
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || data.error || 'Erro ao gerar minuta eletrônica.');

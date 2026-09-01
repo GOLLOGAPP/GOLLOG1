@@ -205,12 +205,11 @@ export default async function handler(req, res) {
       destinationPointCode,
       serviceCode = 'RAPIDO',
       declaredValue = 0,
-      paymentMethod = 'FATURADO',
+      paymentMethod = 1,
+      paymentForm = 'Pix',
       volumes = [],
       sender = {},
-      receiver = {},
-      paymentMethod = 1,
-      paymentForm = 'Pix'
+      receiver = {}
     } = req.body || {};
 
     const senderDoc = sender.documentNumber ? sender.documentNumber.replace(/\D/g, '') : '';
