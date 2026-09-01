@@ -231,15 +231,19 @@ export default function CotacaoAvancadaPage() {
   const [customerDocument, setCustomerDocument] = useState('');
   const [originPointCode, setOriginPointCode] = useState('CGH');
   const [originPostalCode, setOriginPostalCode] = useState('01001-000');
+  const [deliveryType, setDeliveryType] = useState('domicilio'); // 'domicilio' | 'aeroporto'
+  const [destinationPointCode, setDestinationPointCode] = useState('BSB');
   const [destinationPostalCode, setDestinationPostalCode] = useState('70040-010');
   const [originCity, setOriginCity] = useState('São Paulo (Congonhas)');
   const [destinationCity, setDestinationCity] = useState('Brasília / DF');
   const [loadingOriginCep, setLoadingOriginCep] = useState(false);
   const [loadingDestCep, setLoadingDestCep] = useState(false);
 
+  const [insuranceType, setInsuranceType] = useState('GOL'); // 'GOL' | 'Proprio' | 'Sem Seguro'
+  const [cargoDescription, setCargoDescription] = useState('Mercadorias diversas');
   const [declaredValue, setDeclaredValue] = useState('500.00');
   const [toCollect, setToCollect] = useState(false);
-  const [toDelivery, setToDelivery] = useState(false);
+  const [toDelivery, setToDelivery] = useState(true);
 
   const [volumes, setVolumes] = useState([
     { weight: '2.0', height: '15', width: '20', lenght: '20', pieces: '1' }
@@ -460,8 +464,12 @@ export default function CotacaoAvancadaPage() {
     setOriginPointCode('CGH');
     setOriginCity('São Paulo (Congonhas)');
     setOriginPostalCode('01001-000');
+    setDeliveryType('domicilio');
+    setDestinationPointCode('BSB');
     setDestinationPostalCode('70040-010');
     setDestinationCity('Brasília / DF');
+    setInsuranceType('GOL');
+    setCargoDescription('Eletrônicos e Acessórios');
     setDeclaredValue('750.00');
     setToDelivery(true);
     applyPreset(PRESETS[1]); // Caixa P
@@ -483,10 +491,11 @@ export default function CotacaoAvancadaPage() {
           customerDocument,
           originPointCode: !toCollect && originPointCode ? originPointCode : undefined,
           originPostalCode: toCollect || !originPointCode ? originPostalCode.replace(/\D/g, '') : undefined,
-          destinationPostalCode: destinationPostalCode.replace(/\D/g, ''),
-          declaredValue: parseFloat(declaredValue || 0),
+          destinationPointCode: deliveryType === 'aeroporto' && destinationPointCode ? destinationPointCode : undefined,
+          destinationPostalCode: deliveryType === 'domicilio' || !destinationPointCode ? destinationPostalCode.replace(/\D/g, '') : undefined,
+          declaredValue: insuranceType === 'Sem Seguro' ? 0 : parseFloat(declaredValue || 0),
           toCollect,
-          toDelivery,
+          toDelivery: deliveryType === 'domicilio',
           volumes
         })
       });
@@ -915,38 +924,188 @@ export default function CotacaoAvancadaPage() {
             {/* CARD 2: DESTINO DA CARGA */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
               <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FiMapPin color="#F37021" /> Destino da Entrega
+                <FiMapPin color="#F37021" /> Local de Entrega *
               </div>
 
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
-                  CEP de Destino (local de entrega): *
+              {/* SELETOR DE LOCAL DE ENTREGA */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeliveryType('domicilio');
+                      setToDelivery(true);
+                    }}
+                    style={{
+                      padding: '12px 10px',
+                      borderRadius: '12px',
+                      border: deliveryType === 'domicilio' ? '2px solid #F37021' : '1.5px solid #E2E8F0',
+                      background: deliveryType === 'domicilio' ? '#FFF7ED' : '#FFFFFF',
+                      color: deliveryType === 'domicilio' ? '#C2410C' : '#64748B',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.2s ease',
+                      boxShadow: deliveryType === 'domicilio' ? '0 2px 6px rgba(243, 112, 33, 0.15)' : 'none'
+                    }}
+                  >
+                    <div style={{ fontSize: '13px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      🏠 Entrega a Domicílio
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeliveryType('aeroporto');
+                      setToDelivery(false);
+                      if (!destinationPointCode) {
+                        setDestinationPointCode('BSB');
+                        setDestinationCity('Brasília');
+                      }
+                    }}
+                    style={{
+                      padding: '12px 10px',
+                      borderRadius: '12px',
+                      border: deliveryType === 'aeroporto' ? '2px solid #F37021' : '1.5px solid #E2E8F0',
+                      background: deliveryType === 'aeroporto' ? '#FFF7ED' : '#FFFFFF',
+                      color: deliveryType === 'aeroporto' ? '#C2410C' : '#64748B',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.2s ease',
+                      boxShadow: deliveryType === 'aeroporto' ? '0 2px 6px rgba(243, 112, 33, 0.15)' : 'none'
+                    }}
+                  >
+                    <div style={{ fontSize: '13px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      ✈️ Retirada na Base
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* DESTINO: CEP (ENTREGA A DOMICILIO) OU BASE GOLLOG (RETIRADA NA BASE) */}
+              {deliveryType === 'domicilio' ? (
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    📦 CEP de Destino (endereço de entrega): *
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      required
+                      className="public-input"
+                      placeholder="00000-000"
+                      value={destinationPostalCode}
+                      onChange={(e) => handleDestCepChange(e.target.value)}
+                      style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
+                    />
+                    {loadingDestCep && (
+                      <span style={{ position: 'absolute', right: '12px', top: '14px', fontSize: '11px', color: '#F37021' }}>
+                        Buscando...
+                      </span>
+                    )}
+                  </div>
+                  {destinationCity && (
+                    <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600', marginTop: '4px' }}>
+                      📍 {destinationCity}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    🏢 Base GOLLOG de Destino (para retirada): *
+                  </label>
+                  <BaseAutocomplete
+                    value={destinationPointCode}
+                    placeholder="🔍 Digite cidade ou sigla de destino (ex: BSB, SSA...)"
+                    onChange={(b) => {
+                      setDestinationPointCode(b.sigla);
+                      setDestinationCity(b.cidade);
+                    }}
+                  />
+                  {destinationCity && (
+                    <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600', marginTop: '4px' }}>
+                      📍 Base de Retirada: <strong>{destinationPointCode}</strong> — {destinationCity}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* CARD 3: SEGURO & DADOS DA CARGA */}
+            <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
+              {/* SEGURO */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '8px' }}>
+                  Seguro *
                 </label>
-                <div style={{ position: 'relative' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                  {[
+                    { id: 'GOL', label: '🛡️ GOL' },
+                    { id: 'Proprio', label: '🔒 Próprio' },
+                    { id: 'Sem Seguro', label: '❌ Sem Seguro' }
+                  ].map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setInsuranceType(s.id)}
+                      style={{
+                        padding: '10px 6px',
+                        borderRadius: '10px',
+                        border: insuranceType === s.id ? '2px solid #F37021' : '1.5px solid #E2E8F0',
+                        background: insuranceType === s.id ? '#FFF7ED' : '#FFFFFF',
+                        color: insuranceType === s.id ? '#C2410C' : '#64748B',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        textAlign: 'center',
+                        transition: 'all 0.2s ease',
+                        boxShadow: insuranceType === s.id ? '0 2px 6px rgba(243, 112, 33, 0.15)' : 'none'
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* DESCRIÇÃO DA CARGA & VALOR DA NOTA */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
+                    Descrição da Carga *
+                  </label>
                   <input
                     type="text"
                     required
                     className="public-input"
-                    placeholder="00000-000"
-                    value={destinationPostalCode}
-                    onChange={(e) => handleDestCepChange(e.target.value)}
-                    style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
+                    placeholder="Ex: Eletrônicos, roupas..."
+                    value={cargoDescription}
+                    onChange={(e) => setCargoDescription(e.target.value)}
+                    style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
                   />
-                  {loadingDestCep && (
-                    <span style={{ position: 'absolute', right: '12px', top: '14px', fontSize: '11px', color: '#F37021' }}>
-                      Buscando...
-                    </span>
-                  )}
                 </div>
-                {destinationCity && (
-                  <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600', marginTop: '4px' }}>
-                    📍 {destinationCity}
-                  </div>
-                )}
+
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
+                    Valor da Nota (R$) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    className="public-input"
+                    placeholder="0,00"
+                    value={declaredValue}
+                    onChange={(e) => setDeclaredValue(e.target.value)}
+                    style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
+                  />
+                </div>
               </div>
             </div>
 
-            {/* CARD 3: VOLUMES E MEDIDAS */}
+            {/* CARD 4: VOLUMES E MEDIDAS */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1076,41 +1235,6 @@ export default function CotacaoAvancadaPage() {
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* CARD 4: VALOR DECLARADO & SERVIÇOS EXTRAS */}
-            <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  <FiShield color="#F37021" /> Valor Declarado da Carga (R$): *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  className="public-input"
-                  placeholder="500.00"
-                  value={declaredValue}
-                  onChange={(e) => setDeclaredValue(e.target.value)}
-                  style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1' }}
-                />
-                <span style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', display: 'block' }}>
-                  Utilizado para o cálculo automático do seguro da carga.
-                </span>
-              </div>
-
-              {/* Entrega no Destino */}
-              <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: '600', color: '#334155', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={toDelivery}
-                    onChange={(e) => setToDelivery(e.target.checked)}
-                    style={{ width: '18px', height: '18px', accentColor: '#F37021' }}
-                  />
-                  Desejo Entrega porta a porta no endereço de destino
-                </label>
-              </div>
             </div>
 
             {/* BOTÃO PRINCIPAL DE COTAÇÃO */}
