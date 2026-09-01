@@ -132,14 +132,21 @@ const BASES = [
   { sigla: 'VNH', cidade: 'Vinhedo' },
   { sigla: 'VDC', cidade: 'Vitória da Conquista' },
   { sigla: 'VIX', cidade: 'Vitória' },
+  { sigla: 'QBX', cidade: 'Barueri / Alphaville' }
 ];
 
-function BaseAutocomplete({ value, onChange, placeholder = "🔍 Digite cidade ou sigla (ex: GRU, Campinas...)" }) {
+const BASES_ORIGEM = [
+  { sigla: 'QOZ', cidade: 'Osasco' },
+  { sigla: 'QBX', cidade: 'Barueri / Alphaville' },
+  { sigla: 'QVL', cidade: 'Valinhos' }
+];
+
+function BaseAutocomplete({ value, onChange, options = BASES, placeholder = "🔍 Digite cidade ou sigla (ex: GRU, Campinas...)" }) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const selected = BASES.find(b => b.sigla === value);
+  const selected = options.find(b => b.sigla === value) || BASES.find(b => b.sigla === value);
 
-  const filtered = BASES.filter(b => {
+  const filtered = options.filter(b => {
     const q = search.toLowerCase();
     return !q || b.sigla.toLowerCase().includes(q) || b.cidade.toLowerCase().includes(q);
   }).slice(0, 50);
@@ -228,7 +235,7 @@ export default function CotacaoAvancadaPage() {
 
   // Form Step 1: Cotação
   const [customerDocument, setCustomerDocument] = useState('');
-  const [originPointCode, setOriginPointCode] = useState('CGH');
+  const [originPointCode, setOriginPointCode] = useState('QOZ');
   const [originPostalCode, setOriginPostalCode] = useState('');
   const [deliveryType, setDeliveryType] = useState('domicilio'); // 'domicilio' | 'aeroporto'
   const [destinationPointCode, setDestinationPointCode] = useState('BSB');
@@ -890,9 +897,9 @@ export default function CotacaoAvancadaPage() {
                     type="button"
                     onClick={() => {
                       setToCollect(false);
-                      if (!originPointCode) {
-                        setOriginPointCode('CGH');
-                        setOriginCity('São Paulo (Congonhas)');
+                      if (!originPointCode || !['QOZ', 'QBX', 'QVL'].includes(originPointCode)) {
+                        setOriginPointCode('QOZ');
+                        setOriginCity('Osasco');
                       }
                     }}
                     style={{
@@ -998,7 +1005,9 @@ export default function CotacaoAvancadaPage() {
                     🏢 Base GOLLOG de Origem (onde você vai levar a carga): *
                   </label>
                   <BaseAutocomplete
+                    options={BASES_ORIGEM}
                     value={originPointCode}
+                    placeholder="🔍 Escolha a base de origem (QOZ, QBX ou QVL)"
                     onChange={(b) => {
                       setOriginPointCode(b.sigla);
                       setOriginCity(b.cidade);
