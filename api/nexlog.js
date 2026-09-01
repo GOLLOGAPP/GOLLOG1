@@ -66,8 +66,7 @@ export default async function handler(req, res) {
         toCollect: Boolean(toCollect),
         toDelivery: Boolean(toDelivery),
         declaredValue: parseFloat(declaredValue || 0),
-        volumes: formattedVolumes,
-        products: products && products.length > 0 ? products : ['URGENTE', 'RAPIDO', 'ECONOMICO', 'CHEGOL']
+        volumes: formattedVolumes
       };
 
       if (includeCustomer && cleanDoc) {
@@ -79,47 +78,113 @@ export default async function handler(req, res) {
       return payload;
     };
 
-    try {
-      let response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/quotation`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(buildPayload(true))
-      });
+    function mapServiceInfo(code, description) {
+      const c = (code || '').toUpperCase();
+      const d = (description || '').toUpperCase();
 
+      if (c.includes('CHEG') || d.includes('CHEGOL') || c.includes('ECON') || c.includes('SBY') || d.includes('SBY')) {
+        return {
+          serviceType: 'CHEGOL',
+          brandName: 'GOLLOG CHEGOL',
+          badge: 'Recomendado para você',
+          tag: 'Econômico',
+          icon: '📦'
+        };
+      }
+      if (c.includes('URG') || d.includes('URGENTE') || c.includes('EME') || d.includes('EME')) {
+        return {
+          serviceType: 'URGENTE',
+          brandName: 'GOLLOG URGENTE',
+          badge: 'Mais Rápido',
+          tag: 'Urgente',
+          icon: '🔥'
+        };
+      }
+      if (c.includes('RAP') || d.includes('RAPIDO') || c.includes('PAD') || d.includes('PADRAO') || c.includes('STD')) {
+        return {
+          serviceType: 'RAPIDO',
+          brandName: 'GOLLOG RÁPIDO',
+          badge: 'Mais Equilibrado',
+          tag: 'Rápido',
+          icon: '⚡'
+        };
+      }
+      return {
+        serviceType: code || 'PADRAO',
+        brandName: description || code || 'GOLLOG PADRÃO',
+        badge: null,
+        tag: 'Padrão',
+        icon: '✈️'
+      };
+    }
+
+    try {
+      let rawQuotesContract = [];
+      let rawQuotesStandard = [];
       let hasContractAgreement = false;
       let notice = null;
 
-      if (!response.ok && cleanDoc) {
-        const errText = await response.text();
-        if (errText.includes('não encontrado') || errText.includes('bloqueado')) {
-          notice = 'CNPJ/CPF não possui acordo comercial específico cadastrado. Exibindo tarifário padrão GOLLOG.';
-          response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/quotation`, {
+      // 1. Se informou documento, busca cotação com contrato
+      if (cleanDoc) {
+        try {
+          const respContract = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/quotation`, {
             method: 'POST',
             headers,
-            body: JSON.stringify(buildPayload(false))
+            body: JSON.stringify(buildPayload(true))
           });
-        } else {
-          return res.status(response.status).json({
-            error: 'api_error',
-            message: errText || `Erro na API Nexlog (${response.status})`
-          });
+          if (respContract.ok) {
+            const data = await respContract.json();
+            rawQuotesContract = Array.isArray(data) ? data : (data.quotations || []);
+          }
+        } catch (e) {
+          console.warn('Erro ao consultar cotação com contrato:', e.message);
         }
       }
 
-      if (!response.ok) {
-        const errText = await response.text();
-        return res.status(response.status).json({
-          error: 'api_error',
-          message: errText || `Erro ao consultar cotações Nexlog (${response.status})`
+      // 2. Busca cotação padrão GOLLOG para garantir todas as opções (CHEGOL, RÁPIDO, URGENTE)
+      try {
+        const respStandard = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/quotation`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(buildPayload(false))
+        });
+        if (respStandard.ok) {
+          const data = await respStandard.json();
+          rawQuotesStandard = Array.isArray(data) ? data : (data.quotations || []);
+        }
+      } catch (e) {
+        console.warn('Erro ao consultar cotação padrão:', e.message);
+      }
+
+      // 3. Mescla opções dando prioridade para as tarifas com desconto de contrato
+      const mergedMap = new Map();
+
+      // Primeiro adiciona opções padrão
+      rawQuotesStandard.forEach(q => {
+        const info = mapServiceInfo(q.serviceCode, q.serviceDescription);
+        mergedMap.set(info.serviceType, { ...q, mappedInfo: info, isAgreed: false });
+      });
+
+      // Sobrescreve com as do contrato quando disponíveis
+      rawQuotesContract.forEach(q => {
+        const info = mapServiceInfo(q.serviceCode, q.serviceDescription);
+        const isAgreed = Boolean(q.agreementInfo && q.agreementInfo.trim() !== '');
+        if (isAgreed) hasContractAgreement = true;
+        mergedMap.set(info.serviceType, { ...q, mappedInfo: info, isAgreed });
+      });
+
+      const rawList = Array.from(mergedMap.values());
+
+      if (rawList.length === 0) {
+        return res.status(404).json({
+          error: 'not_found',
+          message: 'Nenhuma opção de frete GOLLOG disponível para este trecho.'
         });
       }
 
-      const rawData = await response.json();
-      const rawList = Array.isArray(rawData) ? rawData : (rawData.quotations || []);
-
       const quotes = rawList.map(q => {
-        const isAgreed = Boolean(q.agreementInfo && q.agreementInfo.trim() !== '');
-        if (isAgreed) hasContractAgreement = true;
+        const isAgreed = Boolean(q.isAgreed || (q.agreementInfo && q.agreementInfo.trim() !== ''));
+        const mappedInfo = q.mappedInfo || mapServiceInfo(q.serviceCode, q.serviceDescription);
 
         const originPoint = {
           code: q.originPointCode || originPointCode || 'SPA',
@@ -146,10 +211,14 @@ export default async function handler(req, res) {
           destinationPointCode: q.destinationPointCode || destinationPoint.code,
           destinationPointDescription: q.destinationPointDescription || destinationPoint.description,
           serviceCode: q.serviceCode,
-          serviceDescription: q.serviceDescription || q.serviceCode,
+          serviceDescription: mappedInfo.brandName,
+          serviceType: mappedInfo.serviceType,
+          badge: mappedInfo.badge,
+          icon: mappedInfo.icon,
+          tag: mappedInfo.tag,
           deliveryTypeDescription: q.deliveryTypeDescription,
           collectTypeDescription: q.collectTypeDescription,
-          timeToDelivery: q.timeToDelivery || 1,
+          timeToDelivery: q.timeToDelivery || (mappedInfo.serviceType === 'CHEGOL' ? 2 : mappedInfo.serviceType === 'URGENTE' ? 2 : 3),
           timeToDeliveryHour: q.timeToDeliveryHour,
           timeToDeliveryUnit: q.timeToDeliveryUnit || 'dia(s) útil(eis)',
           declaredValue: parseFloat(q.declaredValue || declaredValue || 0),
@@ -174,6 +243,11 @@ export default async function handler(req, res) {
 
       // Ordena por preço crescente
       quotes.sort((a, b) => a.totalValue - b.totalValue);
+
+      // Marca a primeira como recomendada
+      if (quotes.length > 0) {
+        quotes[0].badge = 'RECOMENDADO PARA VOCÊ';
+      }
 
       return res.status(200).json({
         success: true,

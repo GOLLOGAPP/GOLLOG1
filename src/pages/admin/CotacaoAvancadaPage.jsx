@@ -1418,149 +1418,188 @@ export default function CotacaoAvancadaPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════
-            PASSO 2: COMPARADOR DE TARIFAS GOLLOG
+            PASSO 2: COMPARADOR DE TARIFAS OFICIAIS GOLLOG
         ══════════════════════════════════════════════════════ */}
         {step === 2 && quotationData && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
-                  Opções Disponíveis ({quotationData.quotesCount})
+                <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A', margin: '0 0 2px 0' }}>
+                  Escolha a melhor opção para você:
                 </h2>
                 <div style={{ fontSize: '12px', color: '#64748B' }}>
-                  {originCity} ➔ {destinationCity}
+                  {originCity} ➔ {destinationCity} ({quotationData.quotesCount} opções disponíveis)
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                style={{ background: '#F1F5F9', border: 'none', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
               >
                 Alterar
               </button>
             </div>
 
             {quotationData.notice && (
-              <div style={{ background: '#FEFCE8', border: '1px solid #FEF08A', color: '#854D0E', padding: '10px 14px', borderRadius: '10px', fontSize: '12px', marginBottom: '14px' }}>
+              <div style={{ background: '#FEFCE8', border: '1px solid #FEF08A', color: '#854D0E', padding: '10px 14px', borderRadius: '10px', fontSize: '12px', marginBottom: '16px' }}>
                 ℹ️ {quotationData.notice}
               </div>
             )}
 
-            {/* Cards de Serviços */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
-              {quotationData.quotes.map((q) => {
-                const isUrgente = q.serviceCode?.includes('URG');
-                const isRapido = q.serviceCode?.includes('RAP');
-                const isChegol = q.serviceCode?.includes('CHEG') || q.serviceCode?.includes('ECON');
+            {/* Cards de Serviços Oficiais */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+              {quotationData.quotes.map((q, idx) => {
+                const isRecommended = idx === 0 || q.badge?.includes('RECOMENDADO');
+                const isUrgente = q.serviceType === 'URGENTE' || q.serviceCode?.includes('URG') || q.serviceDescription?.includes('URGENTE');
+                const isRapido = q.serviceType === 'RAPIDO' || q.serviceCode?.includes('RAP') || q.serviceDescription?.includes('RÁPIDO');
+                const isChegol = q.serviceType === 'CHEGOL' || q.serviceCode?.includes('CHEG') || q.serviceDescription?.includes('CHEGOL');
+
+                const productName = isChegol ? 'CHEGOL' : isUrgente ? 'URGENTE' : isRapido ? 'RÁPIDO' : q.serviceDescription;
 
                 return (
                   <div
-                    key={q.idQuotation || q.serviceCode}
+                    key={q.idQuotation || q.serviceCode || idx}
                     style={{
-                      background: '#FFFFFF',
-                      borderRadius: '16px',
-                      border: q.isAgreed ? '2px solid #10B981' : '1px solid #E2E8F0',
-                      padding: '18px',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                      position: 'relative'
+                      background: '#1E293B',
+                      borderRadius: '20px',
+                      border: isRecommended ? '2.5px solid #F37021' : '1px solid #334155',
+                      padding: '22px 18px',
+                      boxShadow: isRecommended ? '0 10px 25px rgba(243, 112, 33, 0.25)' : '0 4px 12px rgba(0,0,0,0.1)',
+                      position: 'relative',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      color: '#FFFFFF'
                     }}
                   >
-                    {/* Badge de Acordo Comercial */}
-                    {q.isAgreed && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '-10px',
-                        right: '16px',
-                        background: '#10B981',
-                        color: '#FFFFFF',
-                        padding: '2px 10px',
-                        borderRadius: '12px',
-                        fontSize: '10px',
-                        fontWeight: '800',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>
-                        🏷️ Desconto de Contrato
-                      </div>
-                    )}
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                      <div>
-                        <div style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {isUrgente ? '🚀 ' : isRapido ? '⚡ ' : isChegol ? '📦 ' : '✈️ '}
-                          {q.serviceDescription}
+                    {/* Badge de Acordo Comercial ou Recomendação */}
+                    <div style={{ position: 'absolute', top: '-11px', left: '16px', right: '16px', display: 'flex', justifyContent: 'space-between' }}>
+                      {isRecommended && (
+                        <div style={{
+                          background: '#F37021',
+                          color: '#FFFFFF',
+                          padding: '3px 12px',
+                          borderRadius: '12px',
+                          fontSize: '10px',
+                          fontWeight: '900',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}>
+                          ★ Recomendado para você
                         </div>
-                        <div style={{ fontSize: '12px', color: '#64748B', fontWeight: '500', marginTop: '2px' }}>
-                          ⏱ Prazo previsto: <strong>{q.timeToDelivery} dia(s) útil(eis)</strong>
+                      )}
+                      {q.isAgreed && (
+                        <div style={{
+                          background: '#10B981',
+                          color: '#FFFFFF',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontSize: '10px',
+                          fontWeight: '800',
+                          textTransform: 'uppercase',
+                          marginLeft: 'auto'
+                        }}>
+                          🏷️ Contrato
                         </div>
-                      </div>
-
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '22px', fontWeight: '900', color: '#F37021' }}>
-                          R$ {q.totalValue?.toFixed(2) ?? '0.00'}
-                        </div>
-                        <div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: '600' }}>TOTAL COM TAXAS</div>
-                      </div>
+                      )}
                     </div>
 
-                    {/* Resumo de frete peso e taxas */}
-                    <div style={{ background: '#F8FAFC', padding: '8px 12px', borderRadius: '8px', fontSize: '12px', color: '#475569', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                        <span>Frete Peso ({q.chargeableWeight || q.totalChargeableWeight || 1} kg):</span>
-                        <span>R$ {q.freightValue?.toFixed(2) ?? '0.00'}</span>
+                    <div>
+                      {/* Logo GOLLOG do Produto */}
+                      <div style={{ textAlign: 'center', margin: '14px 0 16px 0' }}>
+                        <div style={{ fontSize: '10px', fontWeight: '800', letterSpacing: '2px', color: '#94A3B8' }}>
+                          GOLLOG
+                        </div>
+                        <div style={{
+                          fontSize: '22px',
+                          fontWeight: '900',
+                          letterSpacing: '1px',
+                          color: isChegol ? '#FFFFFF' : isUrgente ? '#F87171' : '#FBBF24',
+                          border: '1.5px solid #475569',
+                          borderRadius: '8px',
+                          padding: '4px 12px',
+                          display: 'inline-block',
+                          marginTop: '4px',
+                          background: 'rgba(255,255,255,0.03)'
+                        }}>
+                          {productName}
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>Taxas Operacionais:</span>
-                        <span>R$ {q.chargesValue?.toFixed(2) ?? '0.00'}</span>
+
+                      {/* Preço em Destaque */}
+                      <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                        <div style={{ fontSize: '28px', fontWeight: '900', color: '#FFFFFF' }}>
+                          R$ {q.totalValue?.toFixed(2).replace('.', ',') ?? '0,00'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
+                          Prazo a partir de <strong>{q.timeToDelivery} dias úteis*</strong>
+                        </div>
                       </div>
+
+                      {/* Resumo de frete peso e taxas */}
+                      <div style={{ background: '#0F172A', padding: '10px 14px', borderRadius: '10px', fontSize: '11px', color: '#94A3B8', margin: '14px 0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                          <span>Frete Peso ({q.chargeableWeight || q.totalChargeableWeight || 1} kg):</span>
+                          <span style={{ color: '#F1F5F9' }}>R$ {q.freightValue?.toFixed(2).replace('.', ',') ?? '0,00'}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Taxas Operacionais:</span>
+                          <span style={{ color: '#F1F5F9' }}>R$ {q.chargesValue?.toFixed(2).replace('.', ',') ?? '0,00'}</span>
+                        </div>
+                      </div>
+
+                      {/* Detalhamento das Taxas (Expansível) */}
+                      {q.charges && q.charges.length > 0 && (
+                        <div style={{ marginBottom: '14px' }}>
+                          <button
+                            type="button"
+                            onClick={() => toggleCharges(q.serviceCode)}
+                            style={{ background: 'none', border: 'none', color: '#94A3B8', fontSize: '11px', fontWeight: '600', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '4px', width: '100%', justifyContent: 'center' }}
+                          >
+                            {expandedCharges[q.serviceCode] ? '▲ Ocultar taxas' : '▼ Ver detalhamento das taxas'}
+                          </button>
+
+                          {expandedCharges[q.serviceCode] && (
+                            <div style={{ background: '#0F172A', borderRadius: '8px', padding: '8px 10px', marginTop: '6px', fontSize: '11px', color: '#94A3B8' }}>
+                              {q.charges.map((c, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                                  <span>{c.description}:</span>
+                                  <strong style={{ color: '#F1F5F9' }}>R$ {c.value?.toFixed(2).replace('.', ',') ?? '0,00'}</strong>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Detalhamento das Taxas (Expansível) */}
-                    {q.charges && q.charges.length > 0 && (
-                      <div style={{ marginBottom: '14px' }}>
-                        <button
-                          type="button"
-                          onClick={() => toggleCharges(q.serviceCode)}
-                          style={{ background: 'none', border: 'none', color: '#64748B', fontSize: '11px', fontWeight: '600', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          {expandedCharges[q.serviceCode] ? '▲ Ocultar taxas' : '▼ Ver detalhamento das taxas'}
-                        </button>
-
-                        {expandedCharges[q.serviceCode] && (
-                          <div style={{ background: '#F1F5F9', borderRadius: '8px', padding: '8px 10px', marginTop: '6px', fontSize: '11px', color: '#475569' }}>
-                            {q.charges.map((c, i) => (
-                              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                                <span>{c.description}:</span>
-                                <strong>R$ {c.value?.toFixed(2) ?? '0.00'}</strong>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Botão Selecionar */}
+                    {/* Botão Escolher */}
                     <button
                       type="button"
                       onClick={() => handleSelectQuote(q)}
                       style={{
                         width: '100%',
-                        padding: '12px',
+                        padding: '14px',
                         background: '#F37021',
                         color: '#FFFFFF',
                         border: 'none',
-                        borderRadius: '10px',
+                        borderRadius: '12px',
                         fontSize: '14px',
-                        fontWeight: '700',
+                        fontWeight: '800',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '6px'
+                        gap: '6px',
+                        boxShadow: '0 4px 12px rgba(243, 112, 33, 0.4)',
+                        transition: 'all 0.2s ease',
+                        marginTop: '8px'
                       }}
                     >
-                      Escolher esta Opção <FiArrowRight />
+                      Comprar Frete <FiArrowRight />
                     </button>
                   </div>
                 );
