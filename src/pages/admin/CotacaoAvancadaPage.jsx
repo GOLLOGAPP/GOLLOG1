@@ -731,7 +731,7 @@ export default function CotacaoAvancadaPage() {
         {/* STEPPER PROGRESS BAR */}
         <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
           {[
-            { n: 1, label: 'Carga' },
+            { n: 1, label: 'Cotação' },
             { n: 2, label: 'Opções' },
             { n: 3, label: 'Minuta' },
             { n: 4, label: 'Pedido' }
