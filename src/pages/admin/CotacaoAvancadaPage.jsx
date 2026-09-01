@@ -10,6 +10,202 @@ import {
   FiDownload, FiPrinter, FiX
 } from 'react-icons/fi';
 
+// Todas as bases operacionais GOLLOG
+const BASES = [
+  { sigla: 'AJU', cidade: 'Aracaju' },
+  { sigla: 'ARU', cidade: 'Araçatuba' },
+  { sigla: 'QAT', cidade: 'Atibaia' },
+  { sigla: 'QBX', cidade: 'Barueri' },
+  { sigla: 'BAU', cidade: 'Bauru' },
+  { sigla: 'BEL', cidade: 'Belém' },
+  { sigla: 'CNF', cidade: 'Belo Horizonte (Confins)' },
+  { sigla: 'PLU', cidade: 'Belo Horizonte (Pampulha)' },
+  { sigla: 'BGV', cidade: 'Bento Gonçalves' },
+  { sigla: 'BNU', cidade: 'Blumenau' },
+  { sigla: 'BVB', cidade: 'Boa Vista' },
+  { sigla: 'BSB', cidade: 'Brasília' },
+  { sigla: 'DFV', cidade: 'Brasília (2)' },
+  { sigla: 'QBQ', cidade: 'Brusque' },
+  { sigla: 'CPV', cidade: 'Campina Grande' },
+  { sigla: 'VCP', cidade: 'Campinas' },
+  { sigla: 'CGL', cidade: 'Campo Grande' },
+  { sigla: 'CGR', cidade: 'Campo Grande (Aeroporto)' },
+  { sigla: 'CAU', cidade: 'Caruaru' },
+  { sigla: 'CKS', cidade: 'Carajás/Parauapebas' },
+  { sigla: 'CAC', cidade: 'Cascavel' },
+  { sigla: 'CXJ', cidade: 'Caxias do Sul' },
+  { sigla: 'XAP', cidade: 'Chapecó' },
+  { sigla: 'QNT', cidade: 'Contagem' },
+  { sigla: 'QOT', cidade: 'Cotia' },
+  { sigla: 'CCM', cidade: 'Criciúma' },
+  { sigla: 'CZS', cidade: 'Cruzeiro do Sul' },
+  { sigla: 'CGB', cidade: 'Cuiabá' },
+  { sigla: 'CWB', cidade: 'Curitiba' },
+  { sigla: 'QDM', cidade: 'Diadema' },
+  { sigla: 'ETX', cidade: 'Extrema' },
+  { sigla: 'QFS', cidade: 'Feira de Santana' },
+  { sigla: 'FEN', cidade: 'Fernando de Noronha' },
+  { sigla: 'FLN', cidade: 'Florianópolis' },
+  { sigla: 'FOR', cidade: 'Fortaleza' },
+  { sigla: 'FTZ', cidade: 'Fortaleza (2)' },
+  { sigla: 'IGU', cidade: 'Foz do Iguaçu' },
+  { sigla: 'FFR', cidade: 'Franca' },
+  { sigla: 'GYN', cidade: 'Goiânia (Aeroporto)' },
+  { sigla: 'GOD', cidade: 'Goiânia (Centro-Oeste)' },
+  { sigla: 'GOI', cidade: 'Goiânia (Setor Ferroviário)' },
+  { sigla: 'GRU', cidade: 'Guarulhos' },
+  { sigla: 'SPX', cidade: 'Guarulhos (2)' },
+  { sigla: 'IOS', cidade: 'Ilhéus' },
+  { sigla: 'JJD', cidade: 'Jericoacara/Cruz' },
+  { sigla: 'JPA', cidade: 'João Pessoa/Bayeux' },
+  { sigla: 'JOI', cidade: 'Joinville' },
+  { sigla: 'JDF', cidade: 'Juiz de Fora' },
+  { sigla: 'JDO', cidade: 'Juazeiro do Norte' },
+  { sigla: 'QDV', cidade: 'Jundiaí' },
+  { sigla: 'QLI', cidade: 'Limeira' },
+  { sigla: 'LDB', cidade: 'Londrina' },
+  { sigla: 'MCP', cidade: 'Macapá' },
+  { sigla: 'MCZ', cidade: 'Maceió/Rio Largo' },
+  { sigla: 'MAO', cidade: 'Manaus' },
+  { sigla: 'QMA', cidade: 'Manaus (2)' },
+  { sigla: 'MAB', cidade: 'Marabá' },
+  { sigla: 'MGF', cidade: 'Maringá' },
+  { sigla: 'MII', cidade: 'Marília' },
+  { sigla: 'QMI', cidade: 'Mogi das Cruzes' },
+  { sigla: 'MOC', cidade: 'Montes Claros' },
+  { sigla: 'NAT', cidade: 'Natal' },
+  { sigla: 'QNL', cidade: 'Natal (2)' },
+  { sigla: 'NVT', cidade: 'Navegantes' },
+  { sigla: 'QNR', cidade: 'Niterói' },
+  { sigla: 'NSA', cidade: 'Nova Serrana' },
+  { sigla: 'QHV', cidade: 'Novo Hamburgo' },
+  { sigla: 'QOZ', cidade: 'Osasco' },
+  { sigla: 'PMW', cidade: 'Palmas' },
+  { sigla: 'PFB', cidade: 'Passo Fundo' },
+  { sigla: 'PET', cidade: 'Pelotas' },
+  { sigla: 'PTS', cidade: 'Petrópolis' },
+  { sigla: 'PNZ', cidade: 'Petrolina' },
+  { sigla: 'QPR', cidade: 'Piracicaba' },
+  { sigla: 'POA', cidade: 'Porto Alegre' },
+  { sigla: 'RSF', cidade: 'Porto Alegre (2)' },
+  { sigla: 'BPS', cidade: 'Porto Seguro' },
+  { sigla: 'PVH', cidade: 'Porto Velho' },
+  { sigla: 'QRS', cidade: 'Pouso Alegre' },
+  { sigla: 'PPB', cidade: 'Presidente Prudente' },
+  { sigla: 'RAO', cidade: 'Ribeirão Preto' },
+  { sigla: 'GIG', cidade: 'Rio de Janeiro (Galeão)' },
+  { sigla: 'SDU', cidade: 'Rio de Janeiro (Santos Dumont)' },
+  { sigla: 'RJV', cidade: 'Rio de Janeiro (3)' },
+  { sigla: 'RBR', cidade: 'Rio Branco' },
+  { sigla: 'REC', cidade: 'Recife' },
+  { sigla: 'QBA', cidade: 'Salvador' },
+  { sigla: 'SSA', cidade: 'Salvador (Aeroporto)' },
+  { sigla: 'QCC', cidade: 'Santa Cruz do Capibaribe' },
+  { sigla: 'STM', cidade: 'Santarém' },
+  { sigla: 'SBC', cidade: 'São Bernardo do Campo' },
+  { sigla: 'QCS', cidade: 'São Caetano do Sul' },
+  { sigla: 'SJK', cidade: 'São José dos Campos' },
+  { sigla: 'SJP', cidade: 'São José do Rio Preto' },
+  { sigla: 'SLZ', cidade: 'São Luís' },
+  { sigla: 'CGH', cidade: 'São Paulo (Congonhas)' },
+  { sigla: 'CGU', cidade: 'São Paulo (2)' },
+  { sigla: 'QBR', cidade: 'São Paulo (Centro)' },
+  { sigla: 'QSP', cidade: 'São Paulo (Berrini)' },
+  { sigla: 'VGL', cidade: 'São Paulo (Campos Elíseos)' },
+  { sigla: 'QIP', cidade: 'São Paulo (Ipiranga)' },
+  { sigla: 'VJD', cidade: 'São Paulo (Santo Amaro)' },
+  { sigla: 'SPA', cidade: 'São Paulo (República)' },
+  { sigla: 'QGL', cidade: 'São Paulo (Vila Carrão)' },
+  { sigla: 'SPM', cidade: 'São Paulo (Vila Maria)' },
+  { sigla: 'SPO', cidade: 'São Paulo (Vila Leopoldina)' },
+  { sigla: 'SPG', cidade: 'São Paulo (Zona Leste)' },
+  { sigla: 'SSZ', cidade: 'Santos' },
+  { sigla: 'QSE', cidade: 'Santo André' },
+  { sigla: 'QSB', cidade: 'Sobral' },
+  { sigla: 'SOD', cidade: 'Sorocaba' },
+  { sigla: 'QTB', cidade: 'Taubaté' },
+  { sigla: 'THE', cidade: 'Teresina' },
+  { sigla: 'UDI', cidade: 'Uberlândia' },
+  { sigla: 'QDI', cidade: 'Uberlândia (2)' },
+  { sigla: 'VAG', cidade: 'Varginha' },
+  { sigla: 'QVL', cidade: 'Valinhos' },
+  { sigla: 'VNH', cidade: 'Vinhedo' },
+  { sigla: 'VDC', cidade: 'Vitória da Conquista' },
+  { sigla: 'VIX', cidade: 'Vitória' },
+];
+
+function BaseAutocomplete({ value, onChange, placeholder = "🔍 Digite cidade ou sigla (ex: GRU, Campinas...)" }) {
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const selected = BASES.find(b => b.sigla === value);
+
+  const filtered = BASES.filter(b => {
+    const q = search.toLowerCase();
+    return !q || b.sigla.toLowerCase().includes(q) || b.cidade.toLowerCase().includes(q);
+  }).slice(0, 50);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        className="public-input"
+        placeholder={placeholder}
+        value={open ? search : (selected ? `${selected.sigla} - ${selected.cidade}` : (value || ''))}
+        onFocus={() => { setOpen(true); setSearch(''); }}
+        onBlur={() => setTimeout(() => setOpen(false), 200)}
+        onChange={e => setSearch(e.target.value)}
+        autoComplete="off"
+        style={{
+          width: '100%',
+          fontSize: '15px',
+          padding: '12px 14px',
+          borderRadius: '10px',
+          border: '1.5px solid #CBD5E1',
+          background: '#FFFFFF'
+        }}
+      />
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          zIndex: 100,
+          background: '#FFFFFF',
+          border: '1.5px solid #CBD5E1',
+          borderRadius: '10px',
+          maxHeight: '230px',
+          overflowY: 'auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          marginTop: '4px'
+        }}>
+          {filtered.map(b => (
+            <div
+              key={b.sigla}
+              onMouseDown={() => {
+                onChange(b);
+                setOpen(false);
+              }}
+              style={{
+                padding: '10px 14px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                borderBottom: '1px solid #F1F5F9',
+                background: b.sigla === value ? '#FFF7ED' : '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <span style={{ fontWeight: '800', color: '#F37021', minWidth: '40px' }}>{b.sigla}</span>
+              <span style={{ color: '#1E293B', fontWeight: '500' }}>{b.cidade}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Presets de volumes comuns para agilizar no celular
 const PRESETS = [
   { id: 'envelope', label: '✉️ Documento', desc: 'Até 0.5 kg', weight: '0.5', height: '2', width: '22', lenght: '32', pieces: '1' },
@@ -33,9 +229,10 @@ export default function CotacaoAvancadaPage() {
 
   // Form Step 1: Cotação
   const [customerDocument, setCustomerDocument] = useState('');
+  const [originPointCode, setOriginPointCode] = useState('CGH');
   const [originPostalCode, setOriginPostalCode] = useState('01001-000');
   const [destinationPostalCode, setDestinationPostalCode] = useState('70040-010');
-  const [originCity, setOriginCity] = useState('São Paulo / SP');
+  const [originCity, setOriginCity] = useState('São Paulo (Congonhas)');
   const [destinationCity, setDestinationCity] = useState('Brasília / DF');
   const [loadingOriginCep, setLoadingOriginCep] = useState(false);
   const [loadingDestCep, setLoadingDestCep] = useState(false);
@@ -259,12 +456,13 @@ export default function CotacaoAvancadaPage() {
   // Quick Test Fill
   const handleQuickTest = () => {
     setCustomerDocument('47.944.243/0001-41');
+    setToCollect(false);
+    setOriginPointCode('CGH');
+    setOriginCity('São Paulo (Congonhas)');
     setOriginPostalCode('01001-000');
     setDestinationPostalCode('70040-010');
-    setOriginCity('São Paulo / SP');
     setDestinationCity('Brasília / DF');
     setDeclaredValue('750.00');
-    setToCollect(false);
     setToDelivery(true);
     applyPreset(PRESETS[1]); // Caixa P
   };
@@ -283,7 +481,8 @@ export default function CotacaoAvancadaPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerDocument,
-          originPostalCode: originPostalCode.replace(/\D/g, ''),
+          originPointCode: !toCollect && originPointCode ? originPointCode : undefined,
+          originPostalCode: toCollect || !originPointCode ? originPostalCode.replace(/\D/g, '') : undefined,
           destinationPostalCode: destinationPostalCode.replace(/\D/g, ''),
           declaredValue: parseFloat(declaredValue || 0),
           toCollect,
@@ -635,7 +834,13 @@ export default function CotacaoAvancadaPage() {
 
                   <button
                     type="button"
-                    onClick={() => setToCollect(false)}
+                    onClick={() => {
+                      setToCollect(false);
+                      if (!originPointCode) {
+                        setOriginPointCode('CGH');
+                        setOriginCity('São Paulo (Congonhas)');
+                      }
+                    }}
                     style={{
                       padding: '12px 10px',
                       borderRadius: '12px',
@@ -658,33 +863,53 @@ export default function CotacaoAvancadaPage() {
                 </div>
               </div>
 
-              {/* CEP DE ORIGEM */}
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                  📦 {toCollect ? 'CEP de Origem (endereço de coleta) *' : 'CEP de Origem (endereço de saída) *'}
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    required
-                    className="public-input"
-                    placeholder="00000-000"
-                    value={originPostalCode}
-                    onChange={(e) => handleOriginCepChange(e.target.value)}
-                    style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
-                  />
-                  {loadingOriginCep && (
-                    <span style={{ position: 'absolute', right: '12px', top: '14px', fontSize: '11px', color: '#F37021' }}>
-                      Buscando...
-                    </span>
+              {/* ORIGEM: CEP (COM COLETA) OU BASE GOLLOG (SEM COLETA) */}
+              {toCollect ? (
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    📦 CEP de Origem (endereço onde vamos coletar): *
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      required
+                      className="public-input"
+                      placeholder="00000-000"
+                      value={originPostalCode}
+                      onChange={(e) => handleOriginCepChange(e.target.value)}
+                      style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
+                    />
+                    {loadingOriginCep && (
+                      <span style={{ position: 'absolute', right: '12px', top: '14px', fontSize: '11px', color: '#F37021' }}>
+                        Buscando...
+                      </span>
+                    )}
+                  </div>
+                  {originCity && (
+                    <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600', marginTop: '4px' }}>
+                      📍 {originCity}
+                    </div>
                   )}
                 </div>
-                {originCity && (
-                  <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600', marginTop: '4px' }}>
-                    📍 {originCity}
-                  </div>
-                )}
-              </div>
+              ) : (
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    🏢 Base GOLLOG de Origem (onde você vai levar a carga): *
+                  </label>
+                  <BaseAutocomplete
+                    value={originPointCode}
+                    onChange={(b) => {
+                      setOriginPointCode(b.sigla);
+                      setOriginCity(b.cidade);
+                    }}
+                  />
+                  {originCity && (
+                    <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600', marginTop: '4px' }}>
+                      📍 Base Selecionada: <strong>{originPointCode}</strong> — {originCity}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* CARD 2: DESTINO DA CARGA */}
