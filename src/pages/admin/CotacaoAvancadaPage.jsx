@@ -262,18 +262,18 @@ export default function CotacaoAvancadaPage() {
   const [paymentMethod, setPaymentMethod] = useState('1'); // 1 = Pago Origem, 2 = Frap
   const [paymentForm, setPaymentForm] = useState('Pix'); // Dinheiro, Pix, Cartão, Conta GOL
   const [sender, setSender] = useState({
-    name: urlName || 'Empresa Remetente LTDA',
-    documentNumber: '47.944.243/0001-41',
+    name: urlName || '',
+    documentNumber: '',
     stateRegistration: 'ISENTO',
-    email: 'contato@remetente.com.br',
-    phone: urlPhone || '(11) 98888-7777',
-    zipCode: '01001-000',
-    street: 'Praça da Sé',
-    number: '100',
+    email: '',
+    phone: urlPhone || '',
+    zipCode: '',
+    street: '',
+    number: '',
     complement: '',
-    neighborhood: 'Sé',
-    city: 'São Paulo',
-    state: 'SP'
+    neighborhood: '',
+    city: '',
+    state: ''
   });
 
   const isCnpjTomador = (customerDocument || '').replace(/\D/g, '').length === 14;
@@ -286,18 +286,18 @@ export default function CotacaoAvancadaPage() {
   }, [customerDocument, isCnpjTomador, paymentForm]);
 
   const [receiver, setReceiver] = useState({
-    name: 'Empresa Destinatária S/A',
-    documentNumber: '12.345.678/0001-90',
+    name: '',
+    documentNumber: '',
     stateRegistration: 'ISENTO',
-    email: 'recepcao@destinatario.com.br',
-    phone: '(61) 99999-6666',
-    zipCode: '70040-010',
-    street: 'Esplanada dos Ministérios',
-    number: 'S/N',
+    email: '',
+    phone: '',
+    zipCode: '',
+    street: '',
+    number: '',
     complement: '',
-    neighborhood: 'Zona Cívico-Administrativa',
-    city: 'Brasília',
-    state: 'DF'
+    neighborhood: '',
+    city: '',
+    state: ''
   });
 
   const [loadingMinute, setLoadingMinute] = useState(false);
