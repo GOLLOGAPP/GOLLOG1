@@ -587,7 +587,7 @@ export default function CotacaoAvancadaPage() {
                 </select>
               </div>
 
-              <div>
+              <div style={{ marginBottom: '14px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
                   Forma de Pagamento:
                 </label>
@@ -603,18 +603,65 @@ export default function CotacaoAvancadaPage() {
                   <option value="Conta GOL">Conta GOL</option>
                 </select>
               </div>
-            </div>
 
-            {/* CARD 2: ORIGEM & DESTINO */}
-            <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FiMapPin color="#F37021" /> Rota do Envio
+              {/* SELETOR DE COLETA */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '8px' }}>
+                  Coleta *
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setToCollect(true)}
+                    style={{
+                      padding: '12px 10px',
+                      borderRadius: '12px',
+                      border: toCollect ? '2px solid #F37021' : '1.5px solid #E2E8F0',
+                      background: toCollect ? '#FFF7ED' : '#FFFFFF',
+                      color: toCollect ? '#C2410C' : '#64748B',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.2s ease',
+                      boxShadow: toCollect ? '0 2px 6px rgba(243, 112, 33, 0.15)' : 'none'
+                    }}
+                  >
+                    <div style={{ fontSize: '13px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      🚚 Com Coleta
+                    </div>
+                    <div style={{ fontSize: '11px', marginTop: '2px', opacity: 0.9 }}>
+                      buscamos a mercadoria
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setToCollect(false)}
+                    style={{
+                      padding: '12px 10px',
+                      borderRadius: '12px',
+                      border: !toCollect ? '2px solid #F37021' : '1.5px solid #E2E8F0',
+                      background: !toCollect ? '#FFF7ED' : '#FFFFFF',
+                      color: !toCollect ? '#C2410C' : '#64748B',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.2s ease',
+                      boxShadow: !toCollect ? '0 2px 6px rgba(243, 112, 33, 0.15)' : 'none'
+                    }}
+                  >
+                    <div style={{ fontSize: '13px', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                      🏢 Sem Coleta
+                    </div>
+                    <div style={{ fontSize: '11px', marginTop: '2px', opacity: 0.9 }}>
+                      trago na base
+                    </div>
+                  </button>
+                </div>
               </div>
 
-              {/* CEP Origem */}
-              <div style={{ marginBottom: '12px' }}>
-                <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '4px' }}>
-                  CEP de Origem (Saída da Carga): *
+              {/* CEP DE ORIGEM */}
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  📦 {toCollect ? 'CEP de Origem (endereço de coleta) *' : 'CEP de Origem (endereço de saída) *'}
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
@@ -624,7 +671,7 @@ export default function CotacaoAvancadaPage() {
                     placeholder="00000-000"
                     value={originPostalCode}
                     onChange={(e) => handleOriginCepChange(e.target.value)}
-                    style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1' }}
+                    style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
                   />
                   {loadingOriginCep && (
                     <span style={{ position: 'absolute', right: '12px', top: '14px', fontSize: '11px', color: '#F37021' }}>
@@ -638,17 +685,17 @@ export default function CotacaoAvancadaPage() {
                   </div>
                 )}
               </div>
+            </div>
 
-              <div style={{ display: 'flex', justifyContent: 'center', margin: '4px 0' }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>
-                  <FiArrowDown size={14} />
-                </div>
+            {/* CARD 2: DESTINO DA CARGA */}
+            <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FiMapPin color="#F37021" /> Destino da Entrega
               </div>
 
-              {/* CEP Destino */}
               <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', color: '#475569', display: 'block', marginBottom: '4px' }}>
-                  CEP de Destino (Entrega da Carga): *
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
+                  CEP de Destino (local de entrega): *
                 </label>
                 <div style={{ position: 'relative' }}>
                   <input
@@ -658,7 +705,7 @@ export default function CotacaoAvancadaPage() {
                     placeholder="00000-000"
                     value={destinationPostalCode}
                     onChange={(e) => handleDestCepChange(e.target.value)}
-                    style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1' }}
+                    style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
                   />
                   {loadingDestCep && (
                     <span style={{ position: 'absolute', right: '12px', top: '14px', fontSize: '11px', color: '#F37021' }}>
@@ -827,18 +874,8 @@ export default function CotacaoAvancadaPage() {
                 </span>
               </div>
 
-              {/* Coleta & Entrega */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: '#F8FAFC', padding: '12px', borderRadius: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: '600', color: '#334155', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={toCollect}
-                    onChange={(e) => setToCollect(e.target.checked)}
-                    style={{ width: '18px', height: '18px', accentColor: '#F37021' }}
-                  />
-                  Desejo Coleta no meu endereço
-                </label>
-
+              {/* Entrega no Destino */}
+              <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '10px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', fontWeight: '600', color: '#334155', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
@@ -846,7 +883,7 @@ export default function CotacaoAvancadaPage() {
                     onChange={(e) => setToDelivery(e.target.checked)}
                     style={{ width: '18px', height: '18px', accentColor: '#F37021' }}
                   />
-                  Desejo Entrega porta a porta no destino
+                  Desejo Entrega porta a porta no endereço de destino
                 </label>
               </div>
             </div>
