@@ -67,20 +67,7 @@ export default async function handler(req, res) {
         toDelivery: Boolean(toDelivery),
         declaredValue: parseFloat(declaredValue || 0),
         volumes: formattedVolumes,
-        products: [
-          'CHEGOL',
-          'ECONOMICO',
-          'RAPIDO',
-          'URGENTE',
-          'RAPIDO_FRACIONADO',
-          'URGENTE_FRACIONADO',
-          'FRACIONADO_RAPIDO',
-          'FRACIONADO_URGENTE',
-          'FRACIONADO',
-          'PADRAO',
-          'ESPECIAL',
-          'STANDBY'
-        ]
+        products: ['CHEGOL', 'ECONOMICO', 'RAPIDO', 'URGENTE']
       };
 
       if (includeCustomer && cleanDoc) {
@@ -92,12 +79,14 @@ export default async function handler(req, res) {
       return payload;
     };
 
-    function mapServiceInfo(code, description, q = {}) {
+    const isFrac = Boolean(toCollect || toDelivery);
+
+    function mapServiceInfo(code, description) {
       const c = (code || '').toUpperCase();
       const d = (description || '').toUpperCase();
 
       // 1. CHEGOL
-      if (c.includes('CHEG') || d.includes('CHEGOL')) {
+      if (c === 'CHEGOL' || c.includes('CHEG') || d.includes('CHEGOL')) {
         return {
           serviceType: 'CHEGOL',
           productName: 'CHEGOL',
@@ -109,8 +98,8 @@ export default async function handler(req, res) {
         };
       }
 
-      // 2. ECONÔMICO (SBY / Standby / Econômico)
-      if (c.includes('ECON') || d.includes('ECON') || c.includes('SBY') || d.includes('SBY') || d.includes('STANDBY')) {
+      // 2. ECONÔMICO
+      if (c === 'ECONOMICO' || c.includes('ECON') || c.includes('SBY') || d.includes('SBY') || d.includes('STANDBY')) {
         return {
           serviceType: 'ECONOMICO',
           productName: 'ECONÔMICO',
@@ -122,55 +111,32 @@ export default async function handler(req, res) {
         };
       }
 
-      // 3. RÁPIDO FRACIONADO
-      if ((d.includes('RAP') || d.includes('RÁP') || d.includes('PAD')) && (d.includes('FRAC') || c.includes('FRAC'))) {
+      // 3. RÁPIDO / RÁPIDO FRACIONADO
+      if (c === 'RAPIDO' || c.includes('RAP') || d.includes('RAPIDO') || d.includes('RÁPIDO') || c.includes('PAD') || d.includes('PADRAO') || d.includes('PADRÃO') || d.includes('EME') || c.includes('EME')) {
+        // Se o código for RAPIDO ou se for TARIFARIO EME (segundo escalão)
+        const name = isFrac ? 'RÁPIDO FRACIONADO' : 'RÁPIDO';
         return {
-          serviceType: 'RAPIDO_FRACIONADO',
-          productName: 'RÁPIDO FRACIONADO',
-          brandName: 'GOLLOG RÁPIDO FRACIONADO',
+          serviceType: isFrac ? 'RAPIDO_FRACIONADO' : 'RAPIDO',
+          productName: name,
+          brandName: `GOLLOG ${name}`,
           badge: 'Mais Equilibrado',
-          tag: 'Fracionado Rápido',
+          tag: isFrac ? 'Fracionado Rápido' : 'Rápido',
           icon: '⚡',
           color: '#F59E0B'
         };
       }
 
-      // 4. URGENTE FRACIONADO / TARIFÁRIO ÚNICO
-      if ((d.includes('URG') || d.includes('EME')) && (d.includes('FRAC') || c.includes('FRAC')) || d.includes('UNICO') || d.includes('ÚNICO') || c.includes('UNI')) {
+      // 4. URGENTE / URGENTE FRACIONADO
+      if (c === 'URGENTE' || c.includes('URG') || d.includes('URGENTE') || d.includes('UNICO') || d.includes('ÚNICO') || c.includes('UNI')) {
+        const name = isFrac ? 'URGENTE FRACIONADO' : 'URGENTE';
         return {
-          serviceType: 'URGENTE_FRACIONADO',
-          productName: 'URGENTE FRACIONADO',
-          brandName: 'GOLLOG URGENTE FRACIONADO',
+          serviceType: isFrac ? 'URGENTE_FRACIONADO' : 'URGENTE',
+          productName: name,
+          brandName: `GOLLOG ${name}`,
           badge: 'Mais Rápido',
-          tag: 'Fracionado Urgente',
+          tag: isFrac ? 'Fracionado Urgente' : 'Urgente',
           icon: '🔥',
           color: '#DC2626'
-        };
-      }
-
-      // 5. URGENTE / EMERGENCIAL (Padrão)
-      if (c.includes('URG') || d.includes('URGENTE') || c.includes('EME') || d.includes('EME') || c.includes('HOT')) {
-        return {
-          serviceType: 'URGENTE',
-          productName: 'URGENTE',
-          brandName: 'GOLLOG URGENTE',
-          badge: 'Mais Rápido',
-          tag: 'Urgente',
-          icon: '🔥',
-          color: '#DC2626'
-        };
-      }
-
-      // 6. RÁPIDO / PADRÃO (Padrão)
-      if (c.includes('RAP') || d.includes('RAPIDO') || d.includes('RÁPIDO') || c.includes('PAD') || d.includes('PADRAO') || d.includes('PADRÃO') || c.includes('STD')) {
-        return {
-          serviceType: 'RAPIDO',
-          productName: 'RÁPIDO',
-          brandName: 'GOLLOG RÁPIDO',
-          badge: 'Mais Equilibrado',
-          tag: 'Rápido',
-          icon: '⚡',
-          color: '#F59E0B'
         };
       }
 
@@ -204,16 +170,13 @@ export default async function handler(req, res) {
           if (respContract.ok) {
             const data = await respContract.json();
             rawQuotesContract = Array.isArray(data) ? data : (data.quotations || []);
-          } else {
-            const err = await respContract.text();
-            console.warn('Nexlog Cotacao Contrato status:', respContract.status, err);
           }
         } catch (e) {
           console.warn('Erro ao consultar cotação com contrato:', e.message);
         }
       }
 
-      // 2. Busca cotação padrão GOLLOG para garantir todas as opções
+      // 2. Busca cotação padrão GOLLOG
       try {
         const respStandard = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/quotation`, {
           method: 'POST',
@@ -223,31 +186,32 @@ export default async function handler(req, res) {
         if (respStandard.ok) {
           const data = await respStandard.json();
           rawQuotesStandard = Array.isArray(data) ? data : (data.quotations || []);
-        } else {
-          const err = await respStandard.text();
-          console.warn('Nexlog Cotacao Padrao status:', respStandard.status, err);
         }
       } catch (e) {
         console.warn('Erro ao consultar cotação padrão:', e.message);
       }
 
-      // 3. Mescla opções preservando cada produto individual
+      // 3. Mescla opções mantendo a melhor tarifa por produto (CHEGOL, ECONOMICO, RAPIDO, URGENTE)
       const mergedMap = new Map();
 
-      // Primeiro adiciona opções padrão
+      // Adiciona opções padrão
       rawQuotesStandard.forEach(q => {
-        const info = mapServiceInfo(q.serviceCode, q.serviceDescription, q);
-        const key = `${info.productName}_${q.totalValue}`;
-        mergedMap.set(key, { ...q, mappedInfo: info, isAgreed: false });
+        const info = mapServiceInfo(q.serviceCode, q.serviceDescription);
+        const existing = mergedMap.get(info.serviceType);
+        if (!existing || q.totalValue < existing.totalValue) {
+          mergedMap.set(info.serviceType, { ...q, mappedInfo: info, isAgreed: false });
+        }
       });
 
-      // Sobrescreve com as do contrato quando disponíveis ou adiciona se nova
+      // Sobrescreve com as do contrato se disponíveis
       rawQuotesContract.forEach(q => {
-        const info = mapServiceInfo(q.serviceCode, q.serviceDescription, q);
+        const info = mapServiceInfo(q.serviceCode, q.serviceDescription);
         const isAgreed = Boolean(q.agreementInfo && q.agreementInfo.trim() !== '');
         if (isAgreed) hasContractAgreement = true;
-        const key = `${info.productName}_${q.totalValue}`;
-        mergedMap.set(key, { ...q, mappedInfo: info, isAgreed });
+        const existing = mergedMap.get(info.serviceType);
+        if (!existing || isAgreed || q.totalValue < existing.totalValue) {
+          mergedMap.set(info.serviceType, { ...q, mappedInfo: info, isAgreed });
+        }
       });
 
       const rawList = Array.from(mergedMap.values());
