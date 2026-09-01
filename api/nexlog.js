@@ -209,14 +209,16 @@ export default async function handler(req, res) {
       volumes = [],
       sender = {},
       receiver = {},
+      paymentMethod = 1,
+      paymentForm = 'Pix'
     } = req.body || {};
 
-    const senderName = sender.name || sender.nome || '';
-    const senderDoc = (sender.documentNumber || sender.document || sender.documento || '').replace(/\D/g, '');
-    const receiverName = receiver.name || receiver.nome || '';
-    const receiverDoc = (receiver.documentNumber || receiver.document || receiver.documento || '').replace(/\D/g, '');
+    const senderDoc = sender.documentNumber ? sender.documentNumber.replace(/\D/g, '') : '';
+    const receiverDoc = receiver.documentNumber ? receiver.documentNumber.replace(/\D/g, '') : '';
+    const senderName = (sender.name || '').trim();
+    const receiverName = (receiver.name || '').trim();
 
-    if (!senderName || !senderDoc || !receiverName || !receiverDoc) {
+    if (!senderDoc || !receiverDoc || !senderName || !receiverName) {
       return res.status(400).json({
         error: 'Dados obrigatórios do remetente e destinatário (nome e CPF/CNPJ) estão incompletos.'
       });
@@ -326,6 +328,7 @@ export default async function handler(req, res) {
             volumes,
             declaredValue,
             paymentMethod,
+            paymentForm,
             isSimulation,
             emissao: new Date().toISOString()
           }
@@ -344,6 +347,7 @@ export default async function handler(req, res) {
         const cleanPhone = sender.phone.replace(/\D/g, '');
         const pdfLink = `https://www.golcargo.com.br/cotacao-avancada?doc=${finalOrderNumber}`;
         const trackingLink = `https://www.golcargo.com.br/rastreamento?doc=${finalOrderNumber}`;
+        const descPagto = `${paymentMethod === '2' || paymentMethod === 2 ? 'FRAP (Pago na Entrega)' : 'Pago na Origem'} · ${paymentForm}`;
 
         const msgWhats =
           `✈️ *Minuta Eletrônica GOLLOG Emitida com Sucesso!*\n\n` +
@@ -352,6 +356,7 @@ export default async function handler(req, res) {
           `🚀 *Serviço:* GOLLOG ${serviceCode}\n` +
           `📍 *Origem:* ${originPostalCode || 'Origem'}\n` +
           `📍 *Destino:* ${destinationPostalCode || 'Destino'}\n` +
+          `💳 *Pagamento:* ${descPagto}\n` +
           `📦 *Volumes:* ${volumes.length} volume(s) · R$ ${parseFloat(declaredValue || 0).toFixed(2)}\n\n` +
           `━━━━━━━━━━━━━━━━━━━━\n` +
           `📄 *Acesse e baixe a Minuta em PDF:* \n${pdfLink}\n\n` +

@@ -59,6 +59,7 @@ export default function CotacaoAvancadaPage() {
 
   // Form Step 3: Minuta
   const [paymentMethod, setPaymentMethod] = useState('1'); // 1 = Pago Origem, 2 = Frap
+  const [paymentForm, setPaymentForm] = useState('Pix'); // Dinheiro, Pix, Cartão, Conta GOL
   const [sender, setSender] = useState({
     name: urlName || 'Empresa Remetente LTDA',
     documentNumber: '47.944.243/0001-41',
@@ -337,7 +338,8 @@ export default function CotacaoAvancadaPage() {
           volumes,
           sender,
           receiver,
-          paymentMethod
+          paymentMethod,
+          paymentForm
         })
       });
 
@@ -570,7 +572,7 @@ export default function CotacaoAvancadaPage() {
                 </div>
               </div>
 
-              <div>
+              <div style={{ marginBottom: '14px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
                   Quem paga o frete?
                 </label>
@@ -582,6 +584,23 @@ export default function CotacaoAvancadaPage() {
                 >
                   <option value="1">1 - Pago pelo Remetente (Na Origem)</option>
                   <option value="2">2 - FRAP (Pago pelo Destinatário na Entrega)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
+                  Forma de Pagamento:
+                </label>
+                <select
+                  className="public-input"
+                  value={paymentForm}
+                  onChange={(e) => setPaymentForm(e.target.value)}
+                  style={{ width: '100%', fontSize: '14px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
+                >
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Pix">Pix</option>
+                  <option value="Cartão">Cartão</option>
+                  <option value="Conta GOL">Conta GOL</option>
                 </select>
               </div>
             </div>
@@ -1050,20 +1069,39 @@ export default function CotacaoAvancadaPage() {
               </div>
             </div>
 
-            {/* Condição de Pagamento */}
-            <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', border: '1px solid #E2E8F0' }}>
-              <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
-                Quem paga o frete?
-              </label>
-              <select
-                className="public-input"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '10px' }}
-              >
-                <option value="1">1 - Pago pelo Remetente (Na Origem)</option>
-                <option value="2">2 - FRAP (Pago pelo Destinatário na Entrega)</option>
-              </select>
+            {/* Condição e Forma de Pagamento */}
+            <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', border: '1px solid #E2E8F0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
+                  Quem paga o frete?
+                </label>
+                <select
+                  className="public-input"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '10px' }}
+                >
+                  <option value="1">1 - Pago pelo Remetente (Na Origem)</option>
+                  <option value="2">2 - FRAP (Pago pelo Destinatário na Entrega)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
+                  Forma de Pagamento:
+                </label>
+                <select
+                  className="public-input"
+                  value={paymentForm}
+                  onChange={(e) => setPaymentForm(e.target.value)}
+                  style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '10px' }}
+                >
+                  <option value="Dinheiro">Dinheiro</option>
+                  <option value="Pix">Pix</option>
+                  <option value="Cartão">Cartão</option>
+                  <option value="Conta GOL">Conta GOL</option>
+                </select>
+              </div>
             </div>
 
             {/* DADOS DO REMETENTE */}
@@ -1496,7 +1534,7 @@ export default function CotacaoAvancadaPage() {
                   <div><strong>Origem Operacional:</strong> {selectedQuote.originPoint.code} - {selectedQuote.originPoint.description}</div>
                   <div><strong>Destino Operacional:</strong> {selectedQuote.destinationPoint.code} - {selectedQuote.destinationPoint.description}</div>
                   <div><strong>Prazo Previsto de Entrega:</strong> {selectedQuote.timeToDelivery} dia(s) útil(eis)</div>
-                  <div><strong>Condição de Pagamento:</strong> {paymentMethod === '1' ? 'Pago na Origem' : 'FRAP (Pago no Destino)'}</div>
+                  <div><strong>Condição de Pagamento:</strong> {paymentMethod === '1' ? 'Pago na Origem' : 'FRAP (Pago no Destino)'} · {paymentForm}</div>
                 </div>
               </div>
 
