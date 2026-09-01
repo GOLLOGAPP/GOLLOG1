@@ -230,12 +230,12 @@ export default function CotacaoAvancadaPage() {
   // Form Step 1: Cotação
   const [customerDocument, setCustomerDocument] = useState('');
   const [originPointCode, setOriginPointCode] = useState('CGH');
-  const [originPostalCode, setOriginPostalCode] = useState('01001-000');
+  const [originPostalCode, setOriginPostalCode] = useState('');
   const [deliveryType, setDeliveryType] = useState('domicilio'); // 'domicilio' | 'aeroporto'
   const [destinationPointCode, setDestinationPointCode] = useState('BSB');
-  const [destinationPostalCode, setDestinationPostalCode] = useState('70040-010');
-  const [originCity, setOriginCity] = useState('São Paulo (Congonhas)');
-  const [destinationCity, setDestinationCity] = useState('Brasília / DF');
+  const [destinationPostalCode, setDestinationPostalCode] = useState('');
+  const [originCity, setOriginCity] = useState('');
+  const [destinationCity, setDestinationCity] = useState('');
   const [loadingOriginCep, setLoadingOriginCep] = useState(false);
   const [loadingDestCep, setLoadingDestCep] = useState(false);
 
@@ -394,19 +394,31 @@ export default function CotacaoAvancadaPage() {
     const formatted = formatCep(val);
     setOriginPostalCode(formatted);
     const clean = formatted.replace(/\D/g, '');
-    if (clean.length === 8) {
+    if (clean.length < 8) {
+      setOriginCity('');
+      setSender(prev => ({
+        ...prev,
+        zipCode: formatted,
+        street: '',
+        number: '',
+        complement: '',
+        neighborhood: '',
+        city: '',
+        state: ''
+      }));
+    } else if (clean.length === 8) {
       setLoadingOriginCep(true);
       const res = await fetchCep(clean);
       setLoadingOriginCep(false);
-      if (res) {
+      if (res && res.cidade) {
         setOriginCity(`${res.cidade} / ${res.estado}`);
         setSender(prev => ({
           ...prev,
           zipCode: formatted,
-          street: res.logradouro || prev.street,
-          neighborhood: res.bairro || prev.neighborhood,
-          city: res.cidade || prev.city,
-          state: res.estado || prev.state
+          street: res.logradouro || '',
+          neighborhood: res.bairro || '',
+          city: res.cidade || '',
+          state: res.estado || ''
         }));
       }
     }
@@ -416,19 +428,31 @@ export default function CotacaoAvancadaPage() {
     const formatted = formatCep(val);
     setDestinationPostalCode(formatted);
     const clean = formatted.replace(/\D/g, '');
-    if (clean.length === 8) {
+    if (clean.length < 8) {
+      setDestinationCity('');
+      setReceiver(prev => ({
+        ...prev,
+        zipCode: formatted,
+        street: '',
+        number: '',
+        complement: '',
+        neighborhood: '',
+        city: '',
+        state: ''
+      }));
+    } else if (clean.length === 8) {
       setLoadingDestCep(true);
       const res = await fetchCep(clean);
       setLoadingDestCep(false);
-      if (res) {
+      if (res && res.cidade) {
         setDestinationCity(`${res.cidade} / ${res.estado}`);
         setReceiver(prev => ({
           ...prev,
           zipCode: formatted,
-          street: res.logradouro || prev.street,
-          neighborhood: res.bairro || prev.neighborhood,
-          city: res.cidade || prev.city,
-          state: res.estado || prev.state
+          street: res.logradouro || '',
+          neighborhood: res.bairro || '',
+          city: res.cidade || '',
+          state: res.estado || ''
         }));
       }
     }
@@ -907,7 +931,7 @@ export default function CotacaoAvancadaPage() {
                     )}
                   </div>
 
-                  {originCity && (
+                  {originPostalCode.replace(/\D/g, '').length === 8 && originCity && (
                     <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <input
                         type="text"
@@ -1064,7 +1088,7 @@ export default function CotacaoAvancadaPage() {
                     )}
                   </div>
 
-                  {destinationCity && (
+                  {destinationPostalCode.replace(/\D/g, '').length === 8 && destinationCity && (
                     <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       <input
                         type="text"
