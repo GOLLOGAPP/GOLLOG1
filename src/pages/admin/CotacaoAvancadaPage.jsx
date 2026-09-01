@@ -903,9 +903,56 @@ export default function CotacaoAvancadaPage() {
                       </span>
                     )}
                   </div>
+
                   {originCity && (
-                    <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600', marginTop: '4px' }}>
-                      📍 {originCity}
+                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <input
+                        type="text"
+                        className="public-input"
+                        placeholder="Logradouro (Rua / Av)"
+                        value={sender.street || ''}
+                        onChange={(e) => setSender(prev => ({ ...prev, street: e.target.value }))}
+                        style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#F8FAFC' }}
+                      />
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <input
+                          type="text"
+                          required
+                          className="public-input"
+                          placeholder="Número *"
+                          value={sender.number || ''}
+                          onChange={(e) => setSender(prev => ({ ...prev, number: e.target.value }))}
+                          style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#FFFFFF' }}
+                        />
+                        <input
+                          type="text"
+                          className="public-input"
+                          placeholder="Complemento (opcional)"
+                          value={sender.complement || ''}
+                          onChange={(e) => setSender(prev => ({ ...prev, complement: e.target.value }))}
+                          style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#FFFFFF' }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <input
+                          type="text"
+                          className="public-input"
+                          placeholder="Bairro"
+                          value={sender.neighborhood || ''}
+                          onChange={(e) => setSender(prev => ({ ...prev, neighborhood: e.target.value }))}
+                          style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#F8FAFC' }}
+                        />
+                        <input
+                          type="text"
+                          readOnly
+                          className="public-input"
+                          placeholder="Cidade/UF"
+                          value={originCity}
+                          style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#F1F5F9', color: '#059669', fontWeight: '600' }}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1013,9 +1060,56 @@ export default function CotacaoAvancadaPage() {
                       </span>
                     )}
                   </div>
+
                   {destinationCity && (
-                    <div style={{ fontSize: '11px', color: '#059669', fontWeight: '600', marginTop: '4px' }}>
-                      📍 {destinationCity}
+                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <input
+                        type="text"
+                        className="public-input"
+                        placeholder="Logradouro (Rua / Av)"
+                        value={receiver.street || ''}
+                        onChange={(e) => setReceiver(prev => ({ ...prev, street: e.target.value }))}
+                        style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#F8FAFC' }}
+                      />
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <input
+                          type="text"
+                          required
+                          className="public-input"
+                          placeholder="Número *"
+                          value={receiver.number || ''}
+                          onChange={(e) => setReceiver(prev => ({ ...prev, number: e.target.value }))}
+                          style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#FFFFFF' }}
+                        />
+                        <input
+                          type="text"
+                          className="public-input"
+                          placeholder="Complemento (opcional)"
+                          value={receiver.complement || ''}
+                          onChange={(e) => setReceiver(prev => ({ ...prev, complement: e.target.value }))}
+                          style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#FFFFFF' }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <input
+                          type="text"
+                          className="public-input"
+                          placeholder="Bairro"
+                          value={receiver.neighborhood || ''}
+                          onChange={(e) => setReceiver(prev => ({ ...prev, neighborhood: e.target.value }))}
+                          style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#F8FAFC' }}
+                        />
+                        <input
+                          type="text"
+                          readOnly
+                          className="public-input"
+                          placeholder="Cidade/UF"
+                          value={destinationCity}
+                          style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#F1F5F9', color: '#059669', fontWeight: '600' }}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
