@@ -66,7 +66,8 @@ export default async function handler(req, res) {
         toCollect: Boolean(toCollect),
         toDelivery: Boolean(toDelivery),
         declaredValue: parseFloat(declaredValue || 0),
-        volumes: formattedVolumes
+        volumes: formattedVolumes,
+        products: ['URGENTE', 'RAPIDO', 'ECONOMICO', 'CHEGOL']
       };
 
       if (includeCustomer && cleanDoc) {
@@ -135,6 +136,9 @@ export default async function handler(req, res) {
           if (respContract.ok) {
             const data = await respContract.json();
             rawQuotesContract = Array.isArray(data) ? data : (data.quotations || []);
+          } else {
+            const err = await respContract.text();
+            console.warn('Nexlog Cotacao Contrato status:', respContract.status, err);
           }
         } catch (e) {
           console.warn('Erro ao consultar cotação com contrato:', e.message);
@@ -151,6 +155,9 @@ export default async function handler(req, res) {
         if (respStandard.ok) {
           const data = await respStandard.json();
           rawQuotesStandard = Array.isArray(data) ? data : (data.quotations || []);
+        } else {
+          const err = await respStandard.text();
+          console.warn('Nexlog Cotacao Padrao status:', respStandard.status, err);
         }
       } catch (e) {
         console.warn('Erro ao consultar cotação padrão:', e.message);
