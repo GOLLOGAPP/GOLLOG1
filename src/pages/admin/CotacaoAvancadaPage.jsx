@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { fetchCep, formatCep } from '../../lib/cep';
 import {
   FiDollarSign, FiSearch, FiPackage, FiTruck, FiCheckCircle, FiAlertCircle,
-  FiArrowRight, FiCopy, FiInfo, FiRefreshCw, FiPlus, FiTrash2, FiFileText,
+  FiArrowRight, FiArrowLeft, FiEdit2, FiCopy, FiInfo, FiRefreshCw, FiPlus, FiTrash2, FiFileText,
   FiUser, FiMapPin, FiShield, FiZap, FiChevronDown, FiChevronUp, FiArrowDown,
   FiDownload, FiPrinter, FiX
 } from 'react-icons/fi';
@@ -1431,7 +1431,7 @@ export default function CotacaoAvancadaPage() {
         ══════════════════════════════════════════════════════ */}
         {step === 2 && quotationData && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
               <div>
                 <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A', margin: '0 0 2px 0' }}>
                   Escolha a melhor opção para você:
@@ -1441,13 +1441,58 @@ export default function CotacaoAvancadaPage() {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569', padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
-              >
-                Alterar
-              </button>
+              {/* Botões de Ação no Topo do Passo 2 */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep(1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{
+                    background: '#FFFFFF',
+                    border: '1.5px solid #CBD5E1',
+                    color: '#1E293B',
+                    padding: '8px 14px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <FiArrowLeft size={16} /> Voltar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep(1);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{
+                    background: '#FFF7ED',
+                    border: '1.5px solid #F37021',
+                    color: '#C2410C',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(243, 112, 33, 0.15)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <FiEdit2 size={15} /> Alterar Cotação
+                </button>
+              </div>
             </div>
 
             {quotationData.notice && (
@@ -1457,7 +1502,7 @@ export default function CotacaoAvancadaPage() {
             )}
 
             {/* Cards de Serviços Oficiais */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
               {quotationData.quotes.map((q, idx) => {
                 const isRecommended = idx === 0 || q.badge?.includes('RECOMENDADO');
                 const productName = q.productName || (q.serviceDescription || '').replace(/^GOLLOG\s*/i, '').replace(/^TARIFARIO\s*/i, '') || 'PADRÃO';
@@ -1580,6 +1625,34 @@ export default function CotacaoAvancadaPage() {
                 );
               })}
             </div>
+
+            {/* Barra de Voltar no Rodapé do Passo 2 */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px', marginBottom: '24px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(1);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                style={{
+                  background: '#FFFFFF',
+                  border: '1.5px solid #CBD5E1',
+                  color: '#475569',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <FiArrowLeft size={16} /> Voltar e Alterar Dados da Cotação
+              </button>
+            </div>
           </div>
         )}
 
@@ -1588,16 +1661,32 @@ export default function CotacaoAvancadaPage() {
         ══════════════════════════════════════════════════════ */}
         {step === 3 && selectedQuote && (
           <form onSubmit={handleGenerateMinute} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
                 Dados da Minuta Eletrônica
               </h2>
               <button
                 type="button"
-                onClick={() => setStep(2)}
-                style={{ background: '#F1F5F9', border: 'none', color: '#475569', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                onClick={() => {
+                  setStep(2);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                style={{
+                  background: '#FFF7ED',
+                  border: '1.5px solid #F37021',
+                  color: '#C2410C',
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 6px rgba(243, 112, 33, 0.15)'
+                }}
               >
-                Trocar Frete
+                <FiArrowLeft size={15} /> Voltar / Trocar Frete
               </button>
             </div>
 
