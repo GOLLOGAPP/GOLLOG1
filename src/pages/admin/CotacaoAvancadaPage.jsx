@@ -1007,7 +1007,7 @@ export default function CotacaoAvancadaPage() {
             {/* CARD 2: DESTINO DA CARGA */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
               <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FiMapPin color="#F37021" /> Local de Entrega *
+                <FiMapPin color="#F37021" /> Destino *
               </div>
 
               {/* SELETOR DE LOCAL DE ENTREGA */}
