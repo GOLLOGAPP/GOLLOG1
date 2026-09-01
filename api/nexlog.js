@@ -95,11 +95,8 @@ export default async function handler(req, res) {
     function mapServiceInfo(code, description, q = {}) {
       const c = (code || '').toUpperCase();
       const d = (description || '').toUpperCase();
-      const deliv = (q.deliveryTypeDescription || '').toUpperCase();
-      const coll = (q.collectTypeDescription || '').toUpperCase();
-      const isFrac = deliv.includes('DOMIC') || coll.includes('COLETA') || d.includes('FRAC') || c.includes('FRAC');
 
-      // 1. Chegol
+      // 1. CHEGOL
       if (c.includes('CHEG') || d.includes('CHEGOL')) {
         return {
           serviceType: 'CHEGOL',
@@ -112,44 +109,7 @@ export default async function handler(req, res) {
         };
       }
 
-      // 2. Fracionados
-      if (d.includes('FRAC') || c.includes('FRAC') || (isFrac && (d.includes('PAD') || d.includes('RAP') || d.includes('EME') || d.includes('URG')))) {
-        if (d.includes('URG') || c.includes('URG') || c.includes('EME') || d.includes('EME')) {
-          return {
-            serviceType: 'URGENTE_FRACIONADO',
-            productName: 'URGENTE FRACIONADO',
-            brandName: 'GOLLOG URGENTE FRACIONADO',
-            badge: 'Mais Rápido Fracionado',
-            tag: 'Fracionado Urgente',
-            icon: '🔥',
-            color: '#DC2626'
-          };
-        }
-        return {
-          serviceType: 'RAPIDO_FRACIONADO',
-          productName: 'RÁPIDO FRACIONADO',
-          brandName: 'GOLLOG RÁPIDO FRACIONADO',
-          badge: 'Mais Equilibrado',
-          tag: 'Fracionado Rápido',
-          icon: '⚡',
-          color: '#F59E0B'
-        };
-      }
-
-      // 3. Tarifário Único / Dedicado
-      if (d.includes('UNICO') || d.includes('ÚNICO') || c.includes('UNI')) {
-        return {
-          serviceType: 'UNICO',
-          productName: 'ÚNICO',
-          brandName: 'GOLLOG ÚNICO',
-          badge: 'Dedicado',
-          tag: 'Único',
-          icon: '🎯',
-          color: '#8B5CF6'
-        };
-      }
-
-      // 4. Econômico / Standby
+      // 2. ECONÔMICO (SBY / Standby / Econômico)
       if (c.includes('ECON') || d.includes('ECON') || c.includes('SBY') || d.includes('SBY') || d.includes('STANDBY')) {
         return {
           serviceType: 'ECONOMICO',
@@ -162,20 +122,33 @@ export default async function handler(req, res) {
         };
       }
 
-      // 5. Rápido / Padrão
-      if (c.includes('RAP') || d.includes('RAPIDO') || d.includes('RÁPIDO') || c.includes('PAD') || d.includes('PADRAO') || d.includes('PADRÃO') || c.includes('STD')) {
+      // 3. RÁPIDO FRACIONADO
+      if ((d.includes('RAP') || d.includes('RÁP') || d.includes('PAD')) && (d.includes('FRAC') || c.includes('FRAC'))) {
         return {
-          serviceType: 'RAPIDO',
-          productName: 'RÁPIDO',
-          brandName: 'GOLLOG RÁPIDO',
+          serviceType: 'RAPIDO_FRACIONADO',
+          productName: 'RÁPIDO FRACIONADO',
+          brandName: 'GOLLOG RÁPIDO FRACIONADO',
           badge: 'Mais Equilibrado',
-          tag: 'Rápido',
+          tag: 'Fracionado Rápido',
           icon: '⚡',
           color: '#F59E0B'
         };
       }
 
-      // 6. Urgente / Emergencial
+      // 4. URGENTE FRACIONADO / TARIFÁRIO ÚNICO
+      if ((d.includes('URG') || d.includes('EME')) && (d.includes('FRAC') || c.includes('FRAC')) || d.includes('UNICO') || d.includes('ÚNICO') || c.includes('UNI')) {
+        return {
+          serviceType: 'URGENTE_FRACIONADO',
+          productName: 'URGENTE FRACIONADO',
+          brandName: 'GOLLOG URGENTE FRACIONADO',
+          badge: 'Mais Rápido',
+          tag: 'Fracionado Urgente',
+          icon: '🔥',
+          color: '#DC2626'
+        };
+      }
+
+      // 5. URGENTE / EMERGENCIAL (Padrão)
       if (c.includes('URG') || d.includes('URGENTE') || c.includes('EME') || d.includes('EME') || c.includes('HOT')) {
         return {
           serviceType: 'URGENTE',
@@ -185,6 +158,19 @@ export default async function handler(req, res) {
           tag: 'Urgente',
           icon: '🔥',
           color: '#DC2626'
+        };
+      }
+
+      // 6. RÁPIDO / PADRÃO (Padrão)
+      if (c.includes('RAP') || d.includes('RAPIDO') || d.includes('RÁPIDO') || c.includes('PAD') || d.includes('PADRAO') || d.includes('PADRÃO') || c.includes('STD')) {
+        return {
+          serviceType: 'RAPIDO',
+          productName: 'RÁPIDO',
+          brandName: 'GOLLOG RÁPIDO',
+          badge: 'Mais Equilibrado',
+          tag: 'Rápido',
+          icon: '⚡',
+          color: '#F59E0B'
         };
       }
 
