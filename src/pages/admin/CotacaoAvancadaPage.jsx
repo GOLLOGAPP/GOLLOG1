@@ -1210,39 +1210,8 @@ export default function CotacaoAvancadaPage() {
 
             {/* CARD 4: VOLUMES E MEDIDAS */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <FiPackage color="#F37021" /> Tamanho da Encomenda
-                </div>
-                <button
-                  type="button"
-                  onClick={addVolume}
-                  style={{ background: 'none', border: 'none', color: '#F37021', fontSize: '12px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
-                >
-                  <FiPlus /> + Caixa
-                </button>
-              </div>
-
-              {/* Presets Rápidos com 1 toque */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px', marginBottom: '16px' }}>
-                {PRESETS.map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => applyPreset(p)}
-                    style={{
-                      background: selectedPreset === p.id ? '#FFF7ED' : '#F8FAFC',
-                      border: selectedPreset === p.id ? '2px solid #F37021' : '1px solid #E2E8F0',
-                      borderRadius: '10px',
-                      padding: '8px 6px',
-                      textAlign: 'center',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <div style={{ fontSize: '12px', fontWeight: '700', color: selectedPreset === p.id ? '#C2410C' : '#1E293B' }}>{p.label}</div>
-                    <div style={{ fontSize: '9px', color: '#64748B', marginTop: '2px' }}>{p.desc}</div>
-                  </button>
-                ))}
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '14px' }}>
+                <FiPackage color="#F37021" /> Tamanho da Encomenda (Volumes)
               </div>
 
               {/* Lista de Volumes */}
@@ -1262,7 +1231,7 @@ export default function CotacaoAvancadaPage() {
                       <button
                         type="button"
                         onClick={() => removeVolume(index)}
-                        style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                        style={{ color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
                       >
                         <FiTrash2 /> Remover
                       </button>
@@ -1271,13 +1240,13 @@ export default function CotacaoAvancadaPage() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '8px' }}>
                     <div>
-                      <label style={{ fontSize: '11px', color: '#64748B', display: 'block', marginBottom: '2px' }}>Peso Total (kg):</label>
+                      <label style={{ fontSize: '11px', color: '#64748B', display: 'block', marginBottom: '2px' }}>Peso Total (kg): *</label>
                       <input
                         type="number"
                         step="0.1"
                         required
                         className="public-input"
-                        placeholder="Ex: 2.5"
+                        placeholder="Ex: 2.0"
                         value={vol.weight}
                         onChange={(e) => updateVolume(index, 'weight', e.target.value)}
                         style={{ padding: '8px 10px', fontSize: '14px', borderRadius: '8px' }}
@@ -1285,7 +1254,7 @@ export default function CotacaoAvancadaPage() {
                     </div>
 
                     <div>
-                      <label style={{ fontSize: '11px', color: '#64748B', display: 'block', marginBottom: '2px' }}>Qtd. de Peças:</label>
+                      <label style={{ fontSize: '11px', color: '#64748B', display: 'block', marginBottom: '2px' }}>Qtd. de Peças: *</label>
                       <input
                         type="number"
                         required
@@ -1300,19 +1269,19 @@ export default function CotacaoAvancadaPage() {
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                     <div>
-                      <label style={{ fontSize: '10px', color: '#64748B', display: 'block' }}>Compr. (cm)</label>
+                      <label style={{ fontSize: '10px', color: '#64748B', display: 'block' }}>Compr. (cm) *</label>
                       <input
                         type="number"
                         required
                         className="public-input"
-                        placeholder="30"
+                        placeholder="20"
                         value={vol.lenght}
                         onChange={(e) => updateVolume(index, 'lenght', e.target.value)}
                         style={{ padding: '6px 8px', fontSize: '13px', borderRadius: '6px' }}
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: '10px', color: '#64748B', display: 'block' }}>Largura (cm)</label>
+                      <label style={{ fontSize: '10px', color: '#64748B', display: 'block' }}>Largura (cm) *</label>
                       <input
                         type="number"
                         required
@@ -1324,7 +1293,7 @@ export default function CotacaoAvancadaPage() {
                       />
                     </div>
                     <div>
-                      <label style={{ fontSize: '10px', color: '#64748B', display: 'block' }}>Altura (cm)</label>
+                      <label style={{ fontSize: '10px', color: '#64748B', display: 'block' }}>Altura (cm) *</label>
                       <input
                         type="number"
                         required
@@ -1338,6 +1307,31 @@ export default function CotacaoAvancadaPage() {
                   </div>
                 </div>
               ))}
+
+              {/* Botão Adicionar Volume */}
+              <button
+                type="button"
+                onClick={addVolume}
+                style={{
+                  width: '100%',
+                  marginTop: '6px',
+                  padding: '12px 14px',
+                  background: '#FFF7ED',
+                  border: '1.5px dashed #F37021',
+                  borderRadius: '10px',
+                  color: '#C2410C',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <FiPlus size={16} /> + Adicionar Volume
+              </button>
             </div>
 
             {/* BOTÃO PRINCIPAL DE COTAÇÃO */}
