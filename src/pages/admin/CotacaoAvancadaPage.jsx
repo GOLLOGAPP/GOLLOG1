@@ -789,7 +789,7 @@ export default function CotacaoAvancadaPage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
+              <div style={{ marginBottom: paymentMethod === '1' ? '14px' : '16px' }}>
                 <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
                   Quem paga o frete?
                 </label>
@@ -804,22 +804,25 @@ export default function CotacaoAvancadaPage() {
                 </select>
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
-                  Forma de Pagamento:
-                </label>
-                <select
-                  className="public-input"
-                  value={paymentForm}
-                  onChange={(e) => setPaymentForm(e.target.value)}
-                  style={{ width: '100%', fontSize: '14px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
-                >
-                  <option value="Dinheiro">Dinheiro</option>
-                  <option value="Pix">Pix</option>
-                  <option value="Cartão">Cartão</option>
-                  {isCnpjTomador && <option value="Conta GOL">Conta GOL (Faturado)</option>}
-                </select>
-              </div>
+              {/* Forma de Pagamento só aparece para opção 1 (Pago pelo Remetente) */}
+              {paymentMethod === '1' && (
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
+                    Forma de Pagamento:
+                  </label>
+                  <select
+                    className="public-input"
+                    value={paymentForm}
+                    onChange={(e) => setPaymentForm(e.target.value)}
+                    style={{ width: '100%', fontSize: '14px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
+                  >
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Pix">Pix</option>
+                    <option value="Cartão">Cartão</option>
+                    {isCnpjTomador && <option value="Conta GOL">Conta GOL (Faturado)</option>}
+                  </select>
+                </div>
+              )}
 
               {/* SELETOR DE ORIGEM */}
               <div style={{ marginBottom: '16px' }}>
@@ -1553,7 +1556,7 @@ export default function CotacaoAvancadaPage() {
             </div>
 
             {/* Condição e Forma de Pagamento */}
-            <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', border: '1px solid #E2E8F0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', border: '1px solid #E2E8F0', display: 'grid', gridTemplateColumns: paymentMethod === '1' ? '1fr 1fr' : '1fr', gap: '12px' }}>
               <div>
                 <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
                   Quem paga o frete?
@@ -1569,22 +1572,24 @@ export default function CotacaoAvancadaPage() {
                 </select>
               </div>
 
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
-                  Forma de Pagamento:
-                </label>
-                <select
-                  className="public-input"
-                  value={paymentForm}
-                  onChange={(e) => setPaymentForm(e.target.value)}
-                  style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '10px' }}
-                >
-                  <option value="Dinheiro">Dinheiro</option>
-                  <option value="Pix">Pix</option>
-                  <option value="Cartão">Cartão</option>
-                  {isCnpjTomador && <option value="Conta GOL">Conta GOL (Faturado)</option>}
-                </select>
-              </div>
+              {paymentMethod === '1' && (
+                <div>
+                  <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
+                    Forma de Pagamento:
+                  </label>
+                  <select
+                    className="public-input"
+                    value={paymentForm}
+                    onChange={(e) => setPaymentForm(e.target.value)}
+                    style={{ width: '100%', fontSize: '14px', padding: '10px 12px', borderRadius: '10px' }}
+                  >
+                    <option value="Dinheiro">Dinheiro</option>
+                    <option value="Pix">Pix</option>
+                    <option value="Cartão">Cartão</option>
+                    {isCnpjTomador && <option value="Conta GOL">Conta GOL (Faturado)</option>}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* DADOS DO REMETENTE */}
@@ -2017,7 +2022,7 @@ export default function CotacaoAvancadaPage() {
                   <div><strong>Origem Operacional:</strong> {selectedQuote.originPoint.code} - {selectedQuote.originPoint.description}</div>
                   <div><strong>Destino Operacional:</strong> {selectedQuote.destinationPoint.code} - {selectedQuote.destinationPoint.description}</div>
                   <div><strong>Prazo Previsto de Entrega:</strong> {selectedQuote.timeToDelivery} dia(s) útil(eis)</div>
-                  <div><strong>Condição de Pagamento:</strong> {paymentMethod === '1' ? 'Pago na Origem' : 'FRAP (Pago no Destino)'} · {paymentForm}</div>
+                  <div><strong>Condição de Pagamento:</strong> {paymentMethod === '1' ? `Pago na Origem (${paymentForm})` : 'FRAP (Pago pelo Destinatário na Entrega)'}</div>
                 </div>
               </div>
 

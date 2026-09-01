@@ -347,7 +347,7 @@ export default async function handler(req, res) {
         const cleanPhone = sender.phone.replace(/\D/g, '');
         const pdfLink = `https://www.golcargo.com.br/cotacao-avancada?doc=${finalOrderNumber}`;
         const trackingLink = `https://www.golcargo.com.br/rastreamento?doc=${finalOrderNumber}`;
-        const descPagto = `${paymentMethod === '2' || paymentMethod === 2 ? 'FRAP (Pago na Entrega)' : 'Pago na Origem'} · ${paymentForm}`;
+        const descPagto = (paymentMethod === '2' || paymentMethod === 2) ? 'FRAP (Pago pelo Destinatário na Entrega)' : `Pago na Origem (${paymentForm})`;
 
         const msgWhats =
           `✈️ *Minuta Eletrônica GOLLOG Emitida com Sucesso!*\n\n` +
