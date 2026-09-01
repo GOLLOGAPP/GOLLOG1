@@ -79,9 +79,9 @@ export default async function handler(req, res) {
       return payload;
     };
 
-    const isFrac = Boolean(toCollect || toDelivery);
+    const isFracRequested = Boolean(toCollect || toDelivery);
 
-    function mapServiceInfo(code, description) {
+    function mapServiceInfo(code, description, isFrac = false) {
       const c = (code || '').toUpperCase();
       const d = (description || '').toUpperCase();
 
@@ -101,11 +101,11 @@ export default async function handler(req, res) {
       // 2. ECONÔMICO
       if (c === 'ECONOMICO' || c.includes('ECON') || c.includes('SBY') || d.includes('SBY') || d.includes('STANDBY')) {
         return {
-          serviceType: 'ECONOMICO',
-          productName: 'ECONÔMICO',
-          brandName: 'GOLLOG ECONÔMICO',
+          serviceType: isFrac ? 'ECONOMICO_FRACIONADO' : 'ECONOMICO',
+          productName: isFrac ? 'ECONÔMICO (DOMICÍLIO)' : 'ECONÔMICO',
+          brandName: isFrac ? 'GOLLOG ECONÔMICO (DOMICÍLIO)' : 'GOLLOG ECONÔMICO',
           badge: 'Econômico',
-          tag: 'Econômico',
+          tag: isFrac ? 'Entrega no Endereço' : 'Retirada na Base',
           icon: '🌱',
           color: '#10B981'
         };
@@ -113,14 +113,13 @@ export default async function handler(req, res) {
 
       // 3. RÁPIDO / RÁPIDO FRACIONADO
       if (c === 'RAPIDO' || c.includes('RAP') || d.includes('RAPIDO') || d.includes('RÁPIDO') || c.includes('PAD') || d.includes('PADRAO') || d.includes('PADRÃO') || d.includes('EME') || c.includes('EME')) {
-        // Se o código for RAPIDO ou se for TARIFARIO EME (segundo escalão)
         const name = isFrac ? 'RÁPIDO FRACIONADO' : 'RÁPIDO';
         return {
           serviceType: isFrac ? 'RAPIDO_FRACIONADO' : 'RAPIDO',
           productName: name,
           brandName: `GOLLOG ${name}`,
           badge: 'Mais Equilibrado',
-          tag: isFrac ? 'Fracionado Rápido' : 'Rápido',
+          tag: isFrac ? 'Entrega no Endereço' : 'Retirada na Base',
           icon: '⚡',
           color: '#F59E0B'
         };
@@ -134,7 +133,7 @@ export default async function handler(req, res) {
           productName: name,
           brandName: `GOLLOG ${name}`,
           badge: 'Mais Rápido',
-          tag: isFrac ? 'Fracionado Urgente' : 'Urgente',
+          tag: isFrac ? 'Entrega no Endereço' : 'Retirada na Base',
           icon: '🔥',
           color: '#DC2626'
         };
@@ -191,12 +190,12 @@ export default async function handler(req, res) {
         console.warn('Erro ao consultar cotação padrão:', e.message);
       }
 
-      // 3. Mescla opções mantendo a melhor tarifa por produto (CHEGOL, ECONOMICO, RAPIDO, URGENTE)
+      // 3. Mescla opções mantendo cada modalidade (CHEGOL, ECONOMICO, RAPIDO, URGENTE, FRACIONADOS)
       const mergedMap = new Map();
 
       // Adiciona opções padrão
       rawQuotesStandard.forEach(q => {
-        const info = mapServiceInfo(q.serviceCode, q.serviceDescription);
+        const info = mapServiceInfo(q.serviceCode, q.serviceDescription, isFracRequested);
         const existing = mergedMap.get(info.serviceType);
         if (!existing || q.totalValue < existing.totalValue) {
           mergedMap.set(info.serviceType, { ...q, mappedInfo: info, isAgreed: false });
@@ -205,7 +204,7 @@ export default async function handler(req, res) {
 
       // Sobrescreve com as do contrato se disponíveis
       rawQuotesContract.forEach(q => {
-        const info = mapServiceInfo(q.serviceCode, q.serviceDescription);
+        const info = mapServiceInfo(q.serviceCode, q.serviceDescription, isFracRequested);
         const isAgreed = Boolean(q.agreementInfo && q.agreementInfo.trim() !== '');
         if (isAgreed) hasContractAgreement = true;
         const existing = mergedMap.get(info.serviceType);

@@ -1531,10 +1531,15 @@ export default function CotacaoAvancadaPage() {
                         }}>
                           {productName}
                         </div>
+                        {q.tag && (
+                          <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '6px', fontWeight: '600' }}>
+                            {q.tag.includes('Endereço') ? '🏠 ' : '🏢 '} {q.tag}
+                          </div>
+                        )}
                       </div>
 
                       {/* Preço em Destaque */}
-                      <div style={{ textAlign: 'center', margin: '20px 0 24px 0' }}>
+                      <div style={{ textAlign: 'center', margin: '14px 0 20px 0' }}>
                         <div style={{ fontSize: '32px', fontWeight: '900', color: '#FFFFFF', letterSpacing: '-0.5px' }}>
                           R$ {q.totalValue?.toFixed(2).replace('.', ',') ?? '0,00'}
                         </div>
