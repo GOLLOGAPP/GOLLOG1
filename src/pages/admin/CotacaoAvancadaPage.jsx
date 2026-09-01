@@ -551,21 +551,38 @@ export default function CotacaoAvancadaPage() {
         {step === 1 && (
           <form onSubmit={handleCalculateQuotes} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
-            {/* CARD 1: CLIENTE / CONTRATO */}
+            {/* CARD 1: CLIENTE / TOMADOR */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0' }}>
-              <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                <FiUser color="#F37021" /> CNPJ ou CPF (Opcional):
-              </label>
-              <input
-                type="text"
-                className="public-input"
-                placeholder="00.000.000/0000-00"
-                value={customerDocument}
-                onChange={(e) => setCustomerDocument(e.target.value)}
-                style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1' }}
-              />
-              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '6px' }}>
-                💡 Se a sua empresa tiver <strong>contrato tarifário GOLLOG</strong>, seus descontos serão aplicados automaticamente.
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <FiUser color="#F37021" /> CNPJ ou CPF (Tomador):
+                </label>
+                <input
+                  type="text"
+                  className="public-input"
+                  placeholder="00.000.000/0000-00"
+                  value={customerDocument}
+                  onChange={(e) => setCustomerDocument(e.target.value)}
+                  style={{ width: '100%', fontSize: '15px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1' }}
+                />
+                <div style={{ fontSize: '11px', color: '#64748B', marginTop: '6px' }}>
+                  💡 Se a sua empresa tiver <strong>contrato tarifário GOLLOG</strong>, seus descontos serão aplicados automaticamente.
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: '700', color: '#1E293B', display: 'block', marginBottom: '6px' }}>
+                  Quem paga o frete?
+                </label>
+                <select
+                  className="public-input"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  style={{ width: '100%', fontSize: '14px', padding: '12px 14px', borderRadius: '10px', border: '1.5px solid #CBD5E1', background: '#FFFFFF' }}
+                >
+                  <option value="1">1 - Pago pelo Remetente (Na Origem)</option>
+                  <option value="2">2 - FRAP (Pago pelo Destinatário na Entrega)</option>
+                </select>
               </div>
             </div>
 
