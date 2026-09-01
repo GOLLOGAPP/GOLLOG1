@@ -92,11 +92,14 @@ export default async function handler(req, res) {
       return payload;
     };
 
-    function mapServiceInfo(code, description) {
+    function mapServiceInfo(code, description, q = {}) {
       const c = (code || '').toUpperCase();
       const d = (description || '').toUpperCase();
+      const deliv = (q.deliveryTypeDescription || '').toUpperCase();
+      const coll = (q.collectTypeDescription || '').toUpperCase();
+      const isFrac = deliv.includes('DOMIC') || coll.includes('COLETA') || d.includes('FRAC') || c.includes('FRAC');
 
-      // Chegol
+      // 1. Chegol
       if (c.includes('CHEG') || d.includes('CHEGOL')) {
         return {
           serviceType: 'CHEGOL',
@@ -109,21 +112,19 @@ export default async function handler(req, res) {
         };
       }
 
-      // Urgente Fracionado
-      if (c.includes('URG') && (c.includes('FRAC') || d.includes('FRAC')) || (d.includes('URGENTE') && d.includes('FRAC'))) {
-        return {
-          serviceType: 'URGENTE_FRACIONADO',
-          productName: 'URGENTE FRACIONADO',
-          brandName: 'GOLLOG URGENTE FRACIONADO',
-          badge: 'Mais Rápido Fracionado',
-          tag: 'Fracionado Urgente',
-          icon: '🔥',
-          color: '#DC2626'
-        };
-      }
-
-      // Rápido Fracionado
-      if (c.includes('RAP') && (c.includes('FRAC') || d.includes('FRAC')) || (d.includes('RAPIDO') && d.includes('FRAC')) || d.includes('RÁPIDO FRAC')) {
+      // 2. Fracionados
+      if (d.includes('FRAC') || c.includes('FRAC') || (isFrac && (d.includes('PAD') || d.includes('RAP') || d.includes('EME') || d.includes('URG')))) {
+        if (d.includes('URG') || c.includes('URG') || c.includes('EME') || d.includes('EME')) {
+          return {
+            serviceType: 'URGENTE_FRACIONADO',
+            productName: 'URGENTE FRACIONADO',
+            brandName: 'GOLLOG URGENTE FRACIONADO',
+            badge: 'Mais Rápido Fracionado',
+            tag: 'Fracionado Urgente',
+            icon: '🔥',
+            color: '#DC2626'
+          };
+        }
         return {
           serviceType: 'RAPIDO_FRACIONADO',
           productName: 'RÁPIDO FRACIONADO',
@@ -135,33 +136,20 @@ export default async function handler(req, res) {
         };
       }
 
-      // Urgente / Emergencial
-      if (c.includes('URG') || d.includes('URGENTE') || c.includes('EME') || d.includes('EME') || c.includes('HOT')) {
+      // 3. Tarifário Único / Dedicado
+      if (d.includes('UNICO') || d.includes('ÚNICO') || c.includes('UNI')) {
         return {
-          serviceType: 'URGENTE',
-          productName: 'URGENTE',
-          brandName: 'GOLLOG URGENTE',
-          badge: 'Mais Rápido',
-          tag: 'Urgente',
-          icon: '🔥',
-          color: '#DC2626'
+          serviceType: 'UNICO',
+          productName: 'ÚNICO',
+          brandName: 'GOLLOG ÚNICO',
+          badge: 'Dedicado',
+          tag: 'Único',
+          icon: '🎯',
+          color: '#8B5CF6'
         };
       }
 
-      // Rápido / Padrão
-      if (c.includes('RAP') || d.includes('RAPIDO') || d.includes('RÁPIDO') || c.includes('PAD') || d.includes('PADRAO') || d.includes('PADRÃO') || c.includes('STD')) {
-        return {
-          serviceType: 'RAPIDO',
-          productName: 'RÁPIDO',
-          brandName: 'GOLLOG RÁPIDO',
-          badge: 'Mais Equilibrado',
-          tag: 'Rápido',
-          icon: '⚡',
-          color: '#F59E0B'
-        };
-      }
-
-      // Econômico / Standby
+      // 4. Econômico / Standby
       if (c.includes('ECON') || d.includes('ECON') || c.includes('SBY') || d.includes('SBY') || d.includes('STANDBY')) {
         return {
           serviceType: 'ECONOMICO',
@@ -174,8 +162,34 @@ export default async function handler(req, res) {
         };
       }
 
+      // 5. Rápido / Padrão
+      if (c.includes('RAP') || d.includes('RAPIDO') || d.includes('RÁPIDO') || c.includes('PAD') || d.includes('PADRAO') || d.includes('PADRÃO') || c.includes('STD')) {
+        return {
+          serviceType: 'RAPIDO',
+          productName: 'RÁPIDO',
+          brandName: 'GOLLOG RÁPIDO',
+          badge: 'Mais Equilibrado',
+          tag: 'Rápido',
+          icon: '⚡',
+          color: '#F59E0B'
+        };
+      }
+
+      // 6. Urgente / Emergencial
+      if (c.includes('URG') || d.includes('URGENTE') || c.includes('EME') || d.includes('EME') || c.includes('HOT')) {
+        return {
+          serviceType: 'URGENTE',
+          productName: 'URGENTE',
+          brandName: 'GOLLOG URGENTE',
+          badge: 'Mais Rápido',
+          tag: 'Urgente',
+          icon: '🔥',
+          color: '#DC2626'
+        };
+      }
+
       // Outros produtos
-      const cleanDesc = (description || code || 'GOLLOG PADRÃO').replace(/^TARIFARIO\s*/i, '');
+      const cleanDesc = (description || code || 'PADRÃO').replace(/^TARIFARIO\s*/i, '').trim();
       return {
         serviceType: code || 'PADRAO',
         productName: cleanDesc.toUpperCase(),
@@ -234,19 +248,19 @@ export default async function handler(req, res) {
       // 3. Mescla opções preservando cada produto individual
       const mergedMap = new Map();
 
-      // Primeiro adiciona opções padrão usando serviceCode / serviceDescription como chave
+      // Primeiro adiciona opções padrão
       rawQuotesStandard.forEach(q => {
-        const info = mapServiceInfo(q.serviceCode, q.serviceDescription);
-        const key = `${q.serviceCode || info.serviceType}_${info.productName}`;
+        const info = mapServiceInfo(q.serviceCode, q.serviceDescription, q);
+        const key = `${info.productName}_${q.totalValue}`;
         mergedMap.set(key, { ...q, mappedInfo: info, isAgreed: false });
       });
 
       // Sobrescreve com as do contrato quando disponíveis ou adiciona se nova
       rawQuotesContract.forEach(q => {
-        const info = mapServiceInfo(q.serviceCode, q.serviceDescription);
+        const info = mapServiceInfo(q.serviceCode, q.serviceDescription, q);
         const isAgreed = Boolean(q.agreementInfo && q.agreementInfo.trim() !== '');
         if (isAgreed) hasContractAgreement = true;
-        const key = `${q.serviceCode || info.serviceType}_${info.productName}`;
+        const key = `${info.productName}_${q.totalValue}`;
         mergedMap.set(key, { ...q, mappedInfo: info, isAgreed });
       });
 
@@ -261,7 +275,7 @@ export default async function handler(req, res) {
 
       const quotes = rawList.map(q => {
         const isAgreed = Boolean(q.isAgreed || (q.agreementInfo && q.agreementInfo.trim() !== ''));
-        const mappedInfo = q.mappedInfo || mapServiceInfo(q.serviceCode, q.serviceDescription);
+        const mappedInfo = q.mappedInfo || mapServiceInfo(q.serviceCode, q.serviceDescription, q);
 
         const originPoint = {
           code: q.originPointCode || originPointCode || 'SPA',
