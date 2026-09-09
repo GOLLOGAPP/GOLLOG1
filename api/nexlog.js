@@ -1,6 +1,6 @@
 import { sendWhatsApp, supabase, buscarClientePorTelefone } from './_lib/notify.js';
 
-const NEXLOG_API_BASE = process.env.NEXLOG_API_URL || 'https://api-golcargo.nexlog.com';
+const NEXLOG_API_BASE = process.env.NEXLOG_API_URL || 'https://api-training.nexlog.com';
 
 // Vercel Serverless: Proxy Unificado para APIs da GOLLOG / Nexlog (Cotação e Minuta)
 export default async function handler(req, res) {
@@ -12,6 +12,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
   const action = req.query.action || req.body?.action || 'cotacao';
+  const originStation = req.body?.originPointCode || 'QOZ';
 
   const headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -20,6 +21,7 @@ export default async function handler(req, res) {
     'language': 'pt-BR',
     'Token': process.env.NEXLOG_TOKEN || 'acd1916a-3190-44ec-aed2-26c2c1836fe1',
     'UserId': process.env.NEXLOG_USER_ID || '21835',
+    'Station': originStation,
     'Accept': 'application/json',
   };
 
@@ -389,48 +391,75 @@ export default async function handler(req, res) {
       });
     }
 
+    const isSenderPayer = Number(paymentMethod) !== 2;
+    const cleanSenderPhone = (sender.phone || sender.phoneNumber || '').replace(/\D/g, '');
+    const cleanReceiverPhone = (receiver.phone || receiver.phoneNumber || '').replace(/\D/g, '');
+
+    const parsePhone = (rawPhone, defaultDDD = '11') => {
+      const digits = (rawPhone || '').replace(/\D/g, '');
+      if (digits.length >= 10) {
+        return {
+          countryCode: '55',
+          areaCityCode: digits.slice(0, 2),
+          phoneNumber: digits.slice(2),
+          phoneType: 1
+        };
+      }
+      return {
+        countryCode: '55',
+        areaCityCode: defaultDDD,
+        phoneNumber: digits || '999999999',
+        phoneType: 1
+      };
+    };
+
     const minutePayload = {
-      serviceCode,
+      originPointCode: originPointCode || 'QOZ',
+      destinationPointCode: destinationPointCode || undefined,
       originPostalCode: originPostalCode ? originPostalCode.replace(/\D/g, '') : undefined,
       destinationPostalCode: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : undefined,
-      originPointCode: originPointCode || undefined,
-      destinationPointCode: destinationPointCode || undefined,
-      declaredValue: parseFloat(declaredValue || 0),
+      serviceCode,
       paymentMethod: Number(paymentMethod) || 1,
+      declaredValue: parseFloat(declaredValue || 0),
+      issuanceType: 1, // 1 - Normal
+      insurance: {
+        type: 1 // 1 - Company (Seguro GOLLOG)
+      },
       sender: {
         document: senderDoc,
         name: senderName,
-        email: sender.email || '',
-        phone: (sender.phone || sender.phoneNumber || '').replace(/\D/g, ''),
-        stateInscription: sender.stateRegistration || sender.stateInscription || 'ISENTO',
+        payer: isSenderPayer,
+        taxPayer: true,
+        email: sender.email || 'contato@wodbrasil.com.br',
+        telephone: parsePhone(cleanSenderPhone, '11'),
         address: {
-          postalCode: (sender.address?.postalCode || sender.address?.zipCode || sender.zipCode || originPostalCode || '').replace(/\D/g, ''),
           street: sender.address?.street || sender.street || 'Rua Principal',
-          number: sender.address?.number || sender.number || 'S/N',
+          number: sender.address?.number || sender.number || '100',
           complement: sender.address?.complement || sender.complement || '',
           neighborhood: sender.address?.neighborhood || sender.neighborhood || 'Centro',
-          cityName: sender.address?.cityName || sender.city || 'São Paulo',
-          stateCode: sender.address?.state || sender.state || 'SP'
+          postalCode: (sender.address?.postalCode || sender.address?.zipCode || sender.zipCode || originPostalCode || '06288020').replace(/\D/g, ''),
+          city: sender.address?.cityName || sender.city || 'Osasco',
+          state: sender.address?.state || sender.state || 'SP',
+          country: 'BRA'
         }
       },
       receiver: {
         document: receiverDoc,
         name: receiverName,
-        email: receiver.email || '',
-        phone: (receiver.phone || receiver.phoneNumber || '').replace(/\D/g, ''),
-        stateInscription: receiver.stateRegistration || receiver.stateInscription || 'ISENTO',
+        payer: !isSenderPayer,
+        taxPayer: true,
+        email: receiver.email || 'destinatario@cliente.com.br',
+        telephone: parsePhone(cleanReceiverPhone, '61'),
         address: {
-          postalCode: (receiver.address?.postalCode || receiver.address?.zipCode || receiver.zipCode || destinationPostalCode || '').replace(/\D/g, ''),
           street: receiver.address?.street || receiver.street || 'Av. Principal',
-          number: receiver.address?.number || receiver.number || 'S/N',
+          number: receiver.address?.number || receiver.number || '200',
           complement: receiver.address?.complement || receiver.complement || '',
           neighborhood: receiver.address?.neighborhood || receiver.neighborhood || 'Centro',
-          cityName: receiver.address?.cityName || receiver.city || 'Brasília',
-          stateCode: receiver.address?.state || receiver.state || 'DF'
+          postalCode: (receiver.address?.postalCode || receiver.address?.zipCode || receiver.zipCode || destinationPostalCode || '70040010').replace(/\D/g, ''),
+          city: receiver.address?.cityName || receiver.city || 'Brasília',
+          state: receiver.address?.state || receiver.state || 'DF',
+          country: 'BRA'
         }
-      },
-      insurance: {
-        insuranceType: 1,
       },
       volumes: volumes.map(v => ({
         weight: parseFloat(v.weight || v.peso || 1),
@@ -454,7 +483,7 @@ export default async function handler(req, res) {
 
       if (response.ok) {
         const data = await response.json();
-        finalOrderNumber = data.documentNumber || data.minuteNumber || `MIN-${Math.floor(10000000000 + Math.random() * 90000000000)}`;
+        finalOrderNumber = data.reference || data.documentNumber || data.minuteNumber || `MIN-${Math.floor(10000000000 + Math.random() * 90000000000)}`;
         minuteDetails = data;
       } else {
         const errText = await response.text();

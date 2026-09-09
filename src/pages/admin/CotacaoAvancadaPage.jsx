@@ -710,6 +710,26 @@ export default function CotacaoAvancadaPage() {
       {/* CONTAINER CENTRAL RESPONSIVO */}
       <main style={{ maxWidth: '640px', margin: '0 auto', padding: '16px' }}>
 
+        {/* BANNER DE AMBIENTE DE HOMOLOGAÇÃO / TESTES */}
+        <div className="no-print" style={{
+          background: '#FFFBEB',
+          border: '1.5px solid #FCD34D',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          marginBottom: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '12px',
+          color: '#92400E',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+        }}>
+          <span style={{ fontSize: '20px', flexShrink: 0 }}>🧪</span>
+          <div style={{ flex: 1, lineHeight: '1.4' }}>
+            <strong style={{ color: '#78350F' }}>Ambiente de Homologação Nexlog Ativo:</strong> Você pode simular cotações e emitir minutas completas para testar todo o fluxo do sistema com segurança antes da ativação da chave de produção definitiva.
+          </div>
+        </div>
+
         {/* CARD INFORMATIVO DISCRETO (EXPANSÍVEL) */}
         <div className="no-print" style={{
           background: '#EFF6FF',
@@ -1917,6 +1937,11 @@ export default function CotacaoAvancadaPage() {
               {copied && (
                 <div style={{ fontSize: '11px', color: '#10B981', fontWeight: '700', marginTop: '4px' }}>
                   ✓ Código copiado com sucesso!
+                </div>
+              )}
+              {(minuteResult.details?.documentToken || minuteResult.minuteDetails?.documentToken) && (
+                <div style={{ fontSize: '11px', color: '#64748B', marginTop: '8px', background: '#FFFFFF', padding: '6px 10px', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'inline-block' }}>
+                  Token Oficial Nexlog: <span style={{ color: '#0284C7', fontWeight: '700', fontFamily: 'monospace' }}>{(minuteResult.details?.documentToken || minuteResult.minuteDetails?.documentToken).slice(0, 18)}...</span>
                 </div>
               )}
             </div>
