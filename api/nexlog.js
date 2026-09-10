@@ -12,18 +12,21 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método não permitido' });
 
   const action = req.query.action || req.body?.action || 'cotacao';
-  const originStation = req.body?.originPointCode || 'QOZ';
+  const authStation = process.env.NEXLOG_AUTH_STATION || 'QOZ';
+  const originStation = req.body?.originPointCode || authStation;
 
-  const headers = {
+  const getHeaders = (stationOverride) => ({
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Content-Type': 'application/json',
     'CompanyKey': process.env.GOLLOG_COMPANY_KEY || 'G3',
     'language': 'pt-BR',
     'Token': process.env.NEXLOG_TOKEN || 'acd1916a-3190-44ec-aed2-26c2c1836fe1',
     'UserId': process.env.NEXLOG_USER_ID || '21835',
-    'Station': originStation,
+    'Station': stationOverride || authStation,
     'Accept': 'application/json',
-  };
+  });
+
+  const headers = getHeaders(authStation);
 
   // ACTION 1: COTAÇÃO AVANÇADA
   if (action === 'cotacao') {
@@ -414,8 +417,13 @@ export default async function handler(req, res) {
       };
     };
 
+    const isQbx = originPointCode === 'QBX';
+    const isQvl = originPointCode === 'QVL';
+    const defaultSenderCity = isQbx ? 'Barueri' : isQvl ? 'Valinhos' : 'Osasco';
+    const defaultSenderCep = isQbx ? '06454000' : isQvl ? '13270000' : '06288020';
+
     const minutePayload = {
-      originPointCode: originPointCode || 'QOZ',
+      originPointCode: originPointCode || authStation,
       destinationPointCode: destinationPointCode || undefined,
       originPostalCode: originPostalCode ? originPostalCode.replace(/\D/g, '') : undefined,
       destinationPostalCode: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : undefined,
@@ -438,8 +446,8 @@ export default async function handler(req, res) {
           number: sender.address?.number || sender.number || '100',
           complement: sender.address?.complement || sender.complement || '',
           neighborhood: sender.address?.neighborhood || sender.neighborhood || 'Centro',
-          postalCode: (sender.address?.postalCode || sender.address?.zipCode || sender.zipCode || originPostalCode || '06288020').replace(/\D/g, ''),
-          city: sender.address?.cityName || sender.city || 'Osasco',
+          postalCode: (sender.address?.postalCode || sender.address?.zipCode || sender.zipCode || originPostalCode || defaultSenderCep).replace(/\D/g, ''),
+          city: sender.address?.cityName || sender.city || defaultSenderCity,
           state: sender.address?.state || sender.state || 'SP',
           country: 'BRA'
         }
@@ -472,23 +480,37 @@ export default async function handler(req, res) {
     };
 
     try {
-      const response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/minute`, {
+      // 1. Envia requisição autenticada pela authStation (estação autorizada da credencial)
+      let response = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/minute`, {
         method: 'POST',
-        headers,
+        headers: getHeaders(authStation),
         body: JSON.stringify(minutePayload)
       });
+
+      // 2. Fallback de autenticação se a API exigir a estação de origem
+      if (!response.ok && response.status === 401 && originPointCode && originPointCode !== authStation) {
+        console.warn(`Tentando emissão de minuta com header Station ${originPointCode}...`);
+        const retryResp = await fetch(`${NEXLOG_API_BASE}/api/sales/transportorder/minute`, {
+          method: 'POST',
+          headers: getHeaders(originPointCode),
+          body: JSON.stringify(minutePayload)
+        });
+        if (retryResp.ok) {
+          response = retryResp;
+        }
+      }
 
       let finalOrderNumber = '';
       let isSimulation = false;
       let minuteDetails = null;
 
-      if (response.ok) {
+      if (response && response.ok) {
         const data = await response.json();
         finalOrderNumber = data.reference || data.documentNumber || data.minuteNumber || `MIN-${Math.floor(10000000000 + Math.random() * 90000000000)}`;
         minuteDetails = data;
       } else {
-        const errText = await response.text();
-        console.warn('Nexlog Minute API return warning:', response.status, errText);
+        const errText = response ? await response.text() : 'Sem resposta';
+        console.warn('Nexlog Minute API return warning:', response?.status, errText);
         finalOrderNumber = `127${Math.floor(10000000 + Math.random() * 90000000)}`;
         isSimulation = true;
       }
@@ -581,9 +603,11 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         orderNumber: finalOrderNumber,
+        referenceNumber: minuteDetails?.reference || finalOrderNumber,
+        originBase: originPointCode || authStation,
         isSimulation,
         issueDate: new Date().toISOString(),
-        status: isSimulation ? 'MINUTA GERADA (HOMOLOGAÇÃO)' : 'EMITIDA / RESERVADA',
+        status: isSimulation ? 'MINUTA GERADA (HOMOLOGAÇÃO)' : 'PRÉ-EMISSÃO OFICIAL REGISTRADA',
         whatsappNotified: whatsappNotificado,
         summary: {
           serviceCode,

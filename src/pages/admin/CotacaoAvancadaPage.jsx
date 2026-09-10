@@ -562,23 +562,79 @@ export default function CotacaoAvancadaPage() {
     setVolumes(newVols);
   };
 
-  // Quick Test Fill
-  const handleQuickTest = () => {
+  // Quick Test Fill: QBX (Barueri / Alphaville)
+  const handleQuickTestQBX = () => {
     setCustomerDocument('47.944.243/0001-41');
     setToCollect(false);
-    setOriginPointCode('CGH');
-    setOriginCity('São Paulo (Congonhas)');
-    setOriginPostalCode('01001-000');
-    setDeliveryType('domicilio');
+    setOriginPointCode('QBX');
+    setOriginCity('Barueri / Alphaville');
+    setOriginPostalCode('06454-000');
+    setDeliveryType('aeroporto');
     setDestinationPointCode('BSB');
-    setDestinationPostalCode('70040-010');
+    setDestinationPostalCode('71608-900');
     setDestinationCity('Brasília / DF');
     setInsuranceType('GOL');
-    setCargoDescription('Eletrônicos e Acessórios');
-    setDeclaredValue('750.00');
-    setToDelivery(true);
+    setCargoDescription('Carga Teste QBX Barueri');
+    setDeclaredValue('500.00');
+    setToDelivery(false);
     applyPreset(PRESETS[1]); // Caixa P
+    setSender(prev => ({
+      ...prev,
+      name: 'WOD BRASIL LOGISTICA',
+      documentNumber: '47.944.243/0001-41',
+      phone: '(11) 98888-7777',
+      city: 'Barueri',
+      state: 'SP',
+      postalCode: '06454-000'
+    }));
+    setReceiver(prev => ({
+      ...prev,
+      name: 'CLIENTE TESTE RECEBEDOR',
+      documentNumber: '000.000.001-91',
+      phone: '(61) 99999-8888',
+      city: 'Brasília',
+      state: 'DF',
+      postalCode: '71608-900'
+    }));
   };
+
+  // Quick Test Fill: QOZ (Osasco)
+  const handleQuickTestQOZ = () => {
+    setCustomerDocument('47.944.243/0001-41');
+    setToCollect(false);
+    setOriginPointCode('QOZ');
+    setOriginCity('Osasco');
+    setOriginPostalCode('06288-020');
+    setDeliveryType('aeroporto');
+    setDestinationPointCode('BSB');
+    setDestinationPostalCode('71608-900');
+    setDestinationCity('Brasília / DF');
+    setInsuranceType('GOL');
+    setCargoDescription('Carga Teste QOZ Osasco');
+    setDeclaredValue('500.00');
+    setToDelivery(false);
+    applyPreset(PRESETS[1]); // Caixa P
+    setSender(prev => ({
+      ...prev,
+      name: 'WOD BRASIL LOGISTICA',
+      documentNumber: '47.944.243/0001-41',
+      phone: '(11) 98888-7777',
+      city: 'Osasco',
+      state: 'SP',
+      postalCode: '06288-020'
+    }));
+    setReceiver(prev => ({
+      ...prev,
+      name: 'CLIENTE TESTE RECEBEDOR',
+      documentNumber: '000.000.001-91',
+      phone: '(61) 99999-8888',
+      city: 'Brasília',
+      state: 'DF',
+      postalCode: '71608-900'
+    }));
+  };
+
+  const handleQuickTest = handleQuickTestQBX;
 
   // Submit Step 1 -> Calculate Quotes
   const handleCalculateQuotes = async (e) => {
@@ -883,10 +939,10 @@ export default function CotacaoAvancadaPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <button
             type="button"
-            onClick={handleQuickTest}
+            onClick={handleQuickTestQBX}
             style={{
               background: '#FFF7ED',
               border: '1px solid #FDBA74',
@@ -900,9 +956,30 @@ export default function CotacaoAvancadaPage() {
               gap: '4px',
               cursor: 'pointer'
             }}
-            title="Preenche dados de demonstração automaticamente"
+            title="Preenche simulação rápida na base QBX (Barueri / Alphaville)"
           >
-            <FiZap /> Teste Rápido
+            <FiZap /> Teste QBX (Barueri)
+          </button>
+
+          <button
+            type="button"
+            onClick={handleQuickTestQOZ}
+            style={{
+              background: '#F0FDF4',
+              border: '1px solid #86EFAC',
+              color: '#15803D',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer'
+            }}
+            title="Preenche simulação rápida na base QOZ (Osasco)"
+          >
+            <FiZap /> Teste QOZ (Osasco)
           </button>
         </div>
       </header>
@@ -959,7 +1036,7 @@ export default function CotacaoAvancadaPage() {
         }}>
           <span style={{ fontSize: '20px', flexShrink: 0 }}>🧪</span>
           <div style={{ flex: 1, lineHeight: '1.4' }}>
-            <strong style={{ color: '#78350F' }}>Ambiente de Homologação Nexlog Ativo:</strong> Você pode simular cotações e emitir minutas completas para testar todo o fluxo do sistema com segurança antes da ativação da chave de produção definitiva.
+            <strong style={{ color: '#78350F' }}>Ambiente GOLLOG / Nexlog:</strong> Cotações oficiais e emissão de número de referência / pré-emissão homologadas para as bases <strong>QBX (Barueri)</strong> e <strong>QOZ (Osasco)</strong>.
           </div>
         </div>
 
@@ -976,7 +1053,7 @@ export default function CotacaoAvancadaPage() {
             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', color: '#1E40AF' }}>
-              <FiInfo size={16} /> Como funciona a cotação oficial e minuta?
+              <FiInfo size={16} /> Objetivos, Instruções e Referência de Pré-Emissão GOLLOG
             </div>
             <span style={{ color: '#1E40AF', fontSize: '12px', fontWeight: '600' }}>
               {showInfo ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
@@ -986,13 +1063,19 @@ export default function CotacaoAvancadaPage() {
           {showInfo && (
             <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #DBEAFE', fontSize: '12px', color: '#1E3A8A', lineHeight: '1.5' }}>
               <p style={{ margin: '0 0 6px 0' }}>
-                🎯 <strong>Objetivo:</strong> Fornecer preços e prazos oficiais da malha aérea GOLLOG com aplicação de tarifas de contrato e emissão de Minuta Eletrônica de Carga (CTe/AWB).
+                🎯 <strong>Objetivo:</strong> Fornecer preços e prazos oficiais da malha aérea GOLLOG com tarifas de contrato e emissão do <strong>Número de Referência Oficial de Pré-Emissão</strong> e Minuta Eletrônica de Carga (CTe/AWB).
               </p>
               <p style={{ margin: '0 0 6px 0' }}>
-                📋 <strong>Apenas Cotação / Follow-up:</strong> Se o cliente quer apenas a proposta de preço, envie pelo WhatsApp ou copie o comparativo. Ele receberá um <strong>link exclusivo de retomada</strong> para abrir a cotação a qualquer momento e emitir a minuta sem precisar digitar tudo de novo!
+                📦 <strong>O que é a Referência de Pré-Emissão?</strong> É o número oficial gerado pela GOLLOG após a cotação/reserva da minuta. Ele é o identificador único para apresentar na base de origem (Barueri QBX ou Osasco QOZ), agilizando a pesagem, etiquetação e despacho no balcão sem redigitação.
+              </p>
+              <p style={{ margin: '0 0 6px 0' }}>
+                🏢 <strong>Bases Homologadas:</strong> O sistema gera a referência correta tanto para a origem <strong>QBX (Barueri / Alphaville)</strong> quanto para <strong>QOZ (Osasco)</strong>.
+              </p>
+              <p style={{ margin: '0 0 6px 0' }}>
+                📋 <strong>Apenas Cotação / Proposta Comercial:</strong> Se o cliente deseja apenas a proposta de frete, envie pelo WhatsApp ou copie o texto. O cliente recebe um link de retomada para abrir a cotação e emitir a minuta quando aprovar.
               </p>
               <p style={{ margin: 0 }}>
-                🧪 <strong>Teste Fácil:</strong> Clique no botão <em>"Teste Rápido"</em> no topo para carregar uma simulação completa de envio entre São Paulo e Brasília.
+                🧪 <strong>Teste Prático e Fácil:</strong> Use os botões <em>"Teste QBX (Barueri)"</em> ou <em>"Teste QOZ (Osasco)"</em> no topo da tela para carregar em 1 clique um cenário completo pronto para calcular e emitir.
               </p>
             </div>
           )}
@@ -2333,32 +2416,49 @@ export default function CotacaoAvancadaPage() {
               Sua encomenda foi registrada na base oficial GOLLOG.
             </p>
 
-            {/* Box AWB */}
+            {/* Box AWB / Referência */}
             <div style={{ background: '#F8FAFC', padding: '18px', borderRadius: '14px', border: '1.5px dashed #CBD5E1', marginBottom: '20px' }}>
               <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
-                Número da Minuta / AWB Oficial
+                Número de Referência / Pré-emissão Oficial GOLLOG
               </div>
               <div style={{ fontSize: '26px', fontWeight: '900', color: '#F37021', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                {minuteResult.orderNumber}
+                {minuteResult.referenceNumber || minuteResult.orderNumber}
                 <button
                   type="button"
-                  onClick={() => copyToClipboard(minuteResult.orderNumber)}
+                  onClick={() => copyToClipboard(minuteResult.referenceNumber || minuteResult.orderNumber)}
                   style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: '4px' }}
-                  title="Copiar código"
+                  title="Copiar código de referência"
                 >
                   <FiCopy size={18} />
                 </button>
               </div>
               {copied && (
                 <div style={{ fontSize: '11px', color: '#10B981', fontWeight: '700', marginTop: '4px' }}>
-                  ✓ Código copiado com sucesso!
+                  ✓ Código de referência copiado com sucesso!
                 </div>
               )}
+
+              {/* Informação da Base e Status Oficial */}
+              <div style={{ marginTop: '10px', display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12px', background: '#FEF3C7', color: '#92400E', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', border: '1px solid #FDE68A' }}>
+                  🏢 Base de Origem: {minuteResult.originBase === 'QBX' ? 'QBX (Barueri / Alphaville)' : minuteResult.originBase === 'QOZ' ? 'QOZ (Osasco)' : (minuteResult.originBase || 'GOLLOG')}
+                </span>
+                {!minuteResult.isSimulation && (
+                  <span style={{ fontSize: '12px', background: '#DCFCE7', color: '#166534', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', border: '1px solid #BBF7D0' }}>
+                    ✅ Pré-emissão Ativa na GOLLOG
+                  </span>
+                )}
+              </div>
+
               {(minuteResult.details?.documentToken || minuteResult.minuteDetails?.documentToken) && (
                 <div style={{ fontSize: '11px', color: '#64748B', marginTop: '8px', background: '#FFFFFF', padding: '6px 10px', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'inline-block' }}>
                   Token Oficial Nexlog: <span style={{ color: '#0284C7', fontWeight: '700', fontFamily: 'monospace' }}>{(minuteResult.details?.documentToken || minuteResult.minuteDetails?.documentToken).slice(0, 18)}...</span>
                 </div>
               )}
+
+              <p style={{ fontSize: '11px', color: '#64748B', marginTop: '10px', marginBottom: 0 }}>
+                💡 Apresente este número de referência na base de despacho para conferência, pesagem e emissão da etiqueta de embarque.
+              </p>
             </div>
 
             {minuteResult.whatsappNotified && (
