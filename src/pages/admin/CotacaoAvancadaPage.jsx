@@ -7,7 +7,7 @@ import {
   FiDollarSign, FiSearch, FiPackage, FiTruck, FiCheckCircle, FiAlertCircle,
   FiArrowRight, FiArrowLeft, FiEdit2, FiCopy, FiInfo, FiRefreshCw, FiPlus, FiTrash2, FiFileText,
   FiUser, FiMapPin, FiShield, FiZap, FiChevronDown, FiChevronUp, FiArrowDown,
-  FiDownload, FiPrinter, FiX
+  FiDownload, FiPrinter, FiX, FiSend, FiSave, FiShare2
 } from 'react-icons/fi';
 
 // Todas as bases operacionais GOLLOG
@@ -232,6 +232,12 @@ export default function CotacaoAvancadaPage() {
   const [selectedPreset, setSelectedPreset] = useState('pequena');
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  // Estados para Proposta Comercial e Cotação sem Minuta
+  const [savingQuote, setSavingQuote] = useState(false);
+  const [quoteSaveSuccess, setQuoteSaveSuccess] = useState(null);
+  const [quoteCopied, setQuoteCopied] = useState(false);
+  const [showQuotePrintModal, setShowQuotePrintModal] = useState(false);
 
   // Form Step 1: Cotação
   const [customerDocument, setCustomerDocument] = useState('');
@@ -560,11 +566,105 @@ export default function CotacaoAvancadaPage() {
     }
   };
 
-  // Select quote & proceed to step 3
+  // Select quote & proceed to step 3 (Emissão de Minuta)
   const handleSelectQuote = (quote) => {
     setSelectedQuote(quote);
     setStep(3);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Gera texto formatado para proposta comercial (todas as opções ou uma específica)
+  const generateCommercialProposalText = (specificQuote = null) => {
+    if (!quotationData || !quotationData.quotes) return '';
+
+    const totalWeight = volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0) * (parseInt(v.pieces) || 1), 0);
+    const totalPieces = volumes.reduce((acc, v) => acc + (parseInt(v.pieces) || 1), 0);
+
+    let text = `✈️ *COTAÇÃO DE FRETE AÉREO GOLLOG*\n\n`;
+    text += `📍 *Origem:* ${originCity || originPointCode || 'Origem'}\n`;
+    text += `🎯 *Destino:* ${destinationCity || destinationPointCode || 'Destino'}\n`;
+    text += `📦 *Carga:* ${totalPieces} volume(s) - ${totalWeight.toFixed(1)} kg\n`;
+    if (parseFloat(declaredValue || 0) > 0) {
+      text += `💰 *Valor Declarado:* R$ ${parseFloat(declaredValue).toFixed(2).replace('.', ',')}\n`;
+    }
+    text += `\n*OPÇÕES DISPONÍVEIS:*\n`;
+
+    const quotesToInclude = specificQuote ? [specificQuote] : quotationData.quotes;
+
+    quotesToInclude.forEach((q) => {
+      const icon = q.productName?.includes('CHEG') ? '📦' : q.productName?.includes('ECON') ? '🌱' : q.productName?.includes('RAP') ? '⚡' : '🔥';
+      text += `\n${icon} *GOLLOG ${q.productName}*\n`;
+      text += `   💵 *Valor:* R$ ${q.totalValue.toFixed(2).replace('.', ',')}\n`;
+      text += `   ⏱️ *Prazo:* a partir de ${q.timeToDelivery} dias úteis\n`;
+      if (q.tag) {
+        text += `   🏷️ *Modalidade:* ${q.tag}\n`;
+      }
+    });
+
+    text += `\n_ℹ️ Valores válidos para despacho imediato sujeitos à disponibilidade da malha aérea._\n`;
+    text += `Para emitir a minuta ou tirar dúvidas, fale conosco!`;
+    return text;
+  };
+
+  const handleCopyProposal = (specificQuote = null) => {
+    const text = generateCommercialProposalText(specificQuote);
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setQuoteCopied(true);
+    setTimeout(() => setQuoteCopied(false), 3000);
+  };
+
+  const handleSendWhatsAppProposal = (specificQuote = null) => {
+    const text = generateCommercialProposalText(specificQuote);
+    if (!text) return;
+    const cleanPhone = (sender.phone || urlPhone || '').replace(/\D/g, '');
+    const encoded = encodeURIComponent(text);
+    const url = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
+    window.open(url, '_blank');
+  };
+
+  const handleSaveQuoteOnly = async () => {
+    setSavingQuote(true);
+    setQuoteSaveSuccess(null);
+    try {
+      const totalWeight = volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0) * (parseInt(v.pieces) || 1), 0);
+      const bestQuote = quotationData?.quotes?.[0];
+      const protocolNumber = `COT-${Date.now().toString().slice(-6)}`;
+
+      const { error } = await supabase.from('cotacoes').insert([{
+        cliente_id: null,
+        cep_origem: originPostalCode ? originPostalCode.replace(/\D/g, '') : null,
+        cep_destino: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : null,
+        cidade_origem: originCity || originPointCode || 'Origem',
+        cidade_destino: destinationCity || destinationPointCode || 'Destino',
+        peso_kg: totalWeight,
+        valor_declarado: parseFloat(declaredValue || 0),
+        tipo_servico: bestQuote ? `GOLLOG ${bestQuote.productName}` : 'GOLLOG COTAÇÃO',
+        valor_cotado: bestQuote ? bestQuote.totalValue : 0,
+        status: 'cotada',
+        metadata: {
+          is_minuta: false,
+          protocolo: protocolNumber,
+          customerDocument: customerDocument ? customerDocument.replace(/\D/g, '') : null,
+          originPointCode,
+          destinationPointCode,
+          toCollect,
+          toDelivery,
+          volumes,
+          quotes: quotationData?.quotes || [],
+          data_cotacao: new Date().toISOString()
+        }
+      }]);
+
+      if (error) throw error;
+      setQuoteSaveSuccess(`Cotação salva com sucesso! (Protocolo: ${protocolNumber})`);
+      setTimeout(() => setQuoteSaveSuccess(null), 6000);
+    } catch (err) {
+      console.error('Erro ao salvar cotação:', err);
+      alert('Erro ao salvar cotação no sistema: ' + (err.message || 'Tente novamente.'));
+    } finally {
+      setSavingQuote(false);
+    }
   };
 
   // Submit Step 3 -> Generate Minute
@@ -1614,36 +1714,218 @@ export default function CotacaoAvancadaPage() {
                       </div>
                     </div>
 
-                    {/* Botão Escolher */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectQuote(q)}
-                      style={{
-                        width: '100%',
-                        padding: '14px',
-                        background: '#F37021',
-                        color: '#FFFFFF',
-                        border: 'none',
-                        borderRadius: '12px',
-                        fontSize: '14px',
-                        fontWeight: '800',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        boxShadow: '0 4px 12px rgba(243, 112, 33, 0.4)',
-                        transition: 'all 0.2s ease',
-                        marginTop: '8px'
-                      }}
-                    >
-                      Comprar Frete <FiArrowRight />
-                    </button>
+                    {/* Botões do Card: Emitir Minuta ou Copiar Proposta desta Opção */}
+                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectQuote(q)}
+                        style={{
+                          width: '100%',
+                          padding: '14px',
+                          background: '#F37021',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: '12px',
+                          fontSize: '14px',
+                          fontWeight: '800',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          boxShadow: '0 4px 12px rgba(243, 112, 33, 0.4)',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        Emitir Minuta (AWB) <FiArrowRight />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyProposal(q)}
+                        style={{
+                          width: '100%',
+                          padding: '9px 12px',
+                          background: 'rgba(255,255,255,0.06)',
+                          color: '#CBD5E1',
+                          border: '1px solid #475569',
+                          borderRadius: '10px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          transition: 'all 0.2s ease'
+                        }}
+                        title="Copiar texto formatado desta opção específica para enviar ao cliente"
+                      >
+                        <FiCopy size={13} /> Copiar Apenas Esta Opção
+                      </button>
+                    </div>
                   </div>
                 );
               })}
+            </div>
+
+            {/* ══════════════════════════════════════════════════════
+                PAINEL: COTAÇÃO / PROPOSTA COMERCIAL (SEM MINUTA)
+            ══════════════════════════════════════════════════════ */}
+            <div style={{
+              background: '#FFFFFF',
+              borderRadius: '16px',
+              border: '1.5px solid #E2E8F0',
+              padding: '20px',
+              marginBottom: '20px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <span style={{ fontSize: '20px' }}>📋</span>
+                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                  Apenas Cotação / Proposta Comercial (Sem emitir minuta agora)
+                </h3>
+              </div>
+              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', lineHeight: '1.4' }}>
+                Seu cliente quer apenas saber o preço ou você precisa enviar uma proposta para aprovação interna? Utilize as ações rápidas abaixo sem precisar preencher dados de remetente e destinatário:
+              </p>
+
+              {/* Feedback de Cópia ou Salvamento */}
+              {quoteSaveSuccess && (
+                <div style={{
+                  background: '#ECFDF5',
+                  border: '1px solid #A7F3D0',
+                  color: '#065F46',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  marginBottom: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <FiCheckCircle color="#10B981" size={16} /> {quoteSaveSuccess}
+                </div>
+              )}
+
+              {quoteCopied && (
+                <div style={{
+                  background: '#ECFDF5',
+                  border: '1px solid #A7F3D0',
+                  color: '#065F46',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  marginBottom: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <FiCheckCircle color="#10B981" size={16} /> ✓ Proposta copiada com sucesso para a área de transferência!
+                </div>
+              )}
+
+              {/* Grid de Ações Rápidas da Cotação */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleSendWhatsAppProposal()}
+                  style={{
+                    background: '#25D366',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(37, 211, 102, 0.25)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Abrir WhatsApp com proposta formatada com todas as opções"
+                >
+                  <FiSend size={15} /> WhatsApp
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCopyProposal()}
+                  style={{
+                    background: '#F8FAFC',
+                    color: '#1E293B',
+                    border: '1.5px solid #CBD5E1',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Copiar resumo com todas as opções para colar em e-mail ou chat"
+                >
+                  <FiCopy size={15} /> Copiar Todas
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveQuoteOnly}
+                  disabled={savingQuote}
+                  style={{
+                    background: '#F1F5F9',
+                    color: '#0F172A',
+                    border: '1.5px solid #CBD5E1',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Salvar cotação no sistema como 'cotada' sem emitir minuta"
+                >
+                  <FiSave size={15} /> {savingQuote ? 'Salvando...' : 'Salvar Cotação'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowQuotePrintModal(true)}
+                  style={{
+                    background: '#0284C7',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '10px',
+                    padding: '12px 14px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title="Visualizar ou imprimir espelho da proposta comercial"
+                >
+                  <FiPrinter size={15} /> Imprimir / PDF
+                </button>
+              </div>
             </div>
 
             {/* Barra de Voltar no Rodapé do Passo 2 */}
@@ -2304,12 +2586,193 @@ export default function CotacaoAvancadaPage() {
         </div>
       )}
 
+      {/* ══════════════════════════════════════════════════════
+          MODAL: ESPELHO DA PROPOSTA COMERCIAL / COTAÇÃO (A4)
+      ══════════════════════════════════════════════════════ */}
+      {showQuotePrintModal && quotationData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '780px',
+            maxHeight: '92vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Header da Janela Modal */}
+            <div className="no-print" style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 20px',
+              borderBottom: '1px solid #E2E8F0',
+              position: 'sticky',
+              top: 0,
+              background: '#FFFFFF',
+              zIndex: 10
+            }}>
+              <div style={{ fontWeight: '800', fontSize: '16px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <FiFileText color="#F37021" /> Proposta Comercial de Frete GOLLOG
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    background: '#F37021',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <FiPrinter /> Imprimir / Salvar PDF
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowQuotePrintModal(false)}
+                  style={{
+                    background: '#F1F5F9',
+                    border: 'none',
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#64748B'
+                  }}
+                >
+                  <FiX size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* FOLHA DA PROPOSTA COMERCIAL */}
+            <div id="cotacao-impressao" style={{ padding: '24px', fontFamily: 'Arial, sans-serif', color: '#111827', fontSize: '12px' }}>
+              
+              {/* TOPO DA PROPOSTA */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #F37021', paddingBottom: '12px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <img src="/logo.png" alt="GOLLOG" style={{ height: '36px' }} />
+                  <div>
+                    <h1 style={{ fontSize: '15px', fontWeight: 'bold', margin: 0, color: '#F37021', textTransform: 'uppercase' }}>
+                      GOLLOG Linhas Aéreas S.A.
+                    </h1>
+                    <div style={{ fontSize: '11px', color: '#4B5563' }}>
+                      Proposta Comercial de Transporte Aéreo de Cargas
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '10px', color: '#6B7280', textTransform: 'uppercase' }}>DATA DA COTAÇÃO</div>
+                  <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>
+                    {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#F37021', fontWeight: 'bold' }}>
+                    SIMULAÇÃO COMERCIAL
+                  </div>
+                </div>
+              </div>
+
+              {/* ROTA E DADOS DA CARGA */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>TRECHO DE TRANSPORTE</div>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#0F172A', marginTop: '2px' }}>
+                    {originCity || originPointCode} ➔ {destinationCity || destinationPointCode}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}>
+                    {toCollect ? '🚚 Coleta no endereço de origem' : '🏢 Entrega na base/aeroporto de origem'} | {toDelivery ? '🏠 Entrega no endereço de destino' : '✈️ Retirada na base/aeroporto de destino'}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>DADOS DA CARGA</div>
+                  <div style={{ fontSize: '12px', color: '#0F172A', marginTop: '2px' }}>
+                    <strong>Total:</strong> {volumes.reduce((a, v) => a + (parseInt(v.pieces) || 1), 0)} vol(s) | <strong>Peso:</strong> {volumes.reduce((a, v) => a + (parseFloat(v.weight) || 0) * (parseInt(v.pieces) || 1), 0).toFixed(1)} kg
+                  </div>
+                  {parseFloat(declaredValue || 0) > 0 && (
+                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                      <strong>Valor Declarado:</strong> R$ {parseFloat(declaredValue).toFixed(2).replace('.', ',')}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* TABELA COMPARATIVA DE MODALIDADES */}
+              <div style={{ border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden', marginBottom: '16px' }}>
+                <div style={{ background: '#F3F4F6', padding: '8px 12px', fontWeight: 'bold', fontSize: '11px', color: '#374151' }}>
+                  OPÇÕES DE FRETE DISPONÍVEIS
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #E5E7EB', background: '#FAFAFA' }}>
+                      <th style={{ padding: '8px 12px' }}>Modalidade</th>
+                      <th style={{ padding: '8px 12px' }}>Tipo de Entrega</th>
+                      <th style={{ padding: '8px 12px' }}>Prazo Estimado</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right' }}>Valor Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quotationData.quotes.map((q, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid #F3F4F6', background: idx === 0 ? '#FFFBEB' : '#FFFFFF' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 'bold' }}>
+                          GOLLOG {q.productName} {idx === 0 && <span style={{ color: '#D97706', fontSize: '10px' }}>(Recomendado)</span>}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>{q.tag || 'Padrão'}</td>
+                        <td style={{ padding: '8px 12px' }}>a partir de {q.timeToDelivery} dias úteis</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: '800', color: '#0F172A', fontSize: '13px' }}>
+                          R$ {q.totalValue.toFixed(2).replace('.', ',')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* NOTA DE VALIDADE */}
+              <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '10px 12px', fontSize: '10px', color: '#6B7280', lineHeight: '1.4' }}>
+                * Os valores e prazos acima são cotações estimativas fornecidas pela malha aérea GOLLOG com base nas dimensões e peso informados. Valores sujeitos a confirmação no momento da emissão da minuta e entrega da carga.
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* ESTILOS DE IMPRESSÃO CSS */}
       <style>{`
         @media print {
           body * { visibility: hidden; }
-          #minuta-impressao, #minuta-impressao * { visibility: visible; }
-          #minuta-impressao {
+          #minuta-impressao, #minuta-impressao *, #cotacao-impressao, #cotacao-impressao * { visibility: visible; }
+          #minuta-impressao, #cotacao-impressao {
             position: absolute;
             left: 0;
             top: 0;
