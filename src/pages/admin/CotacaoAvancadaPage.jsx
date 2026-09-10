@@ -946,7 +946,7 @@ export default function CotacaoAvancadaPage() {
 
     quotesToInclude.forEach((q, idx) => {
       const productName = q.productName || (q.serviceDescription || '').replace(/^GOLLOG\s*/i, '').replace(/^TARIFARIO\s*/i, '') || 'PADRÃO';
-      const icon = productName.includes('CHEG') ? '📦' : productName.includes('ECON') ? '🌱' : productName.includes('RAP') ? '⚡' : '🔥';
+      const icon = productName.includes('CHEG') ? '📦' : productName.includes('ECON') ? '🌱' : productName.includes('RAP') ? '⚡' : productName.includes('SAUD') ? '🏥' : '🔥';
       const isRec = idx === 0 || q.badge?.includes('RECOMENDADO');
 
       text += `\n${icon} *GOLLOG ${productName}* ${isRec ? '⭐ _(Recomendado)_' : ''}\n`;
@@ -2163,7 +2163,7 @@ export default function CotacaoAvancadaPage() {
               {quotationData.quotes.map((q, idx) => {
                 const isRecommended = idx === 0 || q.badge?.includes('RECOMENDADO');
                 const productName = q.productName || (q.serviceDescription || '').replace(/^GOLLOG\s*/i, '').replace(/^TARIFARIO\s*/i, '') || 'PADRÃO';
-                const icon = productName.includes('CHEG') ? '📦' : productName.includes('ECON') ? '💰' : productName.includes('RAP') ? '⚡' : '🔥';
+                const icon = productName.includes('CHEG') ? '📦' : productName.includes('ECON') ? '💰' : productName.includes('RAP') ? '⚡' : productName.includes('SAUD') ? '🏥' : '🔥';
 
                 return (
                   <div
