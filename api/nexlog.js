@@ -375,6 +375,7 @@ export default async function handler(req, res) {
       declaredValue = 0,
       paymentMethod = 1,
       paymentForm = 'Pix',
+      protocolo,
       volumes = [],
       sender = {},
       receiver = {}
@@ -500,7 +501,16 @@ export default async function handler(req, res) {
       }
 
       try {
-        const insertRes = await supabase.from('cotacoes').insert([{
+        let existingId = null;
+        if (protocolo) {
+          const { data: existingQuote } = await supabase.from('cotacoes')
+            .select('id')
+            .eq('metadata->>protocolo', protocolo)
+            .maybeSingle();
+          if (existingQuote) existingId = existingQuote.id;
+        }
+
+        const quotePayload = {
           cliente_id: clienteId,
           cep_origem: originPostalCode ? originPostalCode.replace(/\D/g, '') : null,
           cep_destino: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : null,
@@ -512,6 +522,7 @@ export default async function handler(req, res) {
           status: 'enviada',
           metadata: {
             is_minuta: true,
+            protocolo: protocolo || undefined,
             orderNumber: finalOrderNumber,
             quotationId,
             serviceCode,
@@ -526,10 +537,14 @@ export default async function handler(req, res) {
             isSimulation,
             emissao: new Date().toISOString()
           }
-        }]);
+        };
 
-        if (insertRes.error) {
-          console.error('Supabase Cotacoes Insert Error:', insertRes.error.message);
+        if (existingId) {
+          const { error: updateErr } = await supabase.from('cotacoes').update(quotePayload).eq('id', existingId);
+          if (updateErr) console.error('Supabase Cotacoes Update Error:', updateErr.message);
+        } else {
+          const { error: insertErr } = await supabase.from('cotacoes').insert([quotePayload]);
+          if (insertErr) console.error('Supabase Cotacoes Insert Error:', insertErr.message);
         }
       } catch (errDb) {
         console.error('Erro ao salvar minuta no Supabase:', errDb.message);

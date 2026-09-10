@@ -238,6 +238,8 @@ export default function CotacaoAvancadaPage() {
   const [quoteSaveSuccess, setQuoteSaveSuccess] = useState(null);
   const [quoteCopied, setQuoteCopied] = useState(false);
   const [showQuotePrintModal, setShowQuotePrintModal] = useState(false);
+  const [currentProtocol, setCurrentProtocol] = useState('');
+  const [resumedNotice, setResumedNotice] = useState(null);
 
   // Form Step 1: Cotação
   const [customerDocument, setCustomerDocument] = useState('');
@@ -366,6 +368,64 @@ export default function CotacaoAvancadaPage() {
                 serviceDescription: data.tipo_servico || prev.serviceDescription,
                 totalValue: parseFloat(data.valor_cotado) || prev.totalValue
               }));
+            }
+          }
+        });
+    }
+
+    const urlCotacao = searchParams.get('cotacao') || searchParams.get('cotacaoId') || searchParams.get('ref') || '';
+    const urlService = searchParams.get('servico') || searchParams.get('produto') || '';
+
+    if (urlCotacao && !urlDoc) {
+      setCurrentProtocol(urlCotacao);
+      supabase.from('cotacoes')
+        .select('*')
+        .or(`metadata->>protocolo.eq.${urlCotacao},id.eq.${urlCotacao}`)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            const m = data.metadata || {};
+            setResumedNotice(`Cotação retomada com sucesso (Protocolo: ${urlCotacao})! Você pode revisar os dados ou avançar diretamente para emissão da minuta.`);
+            if (m.customerDocument) setCustomerDocument(m.customerDocument);
+            if (m.originPointCode) setOriginPointCode(m.originPointCode);
+            if (m.destinationPointCode) setDestinationPointCode(m.destinationPointCode);
+            if (data.cidade_origem) setOriginCity(data.cidade_origem);
+            if (data.cidade_destino) setDestinationCity(data.cidade_destino);
+            if (data.cep_origem) {
+              setOriginPostalCode(formatCep(data.cep_origem));
+              setToCollect(Boolean(m.toCollect));
+            }
+            if (data.cep_destino) {
+              setDestinationPostalCode(formatCep(data.cep_destino));
+              setToDelivery(Boolean(m.toDelivery));
+              setDeliveryType(m.toDelivery ? 'domicilio' : 'aeroporto');
+            }
+            if (m.volumes && m.volumes.length > 0) setVolumes(m.volumes);
+            if (data.valor_declarado) setDeclaredValue(String(data.valor_declarado));
+
+            // Carrega cotações salvas
+            if (m.quotes && m.quotes.length > 0) {
+              setQuotationData({
+                quotes: m.quotes,
+                quotesCount: m.quotes.length,
+                originCity: data.cidade_origem,
+                destinationCity: data.cidade_destino
+              });
+
+              if (urlService) {
+                const matched = m.quotes.find(q => 
+                  q.productName?.toLowerCase() === urlService.toLowerCase() ||
+                  q.serviceCode?.toLowerCase() === urlService.toLowerCase()
+                );
+                if (matched) {
+                  setSelectedQuote(matched);
+                  setStep(3); // Vai direto para emissão da Minuta com a modalidade pré-escolhida
+                  return;
+                }
+              }
+
+              // Se não especificou serviço, abre no Passo 2 (Opções de Frete)
+              setStep(2);
             }
           }
         });
@@ -573,62 +633,13 @@ export default function CotacaoAvancadaPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Gera texto formatado para proposta comercial (todas as opções ou uma específica)
-  const generateCommercialProposalText = (specificQuote = null) => {
-    if (!quotationData || !quotationData.quotes) return '';
+  // Garante que a cotação esteja salva no Supabase para gerar o link de retomada
+  const ensureQuoteSaved = async (specificQuote = null) => {
+    if (currentProtocol) return currentProtocol;
 
-    const totalWeight = volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0) * (parseInt(v.pieces) || 1), 0);
-    const totalPieces = volumes.reduce((acc, v) => acc + (parseInt(v.pieces) || 1), 0);
-
-    let text = `✈️ *COTAÇÃO DE FRETE AÉREO GOLLOG*\n\n`;
-    text += `📍 *Origem:* ${originCity || originPointCode || 'Origem'}\n`;
-    text += `🎯 *Destino:* ${destinationCity || destinationPointCode || 'Destino'}\n`;
-    text += `📦 *Carga:* ${totalPieces} volume(s) - ${totalWeight.toFixed(1)} kg\n`;
-    if (parseFloat(declaredValue || 0) > 0) {
-      text += `💰 *Valor Declarado:* R$ ${parseFloat(declaredValue).toFixed(2).replace('.', ',')}\n`;
-    }
-    text += `\n*OPÇÕES DISPONÍVEIS:*\n`;
-
-    const quotesToInclude = specificQuote ? [specificQuote] : quotationData.quotes;
-
-    quotesToInclude.forEach((q) => {
-      const icon = q.productName?.includes('CHEG') ? '📦' : q.productName?.includes('ECON') ? '🌱' : q.productName?.includes('RAP') ? '⚡' : '🔥';
-      text += `\n${icon} *GOLLOG ${q.productName}*\n`;
-      text += `   💵 *Valor:* R$ ${q.totalValue.toFixed(2).replace('.', ',')}\n`;
-      text += `   ⏱️ *Prazo:* a partir de ${q.timeToDelivery} dias úteis\n`;
-      if (q.tag) {
-        text += `   🏷️ *Modalidade:* ${q.tag}\n`;
-      }
-    });
-
-    text += `\n_ℹ️ Valores válidos para despacho imediato sujeitos à disponibilidade da malha aérea._\n`;
-    text += `Para emitir a minuta ou tirar dúvidas, fale conosco!`;
-    return text;
-  };
-
-  const handleCopyProposal = (specificQuote = null) => {
-    const text = generateCommercialProposalText(specificQuote);
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setQuoteCopied(true);
-    setTimeout(() => setQuoteCopied(false), 3000);
-  };
-
-  const handleSendWhatsAppProposal = (specificQuote = null) => {
-    const text = generateCommercialProposalText(specificQuote);
-    if (!text) return;
-    const cleanPhone = (sender.phone || urlPhone || '').replace(/\D/g, '');
-    const encoded = encodeURIComponent(text);
-    const url = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
-    window.open(url, '_blank');
-  };
-
-  const handleSaveQuoteOnly = async () => {
-    setSavingQuote(true);
-    setQuoteSaveSuccess(null);
     try {
       const totalWeight = volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0) * (parseInt(v.pieces) || 1), 0);
-      const bestQuote = quotationData?.quotes?.[0];
+      const bestQuote = specificQuote || quotationData?.quotes?.[0];
       const protocolNumber = `COT-${Date.now().toString().slice(-6)}`;
 
       const { error } = await supabase.from('cotacoes').insert([{
@@ -656,9 +667,97 @@ export default function CotacaoAvancadaPage() {
         }
       }]);
 
-      if (error) throw error;
-      setQuoteSaveSuccess(`Cotação salva com sucesso! (Protocolo: ${protocolNumber})`);
-      setTimeout(() => setQuoteSaveSuccess(null), 6000);
+      if (!error) {
+        setCurrentProtocol(protocolNumber);
+        return protocolNumber;
+      }
+    } catch (err) {
+      console.warn('Erro ao auto-salvar cotação para link:', err);
+    }
+    return null;
+  };
+
+  // Gera texto formatado para proposta comercial com LINK DE RETOMADA DA MINUTA
+  const generateCommercialProposalText = (specificQuote = null, protocol = null) => {
+    if (!quotationData || !quotationData.quotes) return '';
+
+    const totalWeight = volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0) * (parseInt(v.pieces) || 1), 0);
+    const totalPieces = volumes.reduce((acc, v) => acc + (parseInt(v.pieces) || 1), 0);
+
+    let text = `✈️ *COTAÇÃO DE FRETE AÉREO GOLLOG*\n\n`;
+    text += `📍 *Origem:* ${originCity || originPointCode || 'Origem'}\n`;
+    text += `🎯 *Destino:* ${destinationCity || destinationPointCode || 'Destino'}\n`;
+    text += `📦 *Carga:* ${totalPieces} volume(s) - ${totalWeight.toFixed(1)} kg\n`;
+    if (parseFloat(declaredValue || 0) > 0) {
+      text += `💰 *Valor Declarado:* R$ ${parseFloat(declaredValue).toFixed(2).replace('.', ',')}\n`;
+    }
+    text += `\n*OPÇÕES DISPONÍVEIS:*\n`;
+
+    const quotesToInclude = specificQuote ? [specificQuote] : quotationData.quotes;
+
+    quotesToInclude.forEach((q) => {
+      const icon = q.productName?.includes('CHEG') ? '📦' : q.productName?.includes('ECON') ? '🌱' : q.productName?.includes('RAP') ? '⚡' : '🔥';
+      text += `\n${icon} *GOLLOG ${q.productName}*\n`;
+      text += `   💵 *Valor:* R$ ${q.totalValue.toFixed(2).replace('.', ',')}\n`;
+      text += `   ⏱️ *Prazo:* a partir de ${q.timeToDelivery} dias úteis\n`;
+      if (q.tag) {
+        text += `   🏷️ *Modalidade:* ${q.tag}\n`;
+      }
+    });
+
+    text += `\n_ℹ️ Valores válidos para despacho imediato sujeitos à disponibilidade da malha aérea._\n`;
+
+    // INSERÇÃO DO LINK DE RETOMADA PARA EMISSÃO DA MINUTA
+    const effectiveProtocol = protocol || currentProtocol;
+    if (effectiveProtocol) {
+      const originBase = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://www.golcargo.com.br';
+      const resumeUrl = specificQuote
+        ? `${originBase}/cotacao-avancada?cotacao=${effectiveProtocol}&servico=${encodeURIComponent(specificQuote.productName)}`
+        : `${originBase}/cotacao-avancada?cotacao=${effectiveProtocol}`;
+
+      text += `\n🚀 *Deseja formalizar o envio e emitir sua minuta oficial?*\n`;
+      text += `🔗 Clique no link abaixo para acessar ou emitir sua minuta a qualquer momento:\n${resumeUrl}\n`;
+    } else {
+      text += `\nPara emitir a minuta ou tirar dúvidas, fale conosco!`;
+    }
+
+    return text;
+  };
+
+  const handleCopyProposal = async (specificQuote = null) => {
+    let proto = currentProtocol;
+    if (!proto) {
+      proto = await ensureQuoteSaved(specificQuote);
+    }
+    const text = generateCommercialProposalText(specificQuote, proto);
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setQuoteCopied(true);
+    setTimeout(() => setQuoteCopied(false), 3000);
+  };
+
+  const handleSendWhatsAppProposal = async (specificQuote = null) => {
+    let proto = currentProtocol;
+    if (!proto) {
+      proto = await ensureQuoteSaved(specificQuote);
+    }
+    const text = generateCommercialProposalText(specificQuote, proto);
+    if (!text) return;
+    const cleanPhone = (sender.phone || urlPhone || '').replace(/\D/g, '');
+    const encoded = encodeURIComponent(text);
+    const url = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
+    window.open(url, '_blank');
+  };
+
+  const handleSaveQuoteOnly = async () => {
+    setSavingQuote(true);
+    setQuoteSaveSuccess(null);
+    try {
+      const proto = await ensureQuoteSaved();
+      if (proto) {
+        setQuoteSaveSuccess(`Cotação salva com sucesso! (Protocolo: ${proto})`);
+        setTimeout(() => setQuoteSaveSuccess(null), 6000);
+      }
     } catch (err) {
       console.error('Erro ao salvar cotação:', err);
       alert('Erro ao salvar cotação no sistema: ' + (err.message || 'Tente novamente.'));
@@ -691,7 +790,8 @@ export default function CotacaoAvancadaPage() {
           sender,
           receiver,
           paymentMethod: Number(paymentMethod) || 1,
-          paymentForm
+          paymentForm,
+          protocolo: currentProtocol || undefined
         })
       });
 
@@ -810,6 +910,39 @@ export default function CotacaoAvancadaPage() {
       {/* CONTAINER CENTRAL RESPONSIVO */}
       <main style={{ maxWidth: '640px', margin: '0 auto', padding: '16px' }}>
 
+        {/* BANNER DE COTAÇÃO RETOMADA (VIA LINK EXCLUSIVO) */}
+        {resumedNotice && (
+          <div className="no-print" style={{
+            background: '#ECFDF5',
+            border: '1.5px solid #6EE7B7',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+            fontSize: '13px',
+            color: '#065F46',
+            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.1)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '20px' }}>🔄</span>
+              <div>
+                <strong>Cotação Retomada:</strong> {resumedNotice}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setResumedNotice(null)}
+              style={{ background: 'none', border: 'none', color: '#059669', cursor: 'pointer', padding: '4px' }}
+              title="Fechar aviso"
+            >
+              <FiX size={18} />
+            </button>
+          </div>
+        )}
+
         {/* BANNER DE AMBIENTE DE HOMOLOGAÇÃO / TESTES */}
         <div className="no-print" style={{
           background: '#FFFBEB',
@@ -853,10 +986,10 @@ export default function CotacaoAvancadaPage() {
           {showInfo && (
             <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #DBEAFE', fontSize: '12px', color: '#1E3A8A', lineHeight: '1.5' }}>
               <p style={{ margin: '0 0 6px 0' }}>
-                🎯 <strong>Objetivo:</strong> Fornecer preços e prazos oficiais da malha aérea GOLLOG com aplicação de tarifas negociadas de contrato por CNPJ/CPF e emissão de Minuta Eletrônica de Carga (CTe/AWB) com download em PDF.
+                🎯 <strong>Objetivo:</strong> Fornecer preços e prazos oficiais da malha aérea GOLLOG com aplicação de tarifas de contrato e emissão de Minuta Eletrônica de Carga (CTe/AWB).
               </p>
               <p style={{ margin: '0 0 6px 0' }}>
-                📋 <strong>Instruções:</strong> Digite seu documento (se tiver contrato), informe CEPs e peso. Escolha a melhor opção de frete, preencha os dados e gere o PDF da sua Minuta na hora.
+                📋 <strong>Apenas Cotação / Follow-up:</strong> Se o cliente quer apenas a proposta de preço, envie pelo WhatsApp ou copie o comparativo. Ele receberá um <strong>link exclusivo de retomada</strong> para abrir a cotação a qualquer momento e emitir a minuta sem precisar digitar tudo de novo!
               </p>
               <p style={{ margin: 0 }}>
                 🧪 <strong>Teste Fácil:</strong> Clique no botão <em>"Teste Rápido"</em> no topo para carregar uma simulação completa de envio entre São Paulo e Brasília.
