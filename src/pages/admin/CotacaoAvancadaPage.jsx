@@ -223,8 +223,10 @@ function formatCurrencyBRL(value) {
 
 export default function CotacaoAvancadaPage() {
   const [searchParams] = useSearchParams();
-  const urlPhone = searchParams.get('phone') || '';
-  const urlName = searchParams.get('name') || '';
+  const urlPhone = searchParams.get('phone') || searchParams.get('telefone') || '';
+  const urlName = searchParams.get('name') || searchParams.get('nome') || '';
+  const urlCotacao = searchParams.get('cotacao') || searchParams.get('cotacaoId') || searchParams.get('ref') || searchParams.get('protocolo') || '';
+  const isClientView = Boolean(urlCotacao);
 
   // Step state: 1 = Cotação, 2 = Seleção de Serviços, 3 = Minuta & Pedido, 4 = Sucesso
   const [step, setStep] = useState(1);
@@ -242,6 +244,7 @@ export default function CotacaoAvancadaPage() {
   const [whatsAppRecipient, setWhatsAppRecipient] = useState('');
   const [quoteForWhatsApp, setQuoteForWhatsApp] = useState(null);
   const [whatsAppSuccessNotice, setWhatsAppSuccessNotice] = useState(null);
+  const [sendingBotConversa, setSendingBotConversa] = useState(false);
   const [currentProtocol, setCurrentProtocol] = useState('');
   const [resumedNotice, setResumedNotice] = useState(null);
 
@@ -883,19 +886,55 @@ export default function CotacaoAvancadaPage() {
   };
 
   const handleConfirmSendWhatsApp = async () => {
-    let proto = currentProtocol;
-    if (!proto) {
-      proto = await ensureQuoteSaved(quoteForWhatsApp);
+    const rawPhone = whatsAppRecipient || sender.phone || urlPhone || '';
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length < 10) {
+      alert('Por favor, informe um número de WhatsApp válido com DDD (ex: 11988887777).');
+      return;
     }
-    const text = generateCommercialProposalText(quoteForWhatsApp, proto);
-    if (!text) return;
-    const cleanPhone = (whatsAppRecipient || sender.phone || urlPhone || '').replace(/\D/g, '');
-    const encoded = encodeURIComponent(text);
-    const url = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
-    window.open(url, '_blank');
-    setShowWhatsAppModal(false);
-    setWhatsAppSuccessNotice('WhatsApp aberto com os dados completos e link da minuta!');
-    setTimeout(() => setWhatsAppSuccessNotice(null), 6000);
+
+    setSendingBotConversa(true);
+    try {
+      let proto = currentProtocol;
+      if (!proto) {
+        proto = await ensureQuoteSaved(quoteForWhatsApp);
+      }
+      const text = generateCommercialProposalText(quoteForWhatsApp, proto);
+      if (!text) throw new Error('Não foi possível gerar a proposta comercial.');
+
+      // Disparo automático no WhatsApp via BotConversa
+      const res = await fetch('/api/notify/mensagem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: cleanPhone,
+          mensagem: text,
+          nome: sender.name || urlName || 'Cliente'
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || (data.success === false && data.erros?.length)) {
+        throw new Error(data.erros?.[0] || data.error || 'Falha ao despachar mensagem pelo BotConversa');
+      }
+
+      setShowWhatsAppModal(false);
+      setWhatsAppSuccessNotice(`✅ Cotações enviadas automaticamente para o WhatsApp (${cleanPhone}) via BotConversa!`);
+      setTimeout(() => setWhatsAppSuccessNotice(null), 8000);
+    } catch (err) {
+      console.error('Erro ao enviar pelo BotConversa:', err);
+      const shouldFallback = confirm('Não foi possível enviar automaticamente pelo BotConversa (' + (err.message || 'Erro de conexão') + '). Deseja abrir no seu WhatsApp Web agora?');
+      if (shouldFallback) {
+        let proto = currentProtocol;
+        const text = generateCommercialProposalText(quoteForWhatsApp, proto);
+        const encoded = encodeURIComponent(text);
+        const url = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
+        window.open(url, '_blank');
+        setShowWhatsAppModal(false);
+      }
+    } finally {
+      setSendingBotConversa(false);
+    }
   };
 
   const handleSendWhatsAppProposal = async (specificQuote = null) => {
@@ -1037,70 +1076,72 @@ export default function CotacaoAvancadaPage() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={handleQuickTestQBX}
-            style={{
-              background: '#FFF7ED',
-              border: '1px solid #FDBA74',
-              color: '#C2410C',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: '700',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'pointer'
-            }}
-            title="Preenche simulação rápida na base QBX (Barueri / Alphaville)"
-          >
-            <FiZap /> Teste QBX (Barueri)
-          </button>
+        {!isClientView && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleQuickTestQBX}
+              style={{
+                background: '#FFF7ED',
+                border: '1px solid #FDBA74',
+                color: '#C2410C',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer'
+              }}
+              title="Preenche simulação rápida na base QBX (Barueri / Alphaville)"
+            >
+              <FiZap /> Teste QBX (Barueri)
+            </button>
 
-          <button
-            type="button"
-            onClick={handleQuickTestQOZ}
-            style={{
-              background: '#F0FDF4',
-              border: '1px solid #86EFAC',
-              color: '#15803D',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: '700',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'pointer'
-            }}
-            title="Preenche simulação rápida na base QOZ (Osasco)"
-          >
-            <FiZap /> Teste QOZ (Osasco)
-          </button>
+            <button
+              type="button"
+              onClick={handleQuickTestQOZ}
+              style={{
+                background: '#F0FDF4',
+                border: '1px solid #86EFAC',
+                color: '#15803D',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer'
+              }}
+              title="Preenche simulação rápida na base QOZ (Osasco)"
+            >
+              <FiZap /> Teste QOZ (Osasco)
+            </button>
 
-          <button
-            type="button"
-            onClick={handleQuickTestColeta}
-            style={{
-              background: '#FEF3C7',
-              border: '1px solid #FCD34D',
-              color: '#92400E',
-              padding: '6px 12px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: '700',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              cursor: 'pointer'
-            }}
-            title="Preenche simulação rápida com coleta no endereço do remetente"
-          >
-            <FiZap /> Teste Com Coleta
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={handleQuickTestColeta}
+              style={{
+                background: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                color: '#92400E',
+                padding: '6px 12px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer'
+              }}
+              title="Preenche simulação rápida com coleta no endereço do remetente"
+            >
+              <FiZap /> Teste Com Coleta
+            </button>
+          </div>
+        )}
       </header>
 
       {/* CONTAINER CENTRAL RESPONSIVO */}
@@ -1139,69 +1180,74 @@ export default function CotacaoAvancadaPage() {
           </div>
         )}
 
-        {/* BANNER DE AMBIENTE DE HOMOLOGAÇÃO / TESTES */}
-        <div className="no-print" style={{
-          background: '#FFFBEB',
-          border: '1.5px solid #FCD34D',
-          borderRadius: '12px',
-          padding: '12px 16px',
-          marginBottom: '14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          fontSize: '12px',
-          color: '#92400E',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
-        }}>
-          <span style={{ fontSize: '20px', flexShrink: 0 }}>🧪</span>
-          <div style={{ flex: 1, lineHeight: '1.4' }}>
-            <strong style={{ color: '#78350F' }}>Ambiente GOLLOG / Nexlog:</strong> Cotações oficiais e emissão de número de referência / pré-emissão homologadas para as bases <strong>QBX (Barueri)</strong> e <strong>QOZ (Osasco)</strong>.
-          </div>
-        </div>
-
-        {/* CARD INFORMATIVO DISCRETO (EXPANSÍVEL) */}
-        <div className="no-print" style={{
-          background: '#EFF6FF',
-          border: '1px solid #BFDBFE',
-          borderRadius: '12px',
-          padding: '12px 16px',
-          marginBottom: '16px'
-        }}>
-          <div
-            onClick={() => setShowInfo(!showInfo)}
-            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', color: '#1E40AF' }}>
-              <FiInfo size={16} /> Objetivos, Instruções e Referência de Pré-Emissão GOLLOG
+        {/* INFORMAÇÕES TÉCNICAS E AMBIENTE: VISÍVEL SOMENTE PARA OPERADORES / ADMIN (NUNCA PARA O CLIENTE) */}
+        {!isClientView && (
+          <>
+            {/* BANNER DE AMBIENTE DE HOMOLOGAÇÃO / TESTES */}
+            <div className="no-print" style={{
+              background: '#FFFBEB',
+              border: '1.5px solid #FCD34D',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontSize: '12px',
+              color: '#92400E',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+            }}>
+              <span style={{ fontSize: '20px', flexShrink: 0 }}>🧪</span>
+              <div style={{ flex: 1, lineHeight: '1.4' }}>
+                <strong style={{ color: '#78350F' }}>Ambiente GOLLOG / Nexlog:</strong> Cotações oficiais e emissão de número de referência / pré-emissão homologadas para as bases <strong>QBX (Barueri)</strong> e <strong>QOZ (Osasco)</strong>.
+              </div>
             </div>
-            <span style={{ color: '#1E40AF', fontSize: '12px', fontWeight: '600' }}>
-              {showInfo ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
-            </span>
-          </div>
 
-          {showInfo && (
-            <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #DBEAFE', fontSize: '12px', color: '#1E3A8A', lineHeight: '1.5' }}>
-              <p style={{ margin: '0 0 6px 0' }}>
-                🎯 <strong>Objetivo:</strong> Fornecer preços e prazos oficiais da malha aérea GOLLOG com tarifas de contrato e emissão do <strong>Número de Referência Oficial de Pré-Emissão</strong> e Minuta Eletrônica de Carga (CTe/AWB).
-              </p>
-              <p style={{ margin: '0 0 6px 0' }}>
-                📦 <strong>O que é a Referência de Pré-Emissão?</strong> É o número oficial gerado pela GOLLOG após a cotação/reserva da minuta. Ele é o identificador único para apresentar na base de origem (Barueri QBX ou Osasco QOZ), agilizando a pesagem, etiquetação e despacho no balcão sem redigitação.
-              </p>
-              <p style={{ margin: '0 0 6px 0' }}>
-                🏢 <strong>Bases Homologadas:</strong> O sistema gera a referência correta tanto para a origem <strong>QBX (Barueri / Alphaville)</strong> quanto para <strong>QOZ (Osasco)</strong>.
-              </p>
-              <p style={{ margin: '0 0 6px 0' }}>
-                🚚 <strong>Envio Com Coleta:</strong> Ao optar por "Com Coleta", a taxa é calculada na cotação e a ordem de coleta fica vinculada diretamente à Referência Oficial gerada. O motorista da GOLLOG utiliza este número para realizar a busca no endereço do Remetente.
-              </p>
-              <p style={{ margin: '0 0 6px 0' }}>
-                📋 <strong>Apenas Cotação / Proposta Comercial:</strong> Se o cliente deseja apenas a proposta de frete, envie pelo WhatsApp ou copie o texto. O cliente recebe um link de retomada para abrir a cotação e emitir a minuta quando aprovar.
-              </p>
-              <p style={{ margin: 0 }}>
-                🧪 <strong>Teste Prático e Fácil:</strong> Use os botões <em>"Teste QBX"</em>, <em>"Teste QOZ"</em> ou <em>"Teste Com Coleta"</em> no topo da tela para carregar em 1 clique um cenário completo pronto para simular ou emitir.
-              </p>
+            {/* CARD INFORMATIVO DISCRETO (EXPANSÍVEL) */}
+            <div className="no-print" style={{
+              background: '#EFF6FF',
+              border: '1px solid #BFDBFE',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              marginBottom: '16px'
+            }}>
+              <div
+                onClick={() => setShowInfo(!showInfo)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: '700', color: '#1E40AF' }}>
+                  <FiInfo size={16} /> Objetivos, Instruções e Referência de Pré-Emissão GOLLOG
+                </div>
+                <span style={{ color: '#1E40AF', fontSize: '12px', fontWeight: '600' }}>
+                  {showInfo ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
+                </span>
+              </div>
+
+              {showInfo && (
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #DBEAFE', fontSize: '12px', color: '#1E3A8A', lineHeight: '1.5' }}>
+                  <p style={{ margin: '0 0 6px 0' }}>
+                    🎯 <strong>Objetivo:</strong> Fornecer preços e prazos oficiais da malha aérea GOLLOG com tarifas de contrato e emissão do <strong>Número de Referência Oficial de Pré-Emissão</strong> e Minuta Eletrônica de Carga (CTe/AWB).
+                  </p>
+                  <p style={{ margin: '0 0 6px 0' }}>
+                    📦 <strong>O que é a Referência de Pré-Emissão?</strong> É o número oficial gerado pela GOLLOG após a cotação/reserva da minuta. Ele é o identificador único para apresentar na base de origem (Barueri QBX ou Osasco QOZ), agilizando a pesagem, etiquetação e despacho no balcão sem redigitação.
+                  </p>
+                  <p style={{ margin: '0 0 6px 0' }}>
+                    🏢 <strong>Bases Homologadas:</strong> O sistema gera a referência correta tanto para a origem <strong>QBX (Barueri / Alphaville)</strong> quanto para <strong>QOZ (Osasco)</strong>.
+                  </p>
+                  <p style={{ margin: '0 0 6px 0' }}>
+                    🚚 <strong>Envio Com Coleta:</strong> Ao optar por "Com Coleta", a taxa é calculada na cotação e a ordem de coleta fica vinculada diretamente à Referência Oficial gerada. O motorista da GOLLOG utiliza este número para realizar a busca no endereço do Remetente.
+                  </p>
+                  <p style={{ margin: '0 0 6px 0' }}>
+                    📋 <strong>Apenas Cotação / Proposta Comercial:</strong> Se o cliente deseja apenas a proposta de frete, envie pelo WhatsApp. O cliente recebe um link de retomada para abrir a cotação e emitir a minuta quando aprovar.
+                  </p>
+                  <p style={{ margin: 0 }}>
+                    🧪 <strong>Teste Prático e Fácil:</strong> Use os botões <em>"Teste QBX"</em>, <em>"Teste QOZ"</em> ou <em>"Teste Com Coleta"</em> no topo da tela para carregar em 1 clique um cenário completo pronto para simular ou emitir.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
 
         {/* STEPPER PROGRESS BAR */}
         <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -1953,34 +1999,6 @@ export default function CotacaoAvancadaPage() {
               </div>
             </div>
 
-            {/* ══════════════════════════════════════════════════════
-                CAMPO DE OBJETIVOS, INSTRUÇÕES E INFORMAÇÕES
-            ══════════════════════════════════════════════════════ */}
-            <div style={{
-              background: '#F8FAFC',
-              border: '1.5px solid #E2E8F0',
-              borderRadius: '14px',
-              padding: '16px 20px',
-              marginBottom: '20px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', color: '#0F172A', fontSize: '13px' }}>
-                <FiInfo size={16} color="#F37021" />
-                <span>Escolha de Serviço, Emissão de Minuta e Envio Comercial via WhatsApp</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginTop: '8px', fontSize: '12px', color: '#475569', lineHeight: '1.4' }}>
-                <div>
-                  <strong style={{ color: '#0F172A' }}>🎯 Objetivo:</strong> Comparar os serviços oficiais GOLLOG calculados pela malha aérea e escolher entre emitir a minuta de despacho ou enviar proposta com link direto para o cliente.
-                </div>
-                <div>
-                  <strong style={{ color: '#0F172A' }}>📖 Instruções:</strong> Clique em <em>"Emitir Minuta"</em> para preencher remetente/destinatário e despachar agora, ou utilize <em>"Enviar cotações no meu WhatsApp"</em> para enviar a proposta com dados completos ao cliente.
-                </div>
-                <div>
-                  <strong style={{ color: '#0F172A' }}>🔗 Link de Retomada Direta:</strong> Ao enviar pelo WhatsApp, é gerado um link exclusivo. Quando o cliente clica nele, a cotação é aberta automaticamente pronta para emissão imediata da minuta.
-                </div>
-              </div>
-            </div>
-
             {quotationData.notice && (
               <div style={{ background: '#FEFCE8', border: '1px solid #FEF08A', color: '#854D0E', padding: '10px 14px', borderRadius: '10px', fontSize: '12px', marginBottom: '16px' }}>
                 ℹ️ {quotationData.notice}
@@ -2095,8 +2113,8 @@ export default function CotacaoAvancadaPage() {
                       </div>
                     </div>
 
-                    {/* Lado Direito: Preço e Ações */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end', minWidth: '260px', flex: '1 1 260px' }}>
+                    {/* Lado Direito: Preço e Botão Único de Emissão */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', justifyContent: 'flex-end', minWidth: '220px', flex: '1 1 220px' }}>
                       <div style={{ textAlign: 'right', paddingRight: '6px' }}>
                         <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                           Valor Total
@@ -2106,76 +2124,29 @@ export default function CotacaoAvancadaPage() {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleSelectQuote(q)}
-                          style={{
-                            background: '#F37021',
-                            color: '#FFFFFF',
-                            border: 'none',
-                            borderRadius: '10px',
-                            padding: '11px 18px',
-                            fontSize: '13px',
-                            fontWeight: '800',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: '0 3px 8px rgba(243, 112, 33, 0.3)',
-                            whiteSpace: 'nowrap',
-                            transition: 'all 0.2s ease'
-                          }}
-                          title="Prosseguir para emissão da minuta oficial deste serviço"
-                        >
-                          Emitir Minuta <FiArrowRight size={15} />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenWhatsAppModal(q)}
-                          style={{
-                            background: '#ECFDF5',
-                            color: '#059669',
-                            border: '1.5px solid #A7F3D0',
-                            borderRadius: '10px',
-                            padding: '11px 12px',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            whiteSpace: 'nowrap',
-                            transition: 'all 0.2s ease'
-                          }}
-                          title="Enviar proposta desta opção específica no WhatsApp"
-                        >
-                          <FiSend size={13} /> Whats
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleCopyProposal(q)}
-                          style={{
-                            background: '#F8FAFC',
-                            color: '#475569',
-                            border: '1.5px solid #E2E8F0',
-                            borderRadius: '10px',
-                            padding: '11px 12px',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s ease'
-                          }}
-                          title="Copiar texto desta opção para colar onde quiser"
-                        >
-                          <FiCopy size={14} />
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectQuote(q)}
+                        style={{
+                          background: '#F37021',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: '10px',
+                          padding: '12px 20px',
+                          fontSize: '13px',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 3px 8px rgba(243, 112, 33, 0.3)',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.2s ease'
+                        }}
+                        title="Prosseguir para emissão da minuta oficial deste serviço"
+                      >
+                        Emitir Minuta <FiArrowRight size={15} />
+                      </button>
                     </div>
                   </div>
                 );
@@ -2183,180 +2154,77 @@ export default function CotacaoAvancadaPage() {
             </div>
 
             {/* ══════════════════════════════════════════════════════
-                PAINEL: COTAÇÃO / PROPOSTA COMERCIAL (SEM MINUTA)
+                PAINEL: ÚNICA OPÇÃO NO FINAL - ENVIAR NO MEU WHATSAPP
             ══════════════════════════════════════════════════════ */}
-            <div style={{
-              background: '#FFFFFF',
-              borderRadius: '16px',
-              border: '1.5px solid #E2E8F0',
-              padding: '22px',
-              marginBottom: '20px',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.04)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <span style={{ fontSize: '22px' }}>📋</span>
-                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
-                  Apenas Cotação / Proposta Comercial (Sem emitir minuta agora)
-                </h3>
+            {!isClientView && (
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1.5px solid #E2E8F0',
+                padding: '24px 20px',
+                marginBottom: '20px',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+                textAlign: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '24px' }}>📲</span>
+                  <h3 style={{ fontSize: '17px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                    Enviar cotações no meu WhatsApp
+                  </h3>
+                </div>
+                <p style={{ fontSize: '13px', color: '#64748B', margin: '0 auto 18px auto', maxWidth: '480px', lineHeight: '1.5' }}>
+                  As cotações chegarão automaticamente no seu WhatsApp com os dados completos e link exclusivo para acessar ou emitir a minuta de embarque.
+                </p>
+
+                {/* Feedback de Envio Automático */}
+                {whatsAppSuccessNotice && (
+                  <div style={{
+                    background: '#ECFDF5',
+                    border: '1px solid #A7F3D0',
+                    color: '#065F46',
+                    padding: '12px 16px',
+                    borderRadius: '10px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}>
+                    <FiCheckCircle color="#10B981" size={18} /> {whatsAppSuccessNotice}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWhatsAppModal(null)}
+                    style={{
+                      width: '100%',
+                      maxWidth: '440px',
+                      background: 'linear-gradient(135deg, #25D366 0%, #1EBE5D 100%)',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '15px 24px',
+                      fontSize: '15px',
+                      fontWeight: '800',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '10px',
+                      boxShadow: '0 4px 14px rgba(37, 211, 102, 0.35)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Dispara automaticamente as cotações com link da minuta no seu WhatsApp via BotConversa"
+                  >
+                    <FiSend size={18} /> Enviar cotações no meu WhatsApp
+                  </button>
+                </div>
               </div>
-              <p style={{ fontSize: '13px', color: '#64748B', margin: '0 0 16px 0', lineHeight: '1.4' }}>
-                Seu cliente quer receber a cotação no WhatsApp ou você precisa de uma proposta para aprovação interna? Envie agora com dados completos e <strong>link direto para o cliente emitir a minuta</strong> por ali mesmo:
-              </p>
-
-              {/* Feedback de Ações */}
-              {whatsAppSuccessNotice && (
-                <div style={{
-                  background: '#ECFDF5',
-                  border: '1px solid #A7F3D0',
-                  color: '#065F46',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  marginBottom: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <FiCheckCircle color="#10B981" size={16} /> {whatsAppSuccessNotice}
-                </div>
-              )}
-
-              {quoteSaveSuccess && (
-                <div style={{
-                  background: '#ECFDF5',
-                  border: '1px solid #A7F3D0',
-                  color: '#065F46',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  marginBottom: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <FiCheckCircle color="#10B981" size={16} /> {quoteSaveSuccess}
-                </div>
-              )}
-
-              {quoteCopied && (
-                <div style={{
-                  background: '#ECFDF5',
-                  border: '1px solid #A7F3D0',
-                  color: '#065F46',
-                  padding: '10px 14px',
-                  borderRadius: '10px',
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  marginBottom: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}>
-                  <FiCheckCircle color="#10B981" size={16} /> ✓ Proposta copiada com sucesso para a área de transferência!
-                </div>
-              )}
-
-              {/* Linha Principal de Ações: Destaque no WhatsApp */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={() => handleOpenWhatsAppModal(null)}
-                  style={{
-                    flex: '1 1 260px',
-                    background: 'linear-gradient(135deg, #25D366 0%, #1EBE5D 100%)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '14px 20px',
-                    fontSize: '14px',
-                    fontWeight: '800',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 14px rgba(37, 211, 102, 0.3)',
-                    transition: 'all 0.2s ease'
-                  }}
-                  title="Enviar cotações completas no WhatsApp com link direto para emissão da minuta"
-                >
-                  <FiSend size={18} /> Enviar cotações no meu WhatsApp
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleCopyProposal()}
-                  style={{
-                    background: '#F8FAFC',
-                    color: '#1E293B',
-                    border: '1.5px solid #CBD5E1',
-                    borderRadius: '12px',
-                    padding: '13px 18px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease'
-                  }}
-                  title="Copiar resumo com todas as opções para colar em e-mail ou chat"
-                >
-                  <FiCopy size={15} /> Copiar Todas
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveQuoteOnly}
-                  disabled={savingQuote}
-                  style={{
-                    background: '#F1F5F9',
-                    color: '#0F172A',
-                    border: '1.5px solid #CBD5E1',
-                    borderRadius: '12px',
-                    padding: '13px 18px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    transition: 'all 0.2s ease'
-                  }}
-                  title="Salvar cotação no sistema como 'cotada' sem emitir minuta"
-                >
-                  <FiSave size={15} /> {savingQuote ? 'Salvando...' : 'Salvar Cotação'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowQuotePrintModal(true)}
-                  style={{
-                    background: '#0284C7',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '13px 18px',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
-                    transition: 'all 0.2s ease'
-                  }}
-                  title="Visualizar ou imprimir espelho da proposta comercial"
-                >
-                  <FiPrinter size={15} /> Imprimir / PDF
-                </button>
-              </div>
-            </div>
+            )}
 
             {/* Barra de Voltar no Rodapé do Passo 2 */}
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px', marginBottom: '24px' }}>
@@ -3461,22 +3329,24 @@ export default function CotacaoAvancadaPage() {
               <button
                 type="button"
                 onClick={handleConfirmSendWhatsApp}
+                disabled={sendingBotConversa}
                 style={{
-                  background: 'linear-gradient(135deg, #25D366 0%, #1EBE5D 100%)',
+                  background: sendingBotConversa ? '#94A3B8' : 'linear-gradient(135deg, #25D366 0%, #1EBE5D 100%)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '10px',
                   padding: '10px 20px',
                   fontSize: '14px',
                   fontWeight: '800',
-                  cursor: 'pointer',
+                  cursor: sendingBotConversa ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  boxShadow: '0 4px 12px rgba(37, 211, 102, 0.35)'
+                  boxShadow: sendingBotConversa ? 'none' : '0 4px 12px rgba(37, 211, 102, 0.35)',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                <FiSend size={16} /> Abrir WhatsApp e Enviar
+                <FiSend size={16} /> {sendingBotConversa ? 'Enviando via BotConversa...' : 'Enviar no WhatsApp (BotConversa)'}
               </button>
             </div>
           </div>
