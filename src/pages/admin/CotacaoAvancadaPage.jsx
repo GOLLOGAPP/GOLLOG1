@@ -245,8 +245,9 @@ export default function CotacaoAvancadaPage() {
   const [quoteForWhatsApp, setQuoteForWhatsApp] = useState(null);
   const [whatsAppSuccessNotice, setWhatsAppSuccessNotice] = useState(null);
   const [sendingBotConversa, setSendingBotConversa] = useState(false);
-  const [currentProtocol, setCurrentProtocol] = useState('');
+  const [currentProtocol, setCurrentProtocol] = useState(urlCotacao);
   const [resumedNotice, setResumedNotice] = useState(null);
+  const [loadingResumedQuote, setLoadingResumedQuote] = useState(Boolean(urlCotacao));
 
   // Form Step 1: Cotação
   const [customerDocument, setCustomerDocument] = useState('');
@@ -385,14 +386,23 @@ export default function CotacaoAvancadaPage() {
 
     if (urlCotacao && !urlDoc) {
       setCurrentProtocol(urlCotacao);
-      supabase.from('cotacoes')
-        .select('*')
-        .or(`metadata->>protocolo.eq.${urlCotacao},id.eq.${urlCotacao}`)
-        .maybeSingle()
-        .then(({ data }) => {
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(urlCotacao);
+      let query = supabase.from('cotacoes').select('*');
+      if (isUuid) {
+        query = query.or(`metadata->>protocolo.eq.${urlCotacao},id.eq.${urlCotacao}`);
+      } else {
+        query = query.eq('metadata->>protocolo', urlCotacao);
+      }
+
+      query.maybeSingle().then(async ({ data, error }) => {
+        try {
+          if (error) {
+            console.warn('Erro ao consultar cotação retomada:', error.message);
+          }
           if (data) {
             const m = data.metadata || {};
-            setResumedNotice(`Cotação retomada com sucesso (Protocolo: ${urlCotacao})! Você pode revisar os dados ou avançar diretamente para emissão da minuta.`);
+            setResumedNotice(`Cotação carregada com sucesso (${urlCotacao})! Escolha o serviço desejado abaixo para emitir sua minuta.`);
             if (m.customerDocument) setCustomerDocument(m.customerDocument);
             if (m.originPointCode) setOriginPointCode(m.originPointCode);
             if (m.destinationPointCode) setDestinationPointCode(m.destinationPointCode);
@@ -400,27 +410,56 @@ export default function CotacaoAvancadaPage() {
             if (data.cidade_destino) setDestinationCity(data.cidade_destino);
             if (data.cep_origem) {
               setOriginPostalCode(formatCep(data.cep_origem));
-              setToCollect(Boolean(m.toCollect));
             }
+            setToCollect(Boolean(m.toCollect));
             if (data.cep_destino) {
               setDestinationPostalCode(formatCep(data.cep_destino));
-              setToDelivery(Boolean(m.toDelivery));
-              setDeliveryType(m.toDelivery ? 'domicilio' : 'aeroporto');
             }
+            setToDelivery(Boolean(m.toDelivery));
+            setDeliveryType(m.toDelivery ? 'domicilio' : 'aeroporto');
             if (m.volumes && m.volumes.length > 0) setVolumes(m.volumes);
             if (data.valor_declarado) setDeclaredValue(String(data.valor_declarado));
 
+            let availableQuotes = m.quotes || [];
+
+            // Se o registro antigo não tinha a lista de quotes gravada, busca as tarifas imediatamente
+            if (!availableQuotes || availableQuotes.length === 0) {
+              try {
+                const res = await fetch('/api/nexlog?action=cotacao', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    customerDocument: m.customerDocument,
+                    originPointCode: m.originPointCode || (urlCotacao.includes('QBX') ? 'QBX' : 'QOZ'),
+                    originPostalCode: data.cep_origem ? data.cep_origem.replace(/\D/g, '') : undefined,
+                    destinationPointCode: m.destinationPointCode || 'BSB',
+                    destinationPostalCode: data.cep_destino ? data.cep_destino.replace(/\D/g, '') : undefined,
+                    declaredValue: parseFloat(data.valor_declarado || 0),
+                    toCollect: Boolean(m.toCollect || urlCotacao.includes('COL')),
+                    toDelivery: Boolean(m.toDelivery),
+                    volumes: m.volumes || [{ weight: data.peso_kg || 1, height: 10, width: 10, lenght: 10, pieces: 1 }]
+                  })
+                });
+                const qData = await res.json();
+                if (qData.success && qData.quotes?.length > 0) {
+                  availableQuotes = qData.quotes;
+                }
+              } catch (recalcErr) {
+                console.warn('Erro ao recalcular cotação em background:', recalcErr);
+              }
+            }
+
             // Carrega cotações salvas
-            if (m.quotes && m.quotes.length > 0) {
+            if (availableQuotes && availableQuotes.length > 0) {
               setQuotationData({
-                quotes: m.quotes,
-                quotesCount: m.quotes.length,
-                originCity: data.cidade_origem,
-                destinationCity: data.cidade_destino
+                quotes: availableQuotes,
+                quotesCount: availableQuotes.length,
+                originCity: data.cidade_origem || m.originPointCode || 'Origem',
+                destinationCity: data.cidade_destino || m.destinationPointCode || 'Destino'
               });
 
               if (urlService) {
-                const matched = m.quotes.find(q => 
+                const matched = availableQuotes.find(q => 
                   q.productName?.toLowerCase() === urlService.toLowerCase() ||
                   q.serviceCode?.toLowerCase() === urlService.toLowerCase()
                 );
@@ -431,11 +470,45 @@ export default function CotacaoAvancadaPage() {
                 }
               }
 
-              // Se não especificou serviço, abre no Passo 2 (Opções de Frete)
+              // Abre diretamente no Passo 2 (Escolha da melhor opção para você)
               setStep(2);
             }
+          } else {
+            // Se o protocolo não foi encontrado no Supabase, deduz dados da referência (QBX/QOZ e Coleta)
+            const inferredStation = urlCotacao.includes('QBX') ? 'QBX' : 'QOZ';
+            const inferredCollect = urlCotacao.includes('COL');
+            setOriginPointCode(inferredStation);
+            setToCollect(inferredCollect);
+            if (inferredStation === 'QBX') setOriginCity('Barueri');
+            else setOriginCity('Osasco');
+
+            // Cota automaticamente
+            try {
+              const res = await fetch('/api/nexlog?action=cotacao', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  originPointCode: inferredStation,
+                  destinationPointCode: 'BSB',
+                  declaredValue: 200,
+                  toCollect: inferredCollect,
+                  toDelivery: false,
+                  volumes: [{ weight: 5, height: 20, width: 20, lenght: 20, pieces: 1 }]
+                })
+              });
+              const qData = await res.json();
+              if (qData.success && qData.quotes?.length > 0) {
+                setQuotationData(qData);
+                setStep(2);
+              }
+            } catch (fallbackErr) {
+              console.warn('Fallback de cotação não pôde calcular:', fallbackErr);
+            }
           }
-        });
+        } finally {
+          setLoadingResumedQuote(false);
+        }
+      });
     }
 
     if (urlPhone) {
@@ -725,6 +798,40 @@ export default function CotacaoAvancadaPage() {
       const protocolNumber = `PRE-${stationPrefix}${collectSuffix}-${Date.now().toString().slice(-6)}`;
       setCurrentProtocol(protocolNumber);
 
+      // Auto-salvar no Supabase para que o link gerado já fique ativo e salvo para o cliente retomar
+      try {
+        const totalWeight = volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0) * (parseInt(v.pieces) || 1), 0);
+        const bestQuote = data?.quotes?.[0];
+        supabase.from('cotacoes').insert([{
+          cliente_id: null,
+          cep_origem: originPostalCode ? originPostalCode.replace(/\D/g, '') : null,
+          cep_destino: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : null,
+          cidade_origem: originCity || originPointCode || 'Origem',
+          cidade_destino: destinationCity || destinationPointCode || 'Destino',
+          peso_kg: totalWeight,
+          valor_declarado: parseFloat(declaredValue || 0),
+          tipo_servico: bestQuote ? `GOLLOG ${bestQuote.productName}` : 'GOLLOG COTAÇÃO',
+          valor_cotado: bestQuote ? bestQuote.totalValue : 0,
+          status: 'pendente',
+          metadata: {
+            is_minuta: false,
+            protocolo: protocolNumber,
+            customerDocument: customerDocument ? customerDocument.replace(/\D/g, '') : null,
+            originPointCode,
+            destinationPointCode,
+            toCollect: Boolean(toCollect),
+            toDelivery: deliveryType === 'domicilio',
+            volumes,
+            quotes: data?.quotes || [],
+            data_cotacao: new Date().toISOString()
+          }
+        }]).then(({ error: saveErr }) => {
+          if (saveErr) console.warn('Aviso ao auto-salvar cotação:', saveErr.message);
+        });
+      } catch (errAutoSave) {
+        console.warn('Erro silencioso ao auto-salvar cotação:', errAutoSave);
+      }
+
       setStep(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -761,15 +868,15 @@ export default function CotacaoAvancadaPage() {
         valor_declarado: parseFloat(declaredValue || 0),
         tipo_servico: bestQuote ? `GOLLOG ${bestQuote.productName}` : 'GOLLOG COTAÇÃO',
         valor_cotado: bestQuote ? bestQuote.totalValue : 0,
-        status: 'cotada',
+        status: 'pendente',
         metadata: {
           is_minuta: false,
           protocolo: protocolNumber,
           customerDocument: customerDocument ? customerDocument.replace(/\D/g, '') : null,
           originPointCode,
           destinationPointCode,
-          toCollect,
-          toDelivery,
+          toCollect: Boolean(toCollect),
+          toDelivery: deliveryType === 'domicilio',
           volumes,
           quotes: quotationData?.quotes || [],
           data_cotacao: new Date().toISOString()
@@ -1314,10 +1421,40 @@ export default function CotacaoAvancadaPage() {
           </div>
         )}
 
+        {/* CARREGANDO COTAÇÃO RETOMADA VIA LINK */}
+        {loadingResumedQuote && (
+          <div className="no-print" style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            padding: '48px 24px',
+            textAlign: 'center',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+            border: '1.5px solid #FED7AA',
+            margin: '20px 0'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                border: '4px solid #FED7AA',
+                borderTopColor: '#F37021',
+                animation: 'spin 0.8s linear infinite'
+              }} />
+            </div>
+            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1E293B', margin: '0 0 6px 0' }}>
+              Carregando Cotação GOLLOG...
+            </h3>
+            <p style={{ fontSize: '13px', color: '#64748B', margin: 0 }}>
+              Protocolo <strong>{urlCotacao}</strong>. Buscando suas opções e valores de frete...
+            </p>
+          </div>
+        )}
+
         {/* ══════════════════════════════════════════════════════
             PASSO 1: DADOS DA CARGA & CEPS
         ══════════════════════════════════════════════════════ */}
-        {step === 1 && (
+        {step === 1 && !loadingResumedQuote && (
           <form onSubmit={handleCalculateQuotes} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
             {/* CARD 1: CLIENTE / TOMADOR */}
