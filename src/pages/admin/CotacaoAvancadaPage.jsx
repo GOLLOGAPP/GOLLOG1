@@ -7,7 +7,7 @@ import {
   FiDollarSign, FiSearch, FiPackage, FiTruck, FiCheckCircle, FiAlertCircle,
   FiArrowRight, FiArrowLeft, FiEdit2, FiCopy, FiInfo, FiRefreshCw, FiPlus, FiTrash2, FiFileText,
   FiUser, FiMapPin, FiShield, FiZap, FiChevronDown, FiChevronUp, FiArrowDown,
-  FiDownload, FiPrinter, FiX, FiSend, FiSave, FiShare2
+  FiDownload, FiPrinter, FiX, FiSend, FiSave, FiShare2, FiMessageSquare, FiExternalLink
 } from 'react-icons/fi';
 
 // Todas as bases operacionais GOLLOG
@@ -238,6 +238,10 @@ export default function CotacaoAvancadaPage() {
   const [quoteSaveSuccess, setQuoteSaveSuccess] = useState(null);
   const [quoteCopied, setQuoteCopied] = useState(false);
   const [showQuotePrintModal, setShowQuotePrintModal] = useState(false);
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsAppRecipient, setWhatsAppRecipient] = useState('');
+  const [quoteForWhatsApp, setQuoteForWhatsApp] = useState(null);
+  const [whatsAppSuccessNotice, setWhatsAppSuccessNotice] = useState(null);
   const [currentProtocol, setCurrentProtocol] = useState('');
   const [resumedNotice, setResumedNotice] = useState(null);
 
@@ -779,21 +783,57 @@ export default function CotacaoAvancadaPage() {
 
     const totalWeight = volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0) * (parseInt(v.pieces) || 1), 0);
     const totalPieces = volumes.reduce((acc, v) => acc + (parseInt(v.pieces) || 1), 0);
+    const effectiveProtocol = protocol || currentProtocol;
 
-    let text = `✈️ *COTAÇÃO DE FRETE AÉREO GOLLOG*\n\n`;
+    let text = `✈️ *COTAÇÃO DE FRETE AÉREO GOLLOG*\n`;
+    if (effectiveProtocol) {
+      text += `📋 *Protocolo:* ${effectiveProtocol}\n`;
+    }
+    text += `\n`;
+
+    // Origem e Coleta
     text += `📍 *Origem:* ${originCity || originPointCode || 'Origem'}\n`;
+    if (toCollect) {
+      const enderecoColeta = sender.street ? ` (${sender.street}${sender.number ? ', ' + sender.number : ''}${sender.neighborhood ? ' - ' + sender.neighborhood : ''})` : '';
+      text += `   🚚 *Coleta:* SIM, no endereço do remetente${enderecoColeta}\n`;
+    } else {
+      text += `   🏢 *Despacho:* Balcão / Base GOLLOG (${originPointCode})\n`;
+    }
+
+    // Destino e Entrega
     text += `🎯 *Destino:* ${destinationCity || destinationPointCode || 'Destino'}\n`;
-    text += `📦 *Carga:* ${totalPieces} volume(s) - ${totalWeight.toFixed(1)} kg\n`;
+    if (toDelivery) {
+      const cepDestinoFormatado = destinationPostalCode ? ` (CEP ${destinationPostalCode})` : '';
+      text += `   🏠 *Entrega:* No endereço do destinatário${cepDestinoFormatado}\n`;
+    } else {
+      text += `   ✈️ *Retirada:* Na base/aeroporto GOLLOG (${destinationPointCode})\n`;
+    }
+
+    // Dados da Carga
+    text += `📦 *Carga:* ${totalPieces} volume(s) · ${totalWeight.toFixed(1)} kg\n`;
+    if (cargoDescription) {
+      text += `📝 *Conteúdo:* ${cargoDescription}\n`;
+    }
     if (parseFloat(declaredValue || 0) > 0) {
       text += `💰 *Valor Declarado:* R$ ${parseFloat(declaredValue).toFixed(2).replace('.', ',')}\n`;
     }
+
+    // Detalhes dos Volumes se houver
+    if (volumes && volumes.length > 0) {
+      const volDim = volumes.map((v, i) => `${v.pieces || 1}x (${v.lenght || 0}x${v.width || 0}x${v.height || 0}cm - ${v.weight}kg)`).join(', ');
+      text += `📐 *Dimensões:* ${volDim}\n`;
+    }
+
     text += `\n*OPÇÕES DISPONÍVEIS:*\n`;
 
     const quotesToInclude = specificQuote ? [specificQuote] : quotationData.quotes;
 
-    quotesToInclude.forEach((q) => {
-      const icon = q.productName?.includes('CHEG') ? '📦' : q.productName?.includes('ECON') ? '🌱' : q.productName?.includes('RAP') ? '⚡' : '🔥';
-      text += `\n${icon} *GOLLOG ${q.productName}*\n`;
+    quotesToInclude.forEach((q, idx) => {
+      const productName = q.productName || (q.serviceDescription || '').replace(/^GOLLOG\s*/i, '').replace(/^TARIFARIO\s*/i, '') || 'PADRÃO';
+      const icon = productName.includes('CHEG') ? '📦' : productName.includes('ECON') ? '🌱' : productName.includes('RAP') ? '⚡' : '🔥';
+      const isRec = idx === 0 || q.badge?.includes('RECOMENDADO');
+
+      text += `\n${icon} *GOLLOG ${productName}* ${isRec ? '⭐ _(Recomendado)_' : ''}\n`;
       text += `   💵 *Valor:* R$ ${q.totalValue.toFixed(2).replace('.', ',')}\n`;
       text += `   ⏱️ *Prazo:* a partir de ${q.timeToDelivery} dias úteis\n`;
       if (q.tag) {
@@ -801,10 +841,9 @@ export default function CotacaoAvancadaPage() {
       }
     });
 
-    text += `\n_ℹ️ Valores válidos para despacho imediato sujeitos à disponibilidade da malha aérea._\n`;
+    text += `\n_ℹ️ Valores válidos para despacho imediato sujeitos à confirmação e malha aérea._\n`;
 
-    // INSERÇÃO DO LINK DE RETOMADA PARA EMISSÃO DA MINUTA
-    const effectiveProtocol = protocol || currentProtocol;
+    // INSERÇÃO DO LINK DE RETOMADA PARA EMISSÃO DIRETA DA MINUTA
     if (effectiveProtocol) {
       const originBase = typeof window !== 'undefined' && window.location.origin ? window.location.origin : 'https://www.golcargo.com.br';
       const resumeUrl = specificQuote
@@ -812,7 +851,8 @@ export default function CotacaoAvancadaPage() {
         : `${originBase}/cotacao-avancada?cotacao=${effectiveProtocol}`;
 
       text += `\n🚀 *Deseja formalizar o envio e emitir sua minuta oficial?*\n`;
-      text += `🔗 Clique no link abaixo para acessar ou emitir sua minuta a qualquer momento:\n${resumeUrl}\n`;
+      text += `Clique no link abaixo para acessar esta cotação e emitir a minuta de embarque agora mesmo:\n`;
+      text += `👉 ${resumeUrl}\n`;
     } else {
       text += `\nPara emitir a minuta ou tirar dúvidas, fale conosco!`;
     }
@@ -832,17 +872,34 @@ export default function CotacaoAvancadaPage() {
     setTimeout(() => setQuoteCopied(false), 3000);
   };
 
-  const handleSendWhatsAppProposal = async (specificQuote = null) => {
+  const handleOpenWhatsAppModal = async (specificQuote = null) => {
+    setQuoteForWhatsApp(specificQuote);
+    const initialPhone = sender.phone || urlPhone || '';
+    setWhatsAppRecipient(initialPhone);
+    setShowWhatsAppModal(true);
+    if (!currentProtocol) {
+      await ensureQuoteSaved(specificQuote);
+    }
+  };
+
+  const handleConfirmSendWhatsApp = async () => {
     let proto = currentProtocol;
     if (!proto) {
-      proto = await ensureQuoteSaved(specificQuote);
+      proto = await ensureQuoteSaved(quoteForWhatsApp);
     }
-    const text = generateCommercialProposalText(specificQuote, proto);
+    const text = generateCommercialProposalText(quoteForWhatsApp, proto);
     if (!text) return;
-    const cleanPhone = (sender.phone || urlPhone || '').replace(/\D/g, '');
+    const cleanPhone = (whatsAppRecipient || sender.phone || urlPhone || '').replace(/\D/g, '');
     const encoded = encodeURIComponent(text);
     const url = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${encoded}` : `https://api.whatsapp.com/send?text=${encoded}`;
     window.open(url, '_blank');
+    setShowWhatsAppModal(false);
+    setWhatsAppSuccessNotice('WhatsApp aberto com os dados completos e link da minuta!');
+    setTimeout(() => setWhatsAppSuccessNotice(null), 6000);
+  };
+
+  const handleSendWhatsAppProposal = async (specificQuote = null) => {
+    handleOpenWhatsAppModal(specificQuote);
   };
 
   const handleSaveQuoteOnly = async () => {
@@ -1896,156 +1953,229 @@ export default function CotacaoAvancadaPage() {
               </div>
             </div>
 
+            {/* ══════════════════════════════════════════════════════
+                CAMPO DE OBJETIVOS, INSTRUÇÕES E INFORMAÇÕES
+            ══════════════════════════════════════════════════════ */}
+            <div style={{
+              background: '#F8FAFC',
+              border: '1.5px solid #E2E8F0',
+              borderRadius: '14px',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', color: '#0F172A', fontSize: '13px' }}>
+                <FiInfo size={16} color="#F37021" />
+                <span>Escolha de Serviço, Emissão de Minuta e Envio Comercial via WhatsApp</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginTop: '8px', fontSize: '12px', color: '#475569', lineHeight: '1.4' }}>
+                <div>
+                  <strong style={{ color: '#0F172A' }}>🎯 Objetivo:</strong> Comparar os serviços oficiais GOLLOG calculados pela malha aérea e escolher entre emitir a minuta de despacho ou enviar proposta com link direto para o cliente.
+                </div>
+                <div>
+                  <strong style={{ color: '#0F172A' }}>📖 Instruções:</strong> Clique em <em>"Emitir Minuta"</em> para preencher remetente/destinatário e despachar agora, ou utilize <em>"Enviar cotações no meu WhatsApp"</em> para enviar a proposta com dados completos ao cliente.
+                </div>
+                <div>
+                  <strong style={{ color: '#0F172A' }}>🔗 Link de Retomada Direta:</strong> Ao enviar pelo WhatsApp, é gerado um link exclusivo. Quando o cliente clica nele, a cotação é aberta automaticamente pronta para emissão imediata da minuta.
+                </div>
+              </div>
+            </div>
+
             {quotationData.notice && (
               <div style={{ background: '#FEFCE8', border: '1px solid #FEF08A', color: '#854D0E', padding: '10px 14px', borderRadius: '10px', fontSize: '12px', marginBottom: '16px' }}>
                 ℹ️ {quotationData.notice}
               </div>
             )}
 
-            {/* Cards de Serviços Oficiais */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+            {/* ══════════════════════════════════════════════════════
+                LISTA CLEAN E COMPACTA DE SERVIÇOS (ESTILO GOLLOG)
+            ══════════════════════════════════════════════════════ */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
               {quotationData.quotes.map((q, idx) => {
                 const isRecommended = idx === 0 || q.badge?.includes('RECOMENDADO');
                 const productName = q.productName || (q.serviceDescription || '').replace(/^GOLLOG\s*/i, '').replace(/^TARIFARIO\s*/i, '') || 'PADRÃO';
-                const tagColor = q.color || (productName.includes('URGENTE') ? '#F87171' : productName.includes('RAPID') || productName.includes('RÁPID') ? '#FBBF24' : productName.includes('ECON') ? '#34D399' : '#FFFFFF');
+                const icon = productName.includes('CHEG') ? '📦' : productName.includes('ECON') ? '💰' : productName.includes('RAP') ? '⚡' : '🔥';
 
                 return (
                   <div
                     key={q.idQuotation || q.serviceCode || idx}
                     style={{
-                      background: '#1E293B',
-                      borderRadius: '20px',
-                      border: isRecommended ? '2.5px solid #F37021' : '1px solid #334155',
-                      padding: '22px 18px',
-                      boxShadow: isRecommended ? '0 10px 25px rgba(243, 112, 33, 0.25)' : '0 4px 12px rgba(0,0,0,0.1)',
-                      position: 'relative',
+                      background: isRecommended ? '#FFFDF8' : '#FFFFFF',
+                      borderRadius: '14px',
+                      border: isRecommended ? '2px solid #F37021' : '1.5px solid #E2E8F0',
+                      padding: '16px 20px',
+                      boxShadow: isRecommended ? '0 4px 14px rgba(243, 112, 33, 0.12)' : '0 2px 6px rgba(0,0,0,0.03)',
                       display: 'flex',
-                      flexDirection: 'column',
+                      flexDirection: 'row',
+                      alignItems: 'center',
                       justifyContent: 'space-between',
-                      color: '#FFFFFF'
+                      gap: '16px',
+                      flexWrap: 'wrap',
+                      position: 'relative',
+                      transition: 'all 0.2s ease'
                     }}
                   >
-                    {/* Badge de Acordo Comercial ou Recomendação */}
-                    <div style={{ position: 'absolute', top: '-11px', left: '16px', right: '16px', display: 'flex', justifyContent: 'space-between' }}>
-                      {isRecommended && (
-                        <div style={{
-                          background: '#F37021',
-                          color: '#FFFFFF',
-                          padding: '3px 12px',
-                          borderRadius: '12px',
-                          fontSize: '10px',
-                          fontWeight: '900',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
-                          ★ Recomendado para você
+                    {/* Lado Esquerdo: Identificação do Serviço */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', minWidth: '220px', flex: '1 1 240px' }}>
+                      <div style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '12px',
+                        background: isRecommended ? '#FFF7ED' : '#F8FAFC',
+                        border: isRecommended ? '1.5px solid #FDBA74' : '1.5px solid #E2E8F0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '22px',
+                        flexShrink: 0
+                      }}>
+                        {icon}
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '16px', fontWeight: '900', color: '#0F172A' }}>
+                            GOLLOG {productName}
+                          </span>
+                          {isRecommended && (
+                            <span style={{
+                              background: '#F37021',
+                              color: '#FFFFFF',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '10px',
+                              fontWeight: '800',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.4px'
+                            }}>
+                              ★ Recomendado
+                            </span>
+                          )}
+                          {q.isAgreed && (
+                            <span style={{
+                              background: '#ECFDF5',
+                              color: '#047857',
+                              border: '1px solid #A7F3D0',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '10px',
+                              fontWeight: '800',
+                              textTransform: 'uppercase'
+                            }}>
+                              🏷️ Contrato
+                            </span>
+                          )}
                         </div>
-                      )}
-                      {q.isAgreed && (
-                        <div style={{
-                          background: '#10B981',
-                          color: '#FFFFFF',
-                          padding: '3px 10px',
-                          borderRadius: '12px',
-                          fontSize: '10px',
-                          fontWeight: '800',
-                          textTransform: 'uppercase',
-                          marginLeft: 'auto'
-                        }}>
-                          🏷️ Contrato
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '12px', color: '#64748B', flexWrap: 'wrap' }}>
+                          {q.tag && (
+                            <span style={{
+                              background: '#F1F5F9',
+                              color: '#475569',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontWeight: '600'
+                            }}>
+                              {q.tag.includes('Endereço') ? '🏠 ' : '🏢 '} {q.tag}
+                            </span>
+                          )}
+                          <span>{toCollect ? '🚚 Coleta inclusa no endereço' : '🏢 Postagem no balcão'}</span>
                         </div>
-                      )}
+                      </div>
                     </div>
 
-                    <div>
-                      {/* Logo GOLLOG do Produto */}
-                      <div style={{ textAlign: 'center', margin: '14px 0 16px 0' }}>
-                        <div style={{ fontSize: '10px', fontWeight: '800', letterSpacing: '2px', color: '#94A3B8' }}>
-                          GOLLOG
-                        </div>
-                        <div style={{
-                          fontSize: '18px',
-                          fontWeight: '900',
-                          letterSpacing: '0.5px',
-                          color: tagColor,
-                          border: '1.5px solid #475569',
-                          borderRadius: '8px',
-                          padding: '5px 12px',
-                          display: 'inline-block',
-                          marginTop: '4px',
-                          background: 'rgba(255,255,255,0.03)'
-                        }}>
-                          {productName}
-                        </div>
-                        {q.tag && (
-                          <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '6px', fontWeight: '600' }}>
-                            {q.tag.includes('Endereço') ? '🏠 ' : '🏢 '} {q.tag}
-                          </div>
-                        )}
+                    {/* Centro: Prazo Estimado */}
+                    <div style={{ minWidth: '150px', flex: '1 1 150px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Prazo Estimado
                       </div>
+                      <div style={{ fontSize: '14px', fontWeight: '800', color: '#1E293B', marginTop: '2px' }}>
+                        ⏱️ a partir de <span style={{ color: '#F37021' }}>{q.timeToDelivery} dias úteis</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                        {toDelivery ? 'Entrega no endereço' : 'Retirada na base'}
+                      </div>
+                    </div>
 
-                      {/* Preço em Destaque */}
-                      <div style={{ textAlign: 'center', margin: '14px 0 20px 0' }}>
-                        <div style={{ fontSize: '32px', fontWeight: '900', color: '#FFFFFF', letterSpacing: '-0.5px' }}>
+                    {/* Lado Direito: Preço e Ações */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'flex-end', minWidth: '260px', flex: '1 1 260px' }}>
+                      <div style={{ textAlign: 'right', paddingRight: '6px' }}>
+                        <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          Valor Total
+                        </div>
+                        <div style={{ fontSize: '24px', fontWeight: '900', color: '#0F172A', letterSpacing: '-0.5px' }}>
                           R$ {q.totalValue?.toFixed(2).replace('.', ',') ?? '0,00'}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#94A3B8', marginTop: '6px' }}>
-                          Prazo a partir de <strong style={{ color: '#F1F5F9' }}>{q.timeToDelivery} dias úteis*</strong>
-                        </div>
                       </div>
-                    </div>
 
-                    {/* Botões do Card: Emitir Minuta ou Copiar Proposta desta Opção */}
-                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={() => handleSelectQuote(q)}
-                        style={{
-                          width: '100%',
-                          padding: '14px',
-                          background: '#F37021',
-                          color: '#FFFFFF',
-                          border: 'none',
-                          borderRadius: '12px',
-                          fontSize: '14px',
-                          fontWeight: '800',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          boxShadow: '0 4px 12px rgba(243, 112, 33, 0.4)',
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        Emitir Minuta (AWB) <FiArrowRight />
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectQuote(q)}
+                          style={{
+                            background: '#F37021',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            borderRadius: '10px',
+                            padding: '11px 18px',
+                            fontSize: '13px',
+                            fontWeight: '800',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            boxShadow: '0 3px 8px rgba(243, 112, 33, 0.3)',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.2s ease'
+                          }}
+                          title="Prosseguir para emissão da minuta oficial deste serviço"
+                        >
+                          Emitir Minuta <FiArrowRight size={15} />
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleCopyProposal(q)}
-                        style={{
-                          width: '100%',
-                          padding: '9px 12px',
-                          background: 'rgba(255,255,255,0.06)',
-                          color: '#CBD5E1',
-                          border: '1px solid #475569',
-                          borderRadius: '10px',
-                          fontSize: '12px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          transition: 'all 0.2s ease'
-                        }}
-                        title="Copiar texto formatado desta opção específica para enviar ao cliente"
-                      >
-                        <FiCopy size={13} /> Copiar Apenas Esta Opção
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenWhatsAppModal(q)}
+                          style={{
+                            background: '#ECFDF5',
+                            color: '#059669',
+                            border: '1.5px solid #A7F3D0',
+                            borderRadius: '10px',
+                            padding: '11px 12px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.2s ease'
+                          }}
+                          title="Enviar proposta desta opção específica no WhatsApp"
+                        >
+                          <FiSend size={13} /> Whats
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyProposal(q)}
+                          style={{
+                            background: '#F8FAFC',
+                            color: '#475569',
+                            border: '1.5px solid #E2E8F0',
+                            borderRadius: '10px',
+                            padding: '11px 12px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease'
+                          }}
+                          title="Copiar texto desta opção para colar onde quiser"
+                        >
+                          <FiCopy size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -2059,21 +2189,39 @@ export default function CotacaoAvancadaPage() {
               background: '#FFFFFF',
               borderRadius: '16px',
               border: '1.5px solid #E2E8F0',
-              padding: '20px',
+              padding: '22px',
               marginBottom: '20px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+              boxShadow: '0 2px 10px rgba(0,0,0,0.04)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <span style={{ fontSize: '20px' }}>📋</span>
-                <h3 style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
+                <span style={{ fontSize: '22px' }}>📋</span>
+                <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', margin: 0 }}>
                   Apenas Cotação / Proposta Comercial (Sem emitir minuta agora)
                 </h3>
               </div>
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 16px 0', lineHeight: '1.4' }}>
-                Seu cliente quer apenas saber o preço ou você precisa enviar uma proposta para aprovação interna? Utilize as ações rápidas abaixo sem precisar preencher dados de remetente e destinatário:
+              <p style={{ fontSize: '13px', color: '#64748B', margin: '0 0 16px 0', lineHeight: '1.4' }}>
+                Seu cliente quer receber a cotação no WhatsApp ou você precisa de uma proposta para aprovação interna? Envie agora com dados completos e <strong>link direto para o cliente emitir a minuta</strong> por ali mesmo:
               </p>
 
-              {/* Feedback de Cópia ou Salvamento */}
+              {/* Feedback de Ações */}
+              {whatsAppSuccessNotice && (
+                <div style={{
+                  background: '#ECFDF5',
+                  border: '1px solid #A7F3D0',
+                  color: '#065F46',
+                  padding: '10px 14px',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  marginBottom: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <FiCheckCircle color="#10B981" size={16} /> {whatsAppSuccessNotice}
+                </div>
+              )}
+
               {quoteSaveSuccess && (
                 <div style={{
                   background: '#ECFDF5',
@@ -2110,30 +2258,31 @@ export default function CotacaoAvancadaPage() {
                 </div>
               )}
 
-              {/* Grid de Ações Rápidas da Cotação */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+              {/* Linha Principal de Ações: Destaque no WhatsApp */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
                 <button
                   type="button"
-                  onClick={() => handleSendWhatsAppProposal()}
+                  onClick={() => handleOpenWhatsAppModal(null)}
                   style={{
-                    background: '#25D366',
+                    flex: '1 1 260px',
+                    background: 'linear-gradient(135deg, #25D366 0%, #1EBE5D 100%)',
                     color: '#FFFFFF',
                     border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
-                    fontSize: '13px',
-                    fontWeight: '700',
+                    borderRadius: '12px',
+                    padding: '14px 20px',
+                    fontSize: '14px',
+                    fontWeight: '800',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 6px rgba(37, 211, 102, 0.25)',
+                    gap: '8px',
+                    boxShadow: '0 4px 14px rgba(37, 211, 102, 0.3)',
                     transition: 'all 0.2s ease'
                   }}
-                  title="Abrir WhatsApp com proposta formatada com todas as opções"
+                  title="Enviar cotações completas no WhatsApp com link direto para emissão da minuta"
                 >
-                  <FiSend size={15} /> WhatsApp
+                  <FiSend size={18} /> Enviar cotações no meu WhatsApp
                 </button>
 
                 <button
@@ -2143,8 +2292,8 @@ export default function CotacaoAvancadaPage() {
                     background: '#F8FAFC',
                     color: '#1E293B',
                     border: '1.5px solid #CBD5E1',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    padding: '13px 18px',
                     fontSize: '13px',
                     fontWeight: '700',
                     cursor: 'pointer',
@@ -2167,8 +2316,8 @@ export default function CotacaoAvancadaPage() {
                     background: '#F1F5F9',
                     color: '#0F172A',
                     border: '1.5px solid #CBD5E1',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    padding: '13px 18px',
                     fontSize: '13px',
                     fontWeight: '700',
                     cursor: 'pointer',
@@ -2190,8 +2339,8 @@ export default function CotacaoAvancadaPage() {
                     background: '#0284C7',
                     color: '#FFFFFF',
                     border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    padding: '13px 18px',
                     fontSize: '13px',
                     fontWeight: '700',
                     cursor: 'pointer',
@@ -3101,6 +3250,235 @@ export default function CotacaoAvancadaPage() {
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          MODAL: ENVIAR COTAÇÕES NO WHATSAPP COM LINK DA MINUTA
+      ══════════════════════════════════════════════════════ */}
+      {showWhatsAppModal && quotationData && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '560px',
+            maxHeight: '92vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Header Modal */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 20px',
+              borderBottom: '1.5px solid #E2E8F0',
+              background: '#F8FAFC'
+            }}>
+              <div style={{ fontWeight: '800', fontSize: '16px', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>📲</span> Enviar Cotações no WhatsApp
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowWhatsAppModal(false)}
+                style={{
+                  background: '#EDF2F7',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#4A5568'
+                }}
+              >
+                <FiX size={18} />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+              {/* Informação sobre a funcionalidade */}
+              <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '10px', padding: '12px 14px', fontSize: '12px', color: '#065F46', lineHeight: '1.4' }}>
+                ✅ <strong>Proposta comercial completa:</strong> Esta mensagem incluirá todos os detalhes de origem (com coleta se houver), destino, volumes e a tabela comparativa de frete com o <strong>link direto para geração da minuta</strong>!
+              </div>
+
+              {/* Campo de Telefone */}
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#1E293B', marginBottom: '6px' }}>
+                  Número do WhatsApp do Cliente (com DDD):
+                </label>
+                <input
+                  type="text"
+                  placeholder="(DDD) 99999-9999"
+                  value={whatsAppRecipient}
+                  onChange={(e) => setWhatsAppRecipient(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #CBD5E1',
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                
+                {/* Botões de Preenchimento Rápido / Teste Fácil */}
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  {sender.phone && (
+                    <button
+                      type="button"
+                      onClick={() => setWhatsAppRecipient(sender.phone)}
+                      style={{
+                        background: '#F1F5F9',
+                        border: '1px solid #CBD5E1',
+                        borderRadius: '6px',
+                        padding: '4px 8px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        color: '#475569',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      👤 Usar telefone do Remetente ({sender.phone})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setWhatsAppRecipient('(11) 98888-7777')}
+                    style={{
+                      background: '#FFF7ED',
+                      border: '1px solid #FDBA74',
+                      borderRadius: '6px',
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      color: '#C2410C',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⚡ Teste Rápido: (11) 98888-7777
+                  </button>
+                </div>
+              </div>
+
+              {/* Seletor de Escopo: Individual vs Todas */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: '12px', color: '#334155' }}>
+                  {quoteForWhatsApp ? (
+                    <span>Enviando opção selecionada: <strong>GOLLOG {quoteForWhatsApp.productName}</strong> (R$ {quoteForWhatsApp.totalValue.toFixed(2).replace('.', ',')})</span>
+                  ) : (
+                    <span>Enviando resumo com <strong>todas as opções cotadas</strong> ({quotationData.quotes.length} modalidades)</span>
+                  )}
+                </div>
+                {quoteForWhatsApp && (
+                  <button
+                    type="button"
+                    onClick={() => setQuoteForWhatsApp(null)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#F37021',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    Mudar para Todas
+                  </button>
+                )}
+              </div>
+
+              {/* Prévia do Texto */}
+              <div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '6px' }}>
+                  Prévia da Mensagem Formatada:
+                </div>
+                <div style={{
+                  background: '#0F172A',
+                  color: '#E2E8F0',
+                  padding: '14px',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  whiteHeight: '1.4',
+                  whiteSpace: 'pre-wrap',
+                  maxHeight: '180px',
+                  overflowY: 'auto'
+                }}>
+                  {generateCommercialProposalText(quoteForWhatsApp, currentProtocol || 'COT-XXXXXX')}
+                </div>
+              </div>
+
+            </div>
+
+            {/* Rodapé de Ações do Modal */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px',
+              padding: '14px 20px',
+              borderTop: '1.5px solid #E2E8F0',
+              background: '#F8FAFC'
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowWhatsAppModal(false)}
+                style={{
+                  background: '#FFFFFF',
+                  border: '1.5px solid #CBD5E1',
+                  borderRadius: '10px',
+                  padding: '10px 16px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  color: '#64748B',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmSendWhatsApp}
+                style={{
+                  background: 'linear-gradient(135deg, #25D366 0%, #1EBE5D 100%)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '800',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(37, 211, 102, 0.35)'
+                }}
+              >
+                <FiSend size={16} /> Abrir WhatsApp e Enviar
+              </button>
+            </div>
           </div>
         </div>
       )}
