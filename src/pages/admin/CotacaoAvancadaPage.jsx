@@ -697,12 +697,12 @@ export default function CotacaoAvancadaPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerDocument,
-          originPointCode: !toCollect && originPointCode ? originPointCode : undefined,
-          originPostalCode: toCollect || !originPointCode ? originPostalCode.replace(/\D/g, '') : undefined,
-          destinationPointCode: deliveryType === 'aeroporto' && destinationPointCode ? destinationPointCode : undefined,
-          destinationPostalCode: deliveryType === 'domicilio' || !destinationPointCode ? destinationPostalCode.replace(/\D/g, '') : undefined,
+          originPointCode: originPointCode || undefined,
+          originPostalCode: originPostalCode ? originPostalCode.replace(/\D/g, '') : undefined,
+          destinationPointCode: destinationPointCode || undefined,
+          destinationPostalCode: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : undefined,
           declaredValue: insuranceType === 'Sem Seguro' ? 0 : parseFloat(declaredValue || 0),
-          toCollect,
+          toCollect: Boolean(toCollect),
           toDelivery: deliveryType === 'domicilio',
           volumes
         })
@@ -720,6 +720,11 @@ export default function CotacaoAvancadaPage() {
       }
 
       setQuotationData(data);
+      const stationPrefix = (originPointCode || 'QOZ').toUpperCase();
+      const collectSuffix = toCollect ? '-COL' : '';
+      const protocolNumber = `PRE-${stationPrefix}${collectSuffix}-${Date.now().toString().slice(-6)}`;
+      setCurrentProtocol(protocolNumber);
+
       setStep(2);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -738,12 +743,13 @@ export default function CotacaoAvancadaPage() {
 
   // Garante que a cotação esteja salva no Supabase para gerar o link de retomada
   const ensureQuoteSaved = async (specificQuote = null) => {
-    if (currentProtocol) return currentProtocol;
+    const stationPrefix = (originPointCode || 'QOZ').toUpperCase();
+    const collectSuffix = toCollect ? '-COL' : '';
+    const protocolNumber = currentProtocol || `PRE-${stationPrefix}${collectSuffix}-${Date.now().toString().slice(-6)}`;
 
     try {
       const totalWeight = volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0) * (parseInt(v.pieces) || 1), 0);
       const bestQuote = specificQuote || quotationData?.quotes?.[0];
-      const protocolNumber = `COT-${Date.now().toString().slice(-6)}`;
 
       const { error } = await supabase.from('cotacoes').insert([{
         cliente_id: null,
@@ -777,7 +783,7 @@ export default function CotacaoAvancadaPage() {
     } catch (err) {
       console.warn('Erro ao auto-salvar cotação para link:', err);
     }
-    return null;
+    return protocolNumber;
   };
 
   // Gera texto formatado para proposta comercial com LINK DE RETOMADA DA MINUTA
@@ -790,7 +796,7 @@ export default function CotacaoAvancadaPage() {
 
     let text = `✈️ *COTAÇÃO DE FRETE AÉREO GOLLOG*\n`;
     if (effectiveProtocol) {
-      text += `📋 *Protocolo:* ${effectiveProtocol}\n`;
+      text += `📋 *Referência / Pré-Emissão:* ${effectiveProtocol}\n`;
     }
     text += `\n`;
 
@@ -1940,8 +1946,16 @@ export default function CotacaoAvancadaPage() {
                 <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#0F172A', margin: '0 0 2px 0' }}>
                   Escolha a melhor opção para você:
                 </h2>
-                <div style={{ fontSize: '12px', color: '#64748B' }}>
-                  {originCity} ➔ {destinationCity} ({quotationData.quotesCount} opções disponíveis)
+                <div style={{ fontSize: '12px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                  <span>{originCity} ➔ {destinationCity} ({quotationData.quotesCount} opções disponíveis)</span>
+                  {currentProtocol && (
+                    <span style={{ background: '#F1F5F9', color: '#0F172A', padding: '2px 8px', borderRadius: '6px', fontWeight: '800', fontSize: '11px', border: '1px solid #CBD5E1' }}>
+                      Ref: {currentProtocol}
+                    </span>
+                  )}
+                  <span style={{ background: toCollect ? '#FEF3C7' : '#E0F2FE', color: toCollect ? '#92400E' : '#0369A1', padding: '2px 8px', borderRadius: '6px', fontWeight: '700', fontSize: '11px' }}>
+                    {toCollect ? '🚚 Com Coleta' : '🏢 Balcão'}
+                  </span>
                 </div>
               </div>
 
