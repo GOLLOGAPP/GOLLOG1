@@ -634,6 +634,46 @@ export default function CotacaoAvancadaPage() {
     }));
   };
 
+  // Quick Test Fill: Com Coleta (Barueri / Alphaville)
+  const handleQuickTestColeta = () => {
+    setCustomerDocument('47.944.243/0001-41');
+    setToCollect(true);
+    setOriginPointCode('QBX');
+    setOriginCity('Barueri / Alphaville');
+    setOriginPostalCode('06454-000');
+    setDeliveryType('aeroporto');
+    setDestinationPointCode('BSB');
+    setDestinationPostalCode('71608-900');
+    setDestinationCity('Brasília / DF');
+    setInsuranceType('GOL');
+    setCargoDescription('Carga Teste Com Coleta no Endereço');
+    setDeclaredValue('500.00');
+    setToDelivery(false);
+    applyPreset(PRESETS[1]); // Caixa P
+    setSender(prev => ({
+      ...prev,
+      name: 'WOD BRASIL LOGISTICA',
+      documentNumber: '47.944.243/0001-41',
+      phone: '(11) 98888-7777',
+      street: 'Alameda Rio Negro',
+      number: '500',
+      complement: 'Bloco A',
+      neighborhood: 'Alphaville',
+      city: 'Barueri',
+      state: 'SP',
+      postalCode: '06454-000'
+    }));
+    setReceiver(prev => ({
+      ...prev,
+      name: 'CLIENTE TESTE RECEBEDOR',
+      documentNumber: '000.000.001-91',
+      phone: '(61) 99999-8888',
+      city: 'Brasília',
+      state: 'DF',
+      postalCode: '71608-900'
+    }));
+  };
+
   const handleQuickTest = handleQuickTestQBX;
 
   // Submit Step 1 -> Calculate Quotes
@@ -842,6 +882,7 @@ export default function CotacaoAvancadaPage() {
           declaredValue: selectedQuote.declaredValue || parseFloat(declaredValue || 0),
           toCollect,
           toDelivery,
+          charges: selectedQuote.charges || [],
           volumes,
           sender,
           receiver,
@@ -981,6 +1022,27 @@ export default function CotacaoAvancadaPage() {
           >
             <FiZap /> Teste QOZ (Osasco)
           </button>
+
+          <button
+            type="button"
+            onClick={handleQuickTestColeta}
+            style={{
+              background: '#FEF3C7',
+              border: '1px solid #FCD34D',
+              color: '#92400E',
+              padding: '6px 12px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: '700',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer'
+            }}
+            title="Preenche simulação rápida com coleta no endereço do remetente"
+          >
+            <FiZap /> Teste Com Coleta
+          </button>
         </div>
       </header>
 
@@ -1072,10 +1134,13 @@ export default function CotacaoAvancadaPage() {
                 🏢 <strong>Bases Homologadas:</strong> O sistema gera a referência correta tanto para a origem <strong>QBX (Barueri / Alphaville)</strong> quanto para <strong>QOZ (Osasco)</strong>.
               </p>
               <p style={{ margin: '0 0 6px 0' }}>
+                🚚 <strong>Envio Com Coleta:</strong> Ao optar por "Com Coleta", a taxa é calculada na cotação e a ordem de coleta fica vinculada diretamente à Referência Oficial gerada. O motorista da GOLLOG utiliza este número para realizar a busca no endereço do Remetente.
+              </p>
+              <p style={{ margin: '0 0 6px 0' }}>
                 📋 <strong>Apenas Cotação / Proposta Comercial:</strong> Se o cliente deseja apenas a proposta de frete, envie pelo WhatsApp ou copie o texto. O cliente recebe um link de retomada para abrir a cotação e emitir a minuta quando aprovar.
               </p>
               <p style={{ margin: 0 }}>
-                🧪 <strong>Teste Prático e Fácil:</strong> Use os botões <em>"Teste QBX (Barueri)"</em> ou <em>"Teste QOZ (Osasco)"</em> no topo da tela para carregar em 1 clique um cenário completo pronto para calcular e emitir.
+                🧪 <strong>Teste Prático e Fácil:</strong> Use os botões <em>"Teste QBX"</em>, <em>"Teste QOZ"</em> ou <em>"Teste Com Coleta"</em> no topo da tela para carregar em 1 clique um cenário completo pronto para simular ou emitir.
               </p>
             </div>
           )}
@@ -2221,6 +2286,24 @@ export default function CotacaoAvancadaPage() {
               </div>
             </div>
 
+            {/* Indicador de Coleta */}
+            {toCollect ? (
+              <div style={{ background: '#FFFBEB', border: '1.5px solid #FCD34D', borderRadius: '12px', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px', flexShrink: 0 }}>🚚</span>
+                <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
+                  <strong style={{ color: '#92400E' }}>Envio com Coleta em Domicílio Inclusa:</strong>
+                  <div style={{ color: '#B45309' }}>
+                    O motorista da GOLLOG realizará a coleta no endereço do Expedidor/Remetente abaixo ({sender.street ? `${sender.street}, ${sender.number}` : originPostalCode}). A referência oficial gerada incluirá a ordem de coleta.
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#64748B' }}>
+                <span>🏢</span>
+                <span><strong>Sem Coleta:</strong> Despacho direto no balcão da base <strong>{originPointCode}</strong> ({originCity}).</span>
+              </div>
+            )}
+
             {/* Condição e Forma de Pagamento */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '18px', border: '1px solid #E2E8F0', display: 'grid', gridTemplateColumns: paymentMethod === '1' ? '1fr 1fr' : '1fr', gap: '12px' }}>
               <div>
@@ -2443,6 +2526,15 @@ export default function CotacaoAvancadaPage() {
                 <span style={{ fontSize: '12px', background: '#FEF3C7', color: '#92400E', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', border: '1px solid #FDE68A' }}>
                   🏢 Base de Origem: {minuteResult.originBase === 'QBX' ? 'QBX (Barueri / Alphaville)' : minuteResult.originBase === 'QOZ' ? 'QOZ (Osasco)' : (minuteResult.originBase || 'GOLLOG')}
                 </span>
+                {(minuteResult.summary?.toCollect ?? toCollect) ? (
+                  <span style={{ fontSize: '12px', background: '#FEF3C7', color: '#B45309', fontWeight: '800', padding: '4px 10px', borderRadius: '6px', border: '1.5px solid #F59E0B' }}>
+                    🚚 COM COLETA SOLICITADA
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '12px', background: '#F1F5F9', color: '#475569', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', border: '1px solid #CBD5E1' }}>
+                    🏢 SEM COLETA (BALCÃO)
+                  </span>
+                )}
                 {!minuteResult.isSimulation && (
                   <span style={{ fontSize: '12px', background: '#DCFCE7', color: '#166534', fontWeight: '700', padding: '4px 10px', borderRadius: '6px', border: '1px solid #BBF7D0' }}>
                     ✅ Pré-emissão Ativa na GOLLOG
@@ -2533,6 +2625,18 @@ export default function CotacaoAvancadaPage() {
                 <span>Destinatário:</span>
                 <strong>{receiver.name}</strong>
               </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #E2E8F0' }}>
+                <span>Modalidade de Coleta:</span>
+                <strong>{(minuteResult.summary?.toCollect ?? toCollect) ? '🚚 Sim (Coleta no endereço)' : '🏢 Não (Entrega na base)'}</strong>
+              </div>
+              {(minuteResult.summary?.toCollect ?? toCollect) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #E2E8F0', fontSize: '11px', color: '#92400E', background: '#FFFBEB', paddingLeft: '6px', paddingRight: '6px', borderRadius: '6px' }}>
+                  <span>Endereço de Coleta:</span>
+                  <span style={{ textAlign: 'right', maxWidth: '65%', fontWeight: '600' }}>
+                    {sender.street}, {sender.number} {sender.complement ? `(${sender.complement})` : ''} - {sender.neighborhood}, {sender.city || originCity}/{sender.state || 'SP'} (CEP: {sender.postalCode || originPostalCode})
+                  </span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#F37021', fontSize: '14px', fontWeight: '800' }}>
                 <span>Valor Total:</span>
                 <span>R$ {selectedQuote.totalValue.toFixed(2)}</span>
@@ -2709,6 +2813,7 @@ export default function CotacaoAvancadaPage() {
                   <div><strong>Data de Emissão:</strong> {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>
                   <div><strong>Origem Operacional:</strong> {selectedQuote.originPoint.code} - {selectedQuote.originPoint.description}</div>
                   <div><strong>Destino Operacional:</strong> {selectedQuote.destinationPoint.code} - {selectedQuote.destinationPoint.description}</div>
+                  <div><strong>Modalidade de Coleta:</strong> {(minuteResult.summary?.toCollect ?? toCollect) ? '🚚 COM COLETA NO EXPEDIDOR' : '🏢 SEM COLETA (ENTREGA NA BASE)'}</div>
                   <div><strong>Prazo Previsto de Entrega:</strong> {selectedQuote.timeToDelivery} dia(s) útil(eis)</div>
                   <div><strong>Condição de Pagamento:</strong> {paymentMethod === '1' ? `Pago na Origem (${paymentForm})` : 'FRAP (Pago pelo Destinatário na Entrega)'}</div>
                 </div>

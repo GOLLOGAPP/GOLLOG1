@@ -379,6 +379,9 @@ export default async function handler(req, res) {
       paymentMethod = 1,
       paymentForm = 'Pix',
       protocolo,
+      toCollect = false,
+      toDelivery = false,
+      charges = [],
       volumes = [],
       sender = {},
       receiver = {}
@@ -421,6 +424,7 @@ export default async function handler(req, res) {
     const isQvl = originPointCode === 'QVL';
     const defaultSenderCity = isQbx ? 'Barueri' : isQvl ? 'Valinhos' : 'Osasco';
     const defaultSenderCep = isQbx ? '06454000' : isQvl ? '13270000' : '06288020';
+    const fullCollectAddress = `${sender.address?.street || sender.street || ''}, ${sender.address?.number || sender.number || ''} ${sender.address?.complement || sender.complement ? `(${sender.address?.complement || sender.complement})` : ''} - ${sender.address?.neighborhood || sender.neighborhood || ''}, ${sender.address?.cityName || sender.city || defaultSenderCity}/${sender.address?.state || sender.state || 'SP'} (CEP: ${sender.address?.postalCode || originPostalCode || defaultSenderCep})`;
 
     const minutePayload = {
       originPointCode: originPointCode || authStation,
@@ -434,6 +438,7 @@ export default async function handler(req, res) {
       insurance: {
         type: 1 // 1 - Company (Seguro GOLLOG)
       },
+      charges: charges && charges.length > 0 ? charges : undefined,
       sender: {
         document: senderDoc,
         name: senderName,
@@ -536,14 +541,18 @@ export default async function handler(req, res) {
           cliente_id: clienteId,
           cep_origem: originPostalCode ? originPostalCode.replace(/\D/g, '') : null,
           cep_destino: destinationPostalCode ? destinationPostalCode.replace(/\D/g, '') : null,
-          cidade_origem: sender.address?.cityName || sender.city || 'São Paulo',
+          cidade_origem: sender.address?.cityName || sender.city || defaultSenderCity,
           cidade_destino: receiver.address?.cityName || receiver.city || 'Brasília',
           peso_kg: volumes.reduce((acc, v) => acc + (parseFloat(v.weight) || 0), 0),
-          tipo_servico: `GOLLOG ${serviceCode || 'RÁPIDO'}`,
+          tipo_servico: `GOLLOG ${serviceCode || 'RÁPIDO'}${toCollect ? ' (COM COLETA)' : ''}`,
           valor_cotado: parseFloat(declaredValue || 0) > 0 ? 245.50 : 180.00,
           status: 'enviada',
           metadata: {
             is_minuta: true,
+            toCollect: Boolean(toCollect),
+            toDelivery: Boolean(toDelivery),
+            modalidade_coleta: toCollect ? 'Com Coleta no Endereço' : 'Sem Coleta (Balcão)',
+            endereco_coleta: toCollect ? fullCollectAddress : null,
             protocolo: protocolo || undefined,
             orderNumber: finalOrderNumber,
             quotationId,
@@ -553,6 +562,7 @@ export default async function handler(req, res) {
             sender,
             receiver,
             volumes,
+            charges,
             declaredValue,
             paymentMethod,
             paymentForm,
@@ -580,11 +590,16 @@ export default async function handler(req, res) {
         const trackingLink = `https://www.golcargo.com.br/rastreamento?doc=${finalOrderNumber}`;
         const descPagto = (paymentMethod === '2' || paymentMethod === 2) ? 'FRAP (Pago pelo Destinatário na Entrega)' : `Pago na Origem (${paymentForm})`;
 
+        const descColetaWhats = toCollect
+          ? `🚚 *Coleta:* SIM (Coleta no endereço: ${sender.address?.street || sender.street || ''}, ${sender.address?.number || sender.number || ''} - ${sender.address?.cityName || sender.city || defaultSenderCity}/${sender.address?.state || sender.state || 'SP'})\n`
+          : `🏢 *Coleta:* NÃO (Entrega direta no balcão da base ${originPointCode || authStation})\n`;
+
         const msgWhats =
           `✈️ *Minuta Eletrônica GOLLOG Emitida com Sucesso!*\n\n` +
           `Olá, *${sender.name}*! O seu envio foi registrado e a minuta eletrônica já está disponível.\n\n` +
           `📋 *Número do Pedido / AWB:* *${finalOrderNumber}*\n` +
           `🚀 *Serviço:* GOLLOG ${serviceCode}\n` +
+          `${descColetaWhats}` +
           `📍 *Origem:* ${originPostalCode || 'Origem'}\n` +
           `📍 *Destino:* ${destinationPostalCode || 'Destino'}\n` +
           `💳 *Pagamento:* ${descPagto}\n` +
@@ -615,7 +630,11 @@ export default async function handler(req, res) {
           destination: destinationPointCode || destinationPostalCode,
           senderName: sender.name,
           receiverName: receiver.name,
-          declaredValue
+          declaredValue,
+          toCollect: Boolean(toCollect),
+          toDelivery: Boolean(toDelivery),
+          collectType: toCollect ? 'COM COLETA (Buscamos no seu endereço)' : 'SEM COLETA (Trago na base)',
+          collectAddress: toCollect ? fullCollectAddress : null
         },
         details: minuteDetails
       });
